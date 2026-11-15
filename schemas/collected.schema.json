@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vendorfair.local/schemas/collected.schema.json",
+  "title": "Vendor Exposure Map - collected.json",
+  "description": "Output of Invoke-VendorExposureCollector.ps1 for one client tenant. Every dataset is either data or null. null means the collector could not check (see metadata.endpoint_status); [] means it checked and found nothing. additionalProperties is false throughout so that secret hints, key material, tokens and user principal IDs cannot appear in a valid file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "collector_version",
+    "metadata",
+    "tenant",
+    "licensing",
+    "consent_posture",
+    "service_principals",
+    "app_role_assignments",
+    "delegated_grants",
+    "credentials",
+    "signin_activity"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "collector_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "tenant": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/tenant" }] },
+    "licensing": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/licensing" }] },
+    "consent_posture": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/consentPosture" }] },
+    "service_principals": {
+      "oneOf": [{ "type": "null" }, { "type": "array", "items": { "$ref": "#/$defs/servicePrincipal" } }]
+    },
+    "app_role_assignments": {
+      "oneOf": [{ "type": "null" }, { "type": "array", "items": { "$ref": "#/$defs/appRoleAssignment" } }]
+    },
+    "delegated_grants": {
+      "oneOf": [{ "type": "null" }, { "type": "array", "items": { "$ref": "#/$defs/delegatedGrant" } }]
+    },
+    "credentials": {
+      "oneOf": [{ "type": "null" }, { "type": "array", "items": { "$ref": "#/$defs/credential" } }]
+    },
+    "signin_activity": {
+      "oneOf": [{ "type": "null" }, { "type": "array", "items": { "$ref": "#/$defs/signInActivity" } }]
+    }
+  },
+  "$defs": {
+    "guid": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "nullableGuid": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/guid" }] },
+    "utcDateTime": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "nullableDateTime": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/utcDateTime" }] },
+    "nullableString": { "type": ["string", "null"] },
+    "datasetKey": {
+      "enum": [
+        "tenant",
+        "licensing",
+        "consent_posture.authorization_policy",
+        "consent_posture.admin_consent_request_policy",
+        "service_principals",
+        "app_role_assignments",
+        "delegated_grants",
+        "credentials.applications",
+        "credentials.service_principals",
+        "signin_activity"
+      ]
+    },
+    "endpointStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "http_status", "message", "record_count", "api_version"],
+      "properties": {
+        "status": { "enum": ["ok", "forbidden", "error", "skipped", "unavailable_license"] },
+        "http_status": { "type": ["integer", "null"], "minimum": 100, "maximum": 599 },
+        "message": { "type": "string", "maxLength": 2000 },
+        "record_count": { "type": ["integer", "null"], "minimum": 0 },
+        "api_version": { "enum": ["v1.0", "beta"] }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "tenant_name",
+        "default_domain",
+        "collected_at_utc",
+        "operator_upn",
+        "ticket_number",
+        "granted_scopes",
+        "write_scopes_present",
+        "entra_p1_available",
+        "microsoft_owned_skipped_count",
+        "endpoint_status"
+      ],
+      "properties": {
+        "tenant_id": { "$ref": "#/$defs/guid" },
+        "tenant_name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "default_domain": { "$ref": "#/$defs/nullableString" },
+        "collected_at_utc": { "$ref": "#/$defs/utcDateTime" },
+        "operator_upn": { "type": "string", "minLength": 1 },
+        "ticket_number": { "$ref": "#/$defs/nullableString" },
+        "granted_scopes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "write_scopes_present": { "type": "boolean" },
+        "entra_p1_available": {
+          "description": "null when licensing could not be read.",
+          "type": ["boolean", "null"]
+        },
+        "microsoft_owned_skipped_count": { "type": ["integer", "null"], "minimum": 0 },
+        "endpoint_status": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/datasetKey" },
+          "additionalProperties": { "$ref": "#/$defs/endpointStatus" }
+        }
+      }
+    },
+    "tenant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "displayName", "defaultDomain"],
+      "properties": {
+        "id": { "$ref": "#/$defs/guid" },
+        "displayName": { "type": "string" },
+        "defaultDomain": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "licensing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service_plans"],
+      "properties": {
+        "service_plans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["servicePlanName", "provisioningStatus", "skuPartNumber", "capabilityStatus"],
+            "properties": {
+              "servicePlanName": { "type": "string" },
+              "provisioningStatus": { "type": "string" },
+              "skuPartNumber": { "type": "string" },
+              "capabilityStatus": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "consentPosture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorization_policy", "admin_consent_request_policy"],
+      "properties": {
+        "authorization_policy": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["permissionGrantPoliciesAssigned"],
+              "properties": {
+                "permissionGrantPoliciesAssigned": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          ]
+        },
+        "admin_consent_request_policy": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["isEnabled"],
+              "properties": { "isEnabled": { "type": "boolean" } }
+            }
+          ]
+        }
+      }
+    },
+    "verifiedPublisher": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "displayName": { "$ref": "#/$defs/nullableString" },
+        "verifiedPublisherId": { "$ref": "#/$defs/nullableString" },
+        "addedDateTime": { "$ref": "#/$defs/nullableDateTime" }
+      }
+    },
+    "servicePrincipal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "appId",
+        "displayName",
+        "servicePrincipalType",
+        "appOwnerOrganizationId",
+        "publisherName",
+        "verifiedPublisher",
+        "accountEnabled",
+        "appRoleAssignmentRequired",
+        "tags",
+        "homepage",
+        "replyUrls"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/guid" },
+        "appId": { "$ref": "#/$defs/guid" },
+        "displayName": { "$ref": "#/$defs/nullableString" },
+        "servicePrincipalType": { "$ref": "#/$defs/nullableString" },
+        "appOwnerOrganizationId": { "$ref": "#/$defs/nullableGuid" },
+        "publisherName": { "$ref": "#/$defs/nullableString" },
+        "verifiedPublisher": { "$ref": "#/$defs/verifiedPublisher" },
+        "accountEnabled": { "type": ["boolean", "null"] },
+        "appRoleAssignmentRequired": { "type": ["boolean", "null"] },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "homepage": { "$ref": "#/$defs/nullableString" },
+        "replyUrls": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "appRoleAssignment": {
+      "description": "An application permission granted TO a service principal. servicePrincipalId is the client app (Graph calls it principalId; renamed so no 'principalId' key ever appears in output).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "servicePrincipalId",
+        "resourceId",
+        "resourceDisplayName",
+        "appRoleId",
+        "appRoleValue",
+        "createdDateTime"
+      ],
+      "properties": {
+        "servicePrincipalId": { "$ref": "#/$defs/guid" },
+        "resourceId": { "$ref": "#/$defs/guid" },
+        "resourceDisplayName": { "$ref": "#/$defs/nullableString" },
+        "appRoleId": { "$ref": "#/$defs/guid" },
+        "appRoleValue": {
+          "description": "Resolved from the resource SP's appRoles; null if it could not be resolved.",
+          "$ref": "#/$defs/nullableString"
+        },
+        "createdDateTime": { "$ref": "#/$defs/nullableDateTime" }
+      }
+    },
+    "delegatedGrant": {
+      "description": "oauth2PermissionGrants aggregated per (clientId, resourceId, consentType). Only a count of distinct users is kept.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clientId", "resourceId", "consentType", "scopes", "principalCount"],
+      "properties": {
+        "clientId": { "$ref": "#/$defs/guid" },
+        "resourceId": { "$ref": "#/$defs/guid" },
+        "consentType": { "enum": ["AllPrincipals", "Principal"] },
+        "scopes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "principalCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "credential": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ownerType",
+        "ownerObjectId",
+        "ownerAppId",
+        "credentialType",
+        "keyId",
+        "displayName",
+        "startDateTime",
+        "endDateTime"
+      ],
+      "properties": {
+        "ownerType": { "enum": ["application", "servicePrincipal"] },
+        "ownerObjectId": { "$ref": "#/$defs/guid" },
+        "ownerAppId": { "$ref": "#/$defs/guid" },
+        "credentialType": { "enum": ["password", "certificate"] },
+        "keyId": { "$ref": "#/$defs/guid" },
+        "displayName": { "$ref": "#/$defs/nullableString" },
+        "startDateTime": { "$ref": "#/$defs/nullableDateTime" },
+        "endDateTime": { "$ref": "#/$defs/nullableDateTime" }
+      }
+    },
+    "activity": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": { "lastSignInDateTime": { "$ref": "#/$defs/nullableDateTime" } }
+    },
+    "signInActivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["appId", "lastSignInActivity"],
+      "properties": {
+        "appId": { "$ref": "#/$defs/guid" },
+        "lastSignInActivity": { "$ref": "#/$defs/activity" },
+        "delegatedClientSignInActivity": { "$ref": "#/$defs/activity" },
+        "delegatedResourceSignInActivity": { "$ref": "#/$defs/activity" },
+        "applicationAuthenticationClientSignInActivity": { "$ref": "#/$defs/activity" },
+        "applicationAuthenticationResourceSignInActivity": { "$ref": "#/$defs/activity" }
+      }
+    }
+  }
+}

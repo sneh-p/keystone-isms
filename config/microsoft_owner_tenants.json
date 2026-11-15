@@ -1,0 +1,7 @@
+{
+  "description": "Entra tenant IDs whose apps are treated as Microsoft first-party (owner_class = microsoft). Used by the collector to skip per-app appRoleAssignment calls, and by the importer to classify apps. Editable: add other Microsoft-owned tenant IDs here as you confirm them. Never add a tenant just because an app's name looks like Microsoft.",
+  "tenant_ids": [
+    { "id": "f8cdef31-a31e-4b4a-93e4-5f571e91255a", "note": "Microsoft Services" },
+    { "id": "72f988bf-86f1-41af-91ab-2d7cd011db47", "note": "Microsoft (corporate)" }
+  ]
+}

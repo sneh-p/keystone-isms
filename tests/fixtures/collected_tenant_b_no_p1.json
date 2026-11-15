@@ -1,0 +1,344 @@
+{
+  "schema_version": "1.0",
+  "collector_version": "0.1.0",
+  "metadata": {
+    "tenant_id": "0ef43075-5f0d-575b-a70b-05ca2a2bdbe3",
+    "tenant_name": "Tailspin Toys",
+    "default_domain": "tailspintoys.example",
+    "collected_at_utc": "2026-11-05T10:20:00Z",
+    "operator_upn": "tech02@msp-partner.example",
+    "ticket_number": "T20261105.0019",
+    "granted_scopes": [
+      "Application.Read.All",
+      "AuditLog.Read.All",
+      "Directory.Read.All",
+      "Policy.Read.All",
+      "openid",
+      "profile",
+      "offline_access",
+      "User.ReadWrite.All"
+    ],
+    "write_scopes_present": true,
+    "entra_p1_available": false,
+    "microsoft_owned_skipped_count": 4,
+    "endpoint_status": {
+      "tenant": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 1,
+        "api_version": "v1.0"
+      },
+      "licensing": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 3,
+        "api_version": "v1.0"
+      },
+      "consent_posture.authorization_policy": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 1,
+        "api_version": "v1.0"
+      },
+      "consent_posture.admin_consent_request_policy": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 1,
+        "api_version": "v1.0"
+      },
+      "service_principals": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 8,
+        "api_version": "v1.0"
+      },
+      "app_role_assignments": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 2,
+        "api_version": "v1.0"
+      },
+      "delegated_grants": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 2,
+        "api_version": "v1.0"
+      },
+      "credentials.applications": {
+        "status": "forbidden",
+        "http_status": 403,
+        "message": "Authorization_RequestDenied: Insufficient privileges to complete the operation.",
+        "record_count": null,
+        "api_version": "v1.0"
+      },
+      "credentials.service_principals": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": null,
+        "api_version": "v1.0"
+      },
+      "signin_activity": {
+        "status": "unavailable_license",
+        "http_status": 403,
+        "message": "Tenant does not have a Microsoft Entra ID P1 or P2 license.",
+        "record_count": null,
+        "api_version": "beta"
+      }
+    }
+  },
+  "tenant": {
+    "id": "0ef43075-5f0d-575b-a70b-05ca2a2bdbe3",
+    "displayName": "Tailspin Toys",
+    "defaultDomain": "tailspintoys.example"
+  },
+  "licensing": {
+    "service_plans": [
+      {
+        "servicePlanName": "EXCHANGE_S_STANDARD",
+        "provisioningStatus": "Success",
+        "skuPartNumber": "O365_BUSINESS_PREMIUM",
+        "capabilityStatus": "Enabled"
+      },
+      {
+        "servicePlanName": "SHAREPOINTSTANDARD",
+        "provisioningStatus": "Success",
+        "skuPartNumber": "O365_BUSINESS_PREMIUM",
+        "capabilityStatus": "Enabled"
+      },
+      {
+        "servicePlanName": "TEAMS1",
+        "provisioningStatus": "Success",
+        "skuPartNumber": "O365_BUSINESS_PREMIUM",
+        "capabilityStatus": "Enabled"
+      }
+    ]
+  },
+  "consent_posture": {
+    "authorization_policy": {
+      "permissionGrantPoliciesAssigned": [
+        "ManagePermissionGrantsForSelf.microsoft-user-default-legacy"
+      ]
+    },
+    "admin_consent_request_policy": {
+      "isEnabled": false
+    }
+  },
+  "service_principals": [
+    {
+      "id": "daedb4e3-19bc-570a-b369-a1aba9a6dd64",
+      "appId": "00000003-0000-0000-c000-000000000000",
+      "displayName": "Microsoft Graph",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+      "publisherName": "Microsoft Services",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": []
+    },
+    {
+      "id": "18f6c0d5-f481-59fb-bf56-f2af18f7f712",
+      "appId": "00000002-0000-0ff1-ce00-000000000000",
+      "displayName": "Office 365 Exchange Online",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+      "publisherName": "Microsoft Services",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": []
+    },
+    {
+      "id": "7d7c9040-f6de-5360-b81e-2c76f21ddc8f",
+      "appId": "00000003-0000-0ff1-ce00-000000000000",
+      "displayName": "Office 365 SharePoint Online",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+      "publisherName": "Microsoft Services",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": []
+    },
+    {
+      "id": "2f1f65e3-927d-5070-9acb-f36fc9746905",
+      "appId": "0ca7d944-bf21-5802-b406-8ee23c9f2939",
+      "displayName": "Microsoft Teams",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+      "publisherName": "Microsoft Services",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": []
+    },
+    {
+      "id": "0c529168-7cc7-5cf4-b964-ba6673042f96",
+      "appId": "51310e14-1d9d-500c-927c-37943c604fee",
+      "displayName": "Northwind Signatures",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "eb00ef46-85cd-5d9e-93be-fbaa036049ff",
+      "publisherName": "Northwind Signatures Ltd",
+      "verifiedPublisher": {
+        "displayName": "Northwind Signatures Ltd",
+        "verifiedPublisherId": "8f7168b",
+        "addedDateTime": "2024-02-01T00:00:00Z"
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": "https://www.northwindsignatures.example/",
+      "replyUrls": [
+        "https://app.northwindsignatures.example/auth/callback"
+      ]
+    },
+    {
+      "id": "b216e175-317d-5ade-b596-216f09b4bca6",
+      "appId": "cbca8f0d-7073-5817-aff9-40f5f0fd59a5",
+      "displayName": "Fabrikam Backup for Microsoft 365",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "a1a9a4c3-01a9-5264-9d51-c0e3e306b87e",
+      "publisherName": "Fabrikam Backup Inc",
+      "verifiedPublisher": {
+        "displayName": "Fabrikam Backup Inc",
+        "verifiedPublisherId": "afbe3a4",
+        "addedDateTime": "2024-02-01T00:00:00Z"
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": "https://fabrikambackup.example",
+      "replyUrls": [
+        "https://portal.fabrikambackup.example/oauth"
+      ]
+    },
+    {
+      "id": "a0eeab92-2878-5b3a-a1b9-74d75664c374",
+      "appId": "833f18e5-3d63-5fe8-bee0-ea78120b272c",
+      "displayName": "Litware Scheduler",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "84040eb2-0f9d-52f5-83b5-69fceffce8c8",
+      "publisherName": "Litware",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": "https://litware-scheduler.example",
+      "replyUrls": [
+        "https://litware-scheduler.example/signin-oidc"
+      ]
+    },
+    {
+      "id": "02519891-e10c-56dd-8a28-9897ff08f182",
+      "appId": "df4489c2-3e8b-5f4e-9a4a-47c85415f46f",
+      "displayName": "Contact Sync Helper",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": null,
+      "publisherName": null,
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": "https://contactsync.example",
+      "replyUrls": []
+    }
+  ],
+  "app_role_assignments": [
+    {
+      "servicePrincipalId": "b216e175-317d-5ade-b596-216f09b4bca6",
+      "resourceId": "daedb4e3-19bc-570a-b369-a1aba9a6dd64",
+      "resourceDisplayName": "Microsoft Graph",
+      "appRoleId": "ce908b95-8c68-5804-a377-096f52133b0a",
+      "appRoleValue": "Files.ReadWrite.All",
+      "createdDateTime": "2025-08-14T10:00:00Z"
+    },
+    {
+      "servicePrincipalId": "0c529168-7cc7-5cf4-b964-ba6673042f96",
+      "resourceId": "daedb4e3-19bc-570a-b369-a1aba9a6dd64",
+      "resourceDisplayName": "Microsoft Graph",
+      "appRoleId": "52322577-437a-529b-b052-8c58d0297447",
+      "appRoleValue": "User.Read.All",
+      "createdDateTime": "2025-09-01T10:00:00Z"
+    }
+  ],
+  "delegated_grants": [
+    {
+      "clientId": "a0eeab92-2878-5b3a-a1b9-74d75664c374",
+      "resourceId": "daedb4e3-19bc-570a-b369-a1aba9a6dd64",
+      "consentType": "Principal",
+      "scopes": [
+        "Calendars.Read",
+        "openid"
+      ],
+      "principalCount": 6
+    },
+    {
+      "clientId": "02519891-e10c-56dd-8a28-9897ff08f182",
+      "resourceId": "daedb4e3-19bc-570a-b369-a1aba9a6dd64",
+      "consentType": "Principal",
+      "scopes": [
+        "Contacts.ReadWrite",
+        "offline_access"
+      ],
+      "principalCount": 2
+    }
+  ],
+  "credentials": null,
+  "signin_activity": null
+}

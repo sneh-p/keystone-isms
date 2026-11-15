@@ -1,0 +1,80 @@
+# Exposure scoring rules. Calibration starting point: review and adjust.
+#
+# Rules are evaluated in order; the FIRST matching rule sets exposure_level.
+# Every condition that matches is still recorded as a reason, so the UI can show
+# all of them. Modifiers (R0) never change the level; they add flags.
+#
+# Condition vocabulary (evaluated in code; no expressions are executed):
+#   any_permission:   true if at least one permission matches ALL keys given
+#     permission_type:  application | delegated
+#     min_tier:         low | medium | high | critical   (tier >= this)
+#     consent:          admin (AllPrincipals) | user (Principal)   (delegated only)
+#   all_permissions:  true if the app has >= 1 permission and EVERY permission matches
+#     permission_type, max_tier (tier <= this)
+#   publisher_verified: true | false     (app-level)
+#   any_of:           list of conditions; true if any is true
+#   always:           true               (fallback)
+# Keys at the same level are AND-ed.
+
+dormant_days: 90                 # last sign-in older than this -> dormant
+long_lived_credential_months: 24 # credential lifetime longer than this -> long_lived
+expiring_soon_days: 30           # credential ending within this -> expiring_30d
+
+rules:
+  - id: R1
+    level: Critical
+    when:
+      any_permission: { permission_type: application, min_tier: critical }
+    text: "Has an application (app-only) permission at critical tier, usable without any signed-in user."
+
+  - id: R2
+    level: Critical
+    when:
+      any_permission: { permission_type: delegated, min_tier: critical, consent: admin }
+      publisher_verified: false
+    text: "Has a critical delegated permission admin-consented for all users, and the publisher is not verified."
+
+  - id: R3
+    level: High
+    when:
+      any_permission: { permission_type: application, min_tier: high }
+    text: "Has an application (app-only) permission at high tier."
+
+  - id: R4
+    level: High
+    when:
+      any_permission: { permission_type: delegated, min_tier: critical, consent: admin }
+      publisher_verified: true
+    text: "Has a critical delegated permission admin-consented for all users (publisher verified)."
+
+  - id: R5
+    level: High
+    when:
+      any_permission: { permission_type: delegated, min_tier: high, consent: user }
+      publisher_verified: false
+    text: "Unverified publisher holding high-or-above delegated permissions granted through individual user consent."
+
+  - id: R6
+    level: Medium
+    when:
+      any_of:
+        - any_permission: { permission_type: application, min_tier: medium }
+        - any_permission: { permission_type: delegated, min_tier: high }
+    text: "Has an app-only permission at medium tier, or a delegated permission at high tier or above."
+
+  - id: R7
+    level: Low
+    when:
+      all_permissions: { permission_type: delegated, max_tier: low }
+    text: "Only low-tier delegated (sign-in / profile) permissions."
+
+  - id: R8
+    level: Low
+    when:
+      always: true
+    text: "No higher-risk rule matched (e.g. no API permissions found, or only medium delegated permissions)."
+
+modifiers:
+  - id: R0
+    flag: incomplete_data
+    text: "One or more datasets this app depends on could not be collected ({datasets}); the level is based on partial data and may be understated."

@@ -1,0 +1,747 @@
+{
+  "schema_version": "1.0",
+  "collector_version": "0.1.0",
+  "metadata": {
+    "tenant_id": "10d5462f-38da-515b-a569-c7498116626c",
+    "tenant_name": "Alpine Ski House",
+    "default_domain": "alpineskihouse.example",
+    "collected_at_utc": "2026-11-10T16:45:00Z",
+    "operator_upn": "tech01@msp-partner.example",
+    "ticket_number": "T20261110.0107",
+    "granted_scopes": [
+      "Application.Read.All",
+      "AuditLog.Read.All",
+      "Directory.Read.All",
+      "Policy.Read.All",
+      "openid",
+      "profile",
+      "offline_access"
+    ],
+    "write_scopes_present": false,
+    "entra_p1_available": true,
+    "microsoft_owned_skipped_count": 4,
+    "endpoint_status": {
+      "tenant": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 1,
+        "api_version": "v1.0"
+      },
+      "licensing": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 3,
+        "api_version": "v1.0"
+      },
+      "consent_posture.authorization_policy": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 1,
+        "api_version": "v1.0"
+      },
+      "consent_posture.admin_consent_request_policy": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 1,
+        "api_version": "v1.0"
+      },
+      "service_principals": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 14,
+        "api_version": "v1.0"
+      },
+      "app_role_assignments": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 11,
+        "api_version": "v1.0"
+      },
+      "delegated_grants": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 3,
+        "api_version": "v1.0"
+      },
+      "credentials.applications": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 4,
+        "api_version": "v1.0"
+      },
+      "credentials.service_principals": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 1,
+        "api_version": "v1.0"
+      },
+      "signin_activity": {
+        "status": "ok",
+        "http_status": 200,
+        "message": "",
+        "record_count": 8,
+        "api_version": "beta"
+      }
+    }
+  },
+  "tenant": {
+    "id": "10d5462f-38da-515b-a569-c7498116626c",
+    "displayName": "Alpine Ski House",
+    "defaultDomain": "alpineskihouse.example"
+  },
+  "licensing": {
+    "service_plans": [
+      {
+        "servicePlanName": "AAD_PREMIUM",
+        "provisioningStatus": "Success",
+        "skuPartNumber": "SPB",
+        "capabilityStatus": "Enabled"
+      },
+      {
+        "servicePlanName": "EXCHANGE_S_STANDARD",
+        "provisioningStatus": "Success",
+        "skuPartNumber": "SPB",
+        "capabilityStatus": "Enabled"
+      },
+      {
+        "servicePlanName": "SHAREPOINTSTANDARD",
+        "provisioningStatus": "Success",
+        "skuPartNumber": "SPB",
+        "capabilityStatus": "Enabled"
+      }
+    ]
+  },
+  "consent_posture": {
+    "authorization_policy": {
+      "permissionGrantPoliciesAssigned": []
+    },
+    "admin_consent_request_policy": {
+      "isEnabled": true
+    }
+  },
+  "service_principals": [
+    {
+      "id": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "appId": "00000003-0000-0000-c000-000000000000",
+      "displayName": "Microsoft Graph",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+      "publisherName": "Microsoft Services",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": []
+    },
+    {
+      "id": "c5ad4cd6-5b33-521d-99bf-c17a5496f42b",
+      "appId": "00000002-0000-0ff1-ce00-000000000000",
+      "displayName": "Office 365 Exchange Online",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+      "publisherName": "Microsoft Services",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": []
+    },
+    {
+      "id": "5094b4ae-265e-5306-a7cf-6f89a03671eb",
+      "appId": "00000003-0000-0ff1-ce00-000000000000",
+      "displayName": "Office 365 SharePoint Online",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+      "publisherName": "Microsoft Services",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": []
+    },
+    {
+      "id": "456ab6aa-1793-5439-9ec2-751693fd4ad9",
+      "appId": "0ca7d944-bf21-5802-b406-8ee23c9f2939",
+      "displayName": "Microsoft Teams",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+      "publisherName": "Microsoft Services",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": []
+    },
+    {
+      "id": "89d33c0f-dcbd-532c-b4fe-ae8ab03b45cf",
+      "appId": "51310e14-1d9d-500c-927c-37943c604fee",
+      "displayName": "Northwind Signatures",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "eb00ef46-85cd-5d9e-93be-fbaa036049ff",
+      "publisherName": "Northwind Signatures Ltd",
+      "verifiedPublisher": {
+        "displayName": "Northwind Signatures Ltd",
+        "verifiedPublisherId": "8f7168b",
+        "addedDateTime": "2024-02-01T00:00:00Z"
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": "https://www.northwindsignatures.example/",
+      "replyUrls": [
+        "https://app.northwindsignatures.example/auth/callback"
+      ]
+    },
+    {
+      "id": "87bea3fb-35bf-5b2f-8c81-a2ce45eb4726",
+      "appId": "cbca8f0d-7073-5817-aff9-40f5f0fd59a5",
+      "displayName": "Fabrikam Backup for Microsoft 365",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "a1a9a4c3-01a9-5264-9d51-c0e3e306b87e",
+      "publisherName": "Fabrikam Backup Inc",
+      "verifiedPublisher": {
+        "displayName": "Fabrikam Backup Inc",
+        "verifiedPublisherId": "afbe3a4",
+        "addedDateTime": "2024-02-01T00:00:00Z"
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": "https://fabrikambackup.example",
+      "replyUrls": [
+        "https://portal.fabrikambackup.example/oauth"
+      ]
+    },
+    {
+      "id": "1e26927c-352f-588d-9979-e288e4580c0f",
+      "appId": "833f18e5-3d63-5fe8-bee0-ea78120b272c",
+      "displayName": "Litware Scheduler",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "84040eb2-0f9d-52f5-83b5-69fceffce8c8",
+      "publisherName": "Litware",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": "https://litware-scheduler.example",
+      "replyUrls": [
+        "https://litware-scheduler.example/signin-oidc"
+      ]
+    },
+    {
+      "id": "9cc9145b-5d36-58f7-ab55-d621d5174d36",
+      "appId": "02567991-edef-5847-a9c7-f95a10982e42",
+      "displayName": "Wingtip HR Sync",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "85a91275-71f6-548c-98da-1017b9afe6eb",
+      "publisherName": "Wingtip Toys HR Software",
+      "verifiedPublisher": {
+        "displayName": "Wingtip HR Software",
+        "verifiedPublisherId": "5009297",
+        "addedDateTime": "2024-02-01T00:00:00Z"
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": "https://wingtiphr.example",
+      "replyUrls": [
+        "https://sync.wingtiphr.example/callback"
+      ]
+    },
+    {
+      "id": "45b3dfb9-b34e-5ac3-a4c8-20d27735beb3",
+      "appId": "fea53fc0-19c5-58b4-b2d2-c22b0420b425",
+      "displayName": "Proseware PDF Tools",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "56ab9257-40dc-50e9-bcca-11fcbc43ecbc",
+      "publisherName": "Proseware",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": [
+        "https://pdf.proseware.example/auth"
+      ]
+    },
+    {
+      "id": "367145db-109e-5d85-b6b1-70ce9950fef2",
+      "appId": "9a70d8b8-d8ad-5301-90da-3e9ed11cf9f3",
+      "displayName": "Relecloud Wiki (SAML)",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "a914d3c8-9426-5ed7-8706-f5dbe020f652",
+      "publisherName": "Relecloud",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": "https://wiki.relecloud.example",
+      "replyUrls": [
+        "https://wiki.relecloud.example/saml/acs"
+      ]
+    },
+    {
+      "id": "9db603b6-7945-5d23-834c-44b5970237db",
+      "appId": "ca578d0e-ce60-5747-9cb0-746ce8637422",
+      "displayName": "Margie's Travel Expense",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "b4125f29-04a8-5dc2-a2f0-424d341cf74d",
+      "publisherName": "Margie's Travel",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": "https://margiestravel.example",
+      "replyUrls": []
+    },
+    {
+      "id": "ae0e4a79-7d25-57b7-85d1-05d994123066",
+      "appId": "eace7e61-06ae-5bac-9ad2-249562a8ba24",
+      "displayName": "ASH Internal Reporting",
+      "servicePrincipalType": "Application",
+      "appOwnerOrganizationId": "10d5462f-38da-515b-a569-c7498116626c",
+      "publisherName": "Alpine Ski House",
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": []
+    },
+    {
+      "id": "3bf4fee4-f26e-5116-b3b6-dfd714858f83",
+      "appId": "646d8651-ca6e-53dd-b4da-d2ec814b26e3",
+      "displayName": "Legacy Print Connector",
+      "servicePrincipalType": "Legacy",
+      "appOwnerOrganizationId": null,
+      "publisherName": null,
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": []
+    },
+    {
+      "id": "fd0a0ab6-3be3-50b4-abe0-e11315cd7f06",
+      "appId": "2dc2ffaf-6389-5b24-887d-05c32481502d",
+      "displayName": "ash-automation-mi",
+      "servicePrincipalType": "ManagedIdentity",
+      "appOwnerOrganizationId": null,
+      "publisherName": null,
+      "verifiedPublisher": {
+        "displayName": null,
+        "verifiedPublisherId": null,
+        "addedDateTime": null
+      },
+      "accountEnabled": true,
+      "appRoleAssignmentRequired": false,
+      "tags": [
+        "WindowsAzureActiveDirectoryIntegratedApp"
+      ],
+      "homepage": null,
+      "replyUrls": []
+    }
+  ],
+  "app_role_assignments": [
+    {
+      "servicePrincipalId": "89d33c0f-dcbd-532c-b4fe-ae8ab03b45cf",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "resourceDisplayName": "Microsoft Graph",
+      "appRoleId": "52322577-437a-529b-b052-8c58d0297447",
+      "appRoleValue": "User.Read.All",
+      "createdDateTime": "2025-03-10T09:00:00Z"
+    },
+    {
+      "servicePrincipalId": "89d33c0f-dcbd-532c-b4fe-ae8ab03b45cf",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "resourceDisplayName": "Microsoft Graph",
+      "appRoleId": "eb479a3c-00d8-5575-b7f9-e845614433a6",
+      "appRoleValue": "MailboxSettings.ReadWrite",
+      "createdDateTime": "2025-03-10T09:00:00Z"
+    },
+    {
+      "servicePrincipalId": "87bea3fb-35bf-5b2f-8c81-a2ce45eb4726",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "resourceDisplayName": "Microsoft Graph",
+      "appRoleId": "ce908b95-8c68-5804-a377-096f52133b0a",
+      "appRoleValue": "Files.ReadWrite.All",
+      "createdDateTime": "2024-11-02T12:00:00Z"
+    },
+    {
+      "servicePrincipalId": "87bea3fb-35bf-5b2f-8c81-a2ce45eb4726",
+      "resourceId": "5094b4ae-265e-5306-a7cf-6f89a03671eb",
+      "resourceDisplayName": "Office 365 SharePoint Online",
+      "appRoleId": "30d98aec-d056-5049-b805-eb8e37444ffb",
+      "appRoleValue": "Sites.FullControl.All",
+      "createdDateTime": "2024-11-02T12:00:00Z"
+    },
+    {
+      "servicePrincipalId": "87bea3fb-35bf-5b2f-8c81-a2ce45eb4726",
+      "resourceId": "c5ad4cd6-5b33-521d-99bf-c17a5496f42b",
+      "resourceDisplayName": "Office 365 Exchange Online",
+      "appRoleId": "2bf82252-c37c-5eef-ad1f-3d0824a81661",
+      "appRoleValue": "full_access_as_app",
+      "createdDateTime": "2024-11-02T12:00:00Z"
+    },
+    {
+      "servicePrincipalId": "3bf4fee4-f26e-5116-b3b6-dfd714858f83",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "resourceDisplayName": "Microsoft Graph",
+      "appRoleId": "75302eeb-c840-5d9b-8e20-3964b34fbdaa",
+      "appRoleValue": "Printer.Read.All",
+      "createdDateTime": "2023-06-01T08:00:00Z"
+    },
+    {
+      "servicePrincipalId": "ae0e4a79-7d25-57b7-85d1-05d994123066",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "resourceDisplayName": "Microsoft Graph",
+      "appRoleId": "fc121c4c-5c00-585f-b559-cc936a0db9ee",
+      "appRoleValue": "Reports.Read.All",
+      "createdDateTime": "2024-01-15T08:00:00Z"
+    },
+    {
+      "servicePrincipalId": "fd0a0ab6-3be3-50b4-abe0-e11315cd7f06",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "resourceDisplayName": "Microsoft Graph",
+      "appRoleId": "ce05cd1c-1272-557d-b8ea-d3c677dca694",
+      "appRoleValue": "Group.Read.All",
+      "createdDateTime": "2025-05-01T08:00:00Z"
+    },
+    {
+      "servicePrincipalId": "89d33c0f-dcbd-532c-b4fe-ae8ab03b45cf",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "resourceDisplayName": "Microsoft Graph",
+      "appRoleId": "7b79bd4e-ee42-5d20-b833-e71dc2fcd661",
+      "appRoleValue": "Calendars.Read",
+      "createdDateTime": "2026-10-20T10:00:00Z"
+    },
+    {
+      "servicePrincipalId": "89d33c0f-dcbd-532c-b4fe-ae8ab03b45cf",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "resourceDisplayName": "Microsoft Graph",
+      "appRoleId": "0f69fcac-a31b-5d53-bb13-d18f8c3bc143",
+      "appRoleValue": "Mail.Send",
+      "createdDateTime": "2026-10-20T10:00:00Z"
+    },
+    {
+      "servicePrincipalId": "9db603b6-7945-5d23-834c-44b5970237db",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "resourceDisplayName": "Microsoft Graph",
+      "appRoleId": "8cbb25be-de38-52d2-9195-2f7112fd74b1",
+      "appRoleValue": "Directory.ReadWrite.All",
+      "createdDateTime": "2026-10-28T15:30:00Z"
+    }
+  ],
+  "delegated_grants": [
+    {
+      "clientId": "1e26927c-352f-588d-9979-e288e4580c0f",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "consentType": "Principal",
+      "scopes": [
+        "Calendars.ReadWrite",
+        "offline_access",
+        "openid"
+      ],
+      "principalCount": 14
+    },
+    {
+      "clientId": "9cc9145b-5d36-58f7-ab55-d621d5174d36",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "consentType": "AllPrincipals",
+      "scopes": [
+        "Directory.ReadWrite.All",
+        "User.Read"
+      ],
+      "principalCount": 0
+    },
+    {
+      "clientId": "45b3dfb9-b34e-5ac3-a4c8-20d27735beb3",
+      "resourceId": "21cc8d7a-9ab8-5c52-aacb-b08740720d58",
+      "consentType": "AllPrincipals",
+      "scopes": [
+        "Files.ReadWrite.All",
+        "Mail.Send",
+        "User.Read"
+      ],
+      "principalCount": 0
+    }
+  ],
+  "credentials": [
+    {
+      "ownerType": "application",
+      "ownerObjectId": "4a562e66-82a5-5693-9f7d-234ccf6dcce2",
+      "ownerAppId": "eace7e61-06ae-5bac-9ad2-249562a8ba24",
+      "credentialType": "password",
+      "keyId": "36504f78-a056-5432-b10b-20cfcc8f6b04",
+      "displayName": "reporting-secret-2024",
+      "startDateTime": "2024-01-15T08:00:00Z",
+      "endDateTime": "2025-01-15T08:00:00Z"
+    },
+    {
+      "ownerType": "application",
+      "ownerObjectId": "4a562e66-82a5-5693-9f7d-234ccf6dcce2",
+      "ownerAppId": "eace7e61-06ae-5bac-9ad2-249562a8ba24",
+      "credentialType": "certificate",
+      "keyId": "b9576e38-7986-5705-b338-2e09c8445c3a",
+      "displayName": "reporting-cert",
+      "startDateTime": "2024-06-01T00:00:00Z",
+      "endDateTime": "2027-06-01T00:00:00Z"
+    },
+    {
+      "ownerType": "application",
+      "ownerObjectId": "4a562e66-82a5-5693-9f7d-234ccf6dcce2",
+      "ownerAppId": "eace7e61-06ae-5bac-9ad2-249562a8ba24",
+      "credentialType": "password",
+      "keyId": "1e4c6866-f168-5cee-931a-9500920eb5b8",
+      "displayName": "reporting-secret-2026",
+      "startDateTime": "2026-01-10T08:00:00Z",
+      "endDateTime": "2026-10-20T08:00:00Z"
+    },
+    {
+      "ownerType": "servicePrincipal",
+      "ownerObjectId": "89d33c0f-dcbd-532c-b4fe-ae8ab03b45cf",
+      "ownerAppId": "51310e14-1d9d-500c-927c-37943c604fee",
+      "credentialType": "password",
+      "keyId": "78ef6aac-496f-53d9-8796-14e719f31e27",
+      "displayName": "added-by-helpdesk",
+      "startDateTime": "2026-02-01T00:00:00Z",
+      "endDateTime": "2028-02-01T00:00:00Z"
+    },
+    {
+      "ownerType": "application",
+      "ownerObjectId": "4a562e66-82a5-5693-9f7d-234ccf6dcce2",
+      "ownerAppId": "eace7e61-06ae-5bac-9ad2-249562a8ba24",
+      "credentialType": "password",
+      "keyId": "34739df3-48d6-5dd6-bd5d-635fb0316f15",
+      "displayName": "reporting-secret-2026b",
+      "startDateTime": "2026-11-01T08:00:00Z",
+      "endDateTime": "2027-05-01T08:00:00Z"
+    }
+  ],
+  "signin_activity": [
+    {
+      "appId": "51310e14-1d9d-500c-927c-37943c604fee",
+      "lastSignInActivity": {
+        "lastSignInDateTime": "2026-09-30T22:10:00Z"
+      },
+      "delegatedClientSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "delegatedResourceSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "applicationAuthenticationClientSignInActivity": {
+        "lastSignInDateTime": "2026-09-30T22:10:00Z"
+      },
+      "applicationAuthenticationResourceSignInActivity": {
+        "lastSignInDateTime": null
+      }
+    },
+    {
+      "appId": "cbca8f0d-7073-5817-aff9-40f5f0fd59a5",
+      "lastSignInActivity": {
+        "lastSignInDateTime": "2026-09-30T23:00:00Z"
+      },
+      "delegatedClientSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "delegatedResourceSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "applicationAuthenticationClientSignInActivity": {
+        "lastSignInDateTime": "2026-09-30T23:00:00Z"
+      },
+      "applicationAuthenticationResourceSignInActivity": {
+        "lastSignInDateTime": null
+      }
+    },
+    {
+      "appId": "02567991-edef-5847-a9c7-f95a10982e42",
+      "lastSignInActivity": {
+        "lastSignInDateTime": "2026-09-20T06:00:00Z"
+      },
+      "delegatedClientSignInActivity": {
+        "lastSignInDateTime": "2026-09-20T06:00:00Z"
+      },
+      "delegatedResourceSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "applicationAuthenticationClientSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "applicationAuthenticationResourceSignInActivity": {
+        "lastSignInDateTime": null
+      }
+    },
+    {
+      "appId": "fea53fc0-19c5-58b4-b2d2-c22b0420b425",
+      "lastSignInActivity": {
+        "lastSignInDateTime": "2026-09-29T11:00:00Z"
+      },
+      "delegatedClientSignInActivity": {
+        "lastSignInDateTime": "2026-09-29T11:00:00Z"
+      },
+      "delegatedResourceSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "applicationAuthenticationClientSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "applicationAuthenticationResourceSignInActivity": {
+        "lastSignInDateTime": null
+      }
+    },
+    {
+      "appId": "9a70d8b8-d8ad-5301-90da-3e9ed11cf9f3",
+      "lastSignInActivity": {
+        "lastSignInDateTime": "2026-09-01T09:00:00Z"
+      },
+      "delegatedClientSignInActivity": {
+        "lastSignInDateTime": "2026-09-01T09:00:00Z"
+      },
+      "delegatedResourceSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "applicationAuthenticationClientSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "applicationAuthenticationResourceSignInActivity": {
+        "lastSignInDateTime": null
+      }
+    },
+    {
+      "appId": "646d8651-ca6e-53dd-b4da-d2ec814b26e3",
+      "lastSignInActivity": {
+        "lastSignInDateTime": "2025-12-01T09:00:00Z"
+      },
+      "delegatedClientSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "delegatedResourceSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "applicationAuthenticationClientSignInActivity": {
+        "lastSignInDateTime": "2025-12-01T09:00:00Z"
+      },
+      "applicationAuthenticationResourceSignInActivity": {
+        "lastSignInDateTime": null
+      }
+    },
+    {
+      "appId": "eace7e61-06ae-5bac-9ad2-249562a8ba24",
+      "lastSignInActivity": {
+        "lastSignInDateTime": "2026-09-30T05:00:00Z"
+      },
+      "delegatedClientSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "delegatedResourceSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "applicationAuthenticationClientSignInActivity": {
+        "lastSignInDateTime": "2026-09-30T05:00:00Z"
+      },
+      "applicationAuthenticationResourceSignInActivity": {
+        "lastSignInDateTime": null
+      }
+    },
+    {
+      "appId": "ca578d0e-ce60-5747-9cb0-746ce8637422",
+      "lastSignInActivity": {
+        "lastSignInDateTime": "2026-11-09T18:00:00Z"
+      },
+      "delegatedClientSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "delegatedResourceSignInActivity": {
+        "lastSignInDateTime": null
+      },
+      "applicationAuthenticationClientSignInActivity": {
+        "lastSignInDateTime": "2026-11-09T18:00:00Z"
+      },
+      "applicationAuthenticationResourceSignInActivity": {
+        "lastSignInDateTime": null
+      }
+    }
+  ]
+}

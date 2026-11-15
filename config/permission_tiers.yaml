@@ -1,0 +1,51 @@
+# Permission tiers. Calibration starting point: review and adjust for your clients.
+#
+# Matching is on the permission value only. If the same value exists on several
+# resources (e.g. Sites.FullControl.All on Microsoft Graph and SharePoint), they
+# are treated identically. Matching is case-insensitive.
+#
+# Values marked "# added" are not in the original spec seed list; they were added
+# during planning because they grant equal or greater access than listed peers.
+critical:
+  - Directory.ReadWrite.All
+  - Directory.AccessAsUser.All          # added: delegated full directory access as the user
+  - RoleManagement.ReadWrite.Directory
+  - AppRoleAssignment.ReadWrite.All
+  - Application.ReadWrite.All
+  - User.ReadWrite.All
+  - Group.ReadWrite.All
+  - UserAuthenticationMethod.ReadWrite.All   # added: can register MFA methods / reset auth
+  - Policy.ReadWrite.ConditionalAccess       # added
+  - Policy.ReadWrite.PermissionGrant         # added: can change who may consent
+  - Policy.ReadWrite.AuthenticationMethod    # added
+  - Domain.ReadWrite.All                     # added: federation / domain takeover
+  - Mail.ReadWrite
+  - Mail.Send
+  - Files.ReadWrite.All
+  - Sites.ReadWrite.All
+  - Sites.FullControl.All
+  - full_access_as_app        # Exchange Online (EWS)
+  - Exchange.ManageAsApp
+high:
+  - Mail.Read
+  - Mail.ReadBasic.All                       # added: headers/metadata for every mailbox
+  - Files.Read.All
+  - Sites.Read.All
+  - Directory.Read.All
+  - Calendars.ReadWrite
+  - Contacts.ReadWrite
+  - MailboxSettings.ReadWrite
+  - AuditLog.Read.All
+medium:
+  - User.Read.All
+  - Group.Read.All
+  - Calendars.Read
+  - Contacts.Read
+  - Reports.Read.All
+low:
+  - User.Read
+  - openid
+  - profile
+  - email
+  - offline_access
+default_unlisted: medium     # unknown permissions are never assumed low

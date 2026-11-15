@@ -1,0 +1,35 @@
+# FAIR suggestion inputs. ALL VALUES ARE CALIBRATION STARTING POINTS, not
+# authoritative estimates. The UI labels them as such. Nothing here is ever
+# written to an assessment without explicit acceptance.
+
+integration_depth:
+  tenant_wide: "Tenant-wide application access"   # any app-only permission at critical/high
+  delegated:   "User-delegated API access"        # delegated permissions beyond sign-in
+  sso_only:    "SSO only"                          # only sign-in scopes, or no permissions
+
+# Scopes treated as "sign-in only" for integration depth.
+sign_in_scopes: [openid, profile, email, offline_access, User.Read]
+
+# Primary / Secondary Loss Magnitude ranges per exposure level (USD).
+# min / ml (most likely) / max.
+loss_magnitude:
+  Critical:
+    plm: { min: 250000, ml: 1000000, max: 5000000 }
+    slm: { min: 100000, ml: 750000,  max: 4000000 }
+  High:
+    plm: { min: 100000, ml: 400000,  max: 2000000 }
+    slm: { min: 50000,  ml: 250000,  max: 1500000 }
+  Medium:
+    plm: { min: 25000,  ml: 100000,  max: 500000 }
+    slm: { min: 10000,  ml: 50000,   max: 300000 }
+  Low:
+    plm: { min: 5000,   ml: 20000,   max: 100000 }
+    slm: { min: 0,      ml: 10000,   max: 50000 }
+
+# Control Strength shifts applied to min / ml / max, each clamped to 0..1.
+# Unknown inputs apply no adjustment and are shown as "unknown".
+control_strength_adjustments:
+  users_can_consent:              { when: true, shift: -0.10, rule_id: CS1, text: "Users can consent to apps themselves." }
+  admin_consent_workflow_enabled: { when: true, shift:  0.05, rule_id: CS2, text: "Admin consent request workflow is enabled." }
+  publisher_verified:             { when: true, shift:  0.05, rule_id: CS3, text: "All of this vendor's apps have a verified publisher." }
+  risky_credentials_present:      { when: true, shift: -0.05, rule_id: CS4, text: "Expired or long-lived credentials are present on this vendor's apps." }
