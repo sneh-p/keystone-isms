@@ -33,3 +33,6 @@ control_strength_adjustments:
   admin_consent_workflow_enabled: { when: true, shift:  0.05, rule_id: CS2, text: "Admin consent request workflow is enabled." }
   publisher_verified:             { when: true, shift:  0.05, rule_id: CS3, text: "All of this vendor's apps have a verified publisher." }
   risky_credentials_present:      { when: true, shift: -0.05, rule_id: CS4, text: "Expired or long-lived credentials are present on this vendor's apps." }
+
+# Starting Control Strength range when the assessment has none yet (shifts apply to it).
+control_strength_default: {min: 0.4, ml: 0.6, max: 0.8}

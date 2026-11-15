@@ -2,6 +2,7 @@ import streamlit as st
 
 from keystone.assets.service import list_assets
 from keystone.risk.service import list_risks
+from keystone.tprm.exposure.inventory import vendor_presence
 from keystone.tprm import service as tprm
 from keystone.tprm.models import ACCESS_LEVELS, CRITICALITY, SENSITIVITY, VENDOR_STATUSES, Vendor
 from keystone.ui.common import can, fmt_date, guard, run_action, select_user, session, table, user_options
@@ -23,6 +24,7 @@ with session() as s:
             "Status": v.status, "Data": v.data_sensitivity, "Access": v.access_level, "Personal data": v.processes_personal_data,
             "DPA": v.dpa_signed, "Owner": people.get(v.owner_id), "Contract end": fmt_date(v.contract_end), "Next review": fmt_date(v.next_review_date),
             "Last approved assessment": fmt_date(a.approved_at) if a else "—",
+            "Entra tenants": len(vendor_presence(s, v.id)),
         })
     opts = {v.id: f"{v.ref} {v.name}" for v in vendors}
     asset_opts = {a.id: a.name for a in list_assets(s)}

@@ -95,4 +95,21 @@ def seed(session: Session, admin) -> dict:
     va = tprm.save_assessment(session, mia, fab.id, title="Fabrikam Backup annual assessment", scenario="Compromise of Fabrikam's platform used to read or delete our Microsoft 365 data.", integration_depth="Tenant-wide application access", tef=[0.05, 0.2, 1], tcap=[0.5, 0.7, 0.95], control_strength=[0.5, 0.7, 0.85], plm=[100_000, 400_000, 2_000_000], slef=[0.2, 0.4, 0.7], slm=[50_000, 250_000, 1_500_000])
     tprm.run_assessment(session, mia, va.id, iterations=3000, seed=2)
     tprm.submit_assessment(session, mia, va.id)
+    # Entra exposure: the demo org has a main tenant (two snapshots) and a subsidiary tenant.
+    import json
+
+    from keystone.core.settings import PROJECT_ROOT
+    from keystone.tprm.exposure import fair_mapping, importer, vendor_matching
+
+    fx = PROJECT_ROOT / "tests" / "fixtures"
+    for name, label in (("collected_tenant_a.json", "Alpine Ski House (main)"), ("collected_tenant_a_later.json", None), ("collected_tenant_b_no_p1.json", "Tailspin Toys (subsidiary)")):
+        importer.import_document(session, mia, json.loads((fx / name).read_text(encoding="utf-8")), create_tenant_name=label)
+    vendor_matching.refresh_suggestions(session, mia)
+    from keystone.tprm.exposure.inventory import mappings
+    for oid, m in mappings(session).items():
+        if m.vendor_id in (fab.id, nw.id) and m.match_signals.get("strength") == "strong":
+            vendor_matching.confirm(session, mia, oid, m.vendor_id)
+    main = importer.tenants(session)[0]
+    nva = tprm.save_assessment(session, mia, nw.id, title="Northwind Signatures exposure review", integration_depth=None, entra_tenant_id=main.id, tef=[0.05, 0.3, 1], tcap=[0.4, 0.6, 0.9], control_strength=[0.4, 0.5, 0.7])
+    fair_mapping.generate(session, mia, nva.id)
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
