@@ -13,3 +13,4 @@ from keystone.tprm.models import QuestionnaireTemplate, Vendor, VendorAssessment
 from keystone.policies.models import PolicyAcknowledgement, PolicyDocument, PolicyVersion  # noqa: F401
 from keystone.incidents.models import Incident, IncidentEvent  # noqa: F401
 from keystone.improvement.models import CorrectiveAction, Nonconformity  # noqa: F401
+from keystone.audits.models import Audit, AuditFinding, ManagementReview  # noqa: F401

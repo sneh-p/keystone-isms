@@ -10,6 +10,8 @@ from datetime import date, timedelta
 from sqlalchemy.orm import Session
 
 from keystone.assets import service as assets
+from keystone.audits import review as reviews
+from keystone.audits import service as audits
 from keystone.controls import service as controls
 from keystone.core import auth
 from keystone.core.rbac import Role
@@ -123,6 +125,16 @@ def seed(session: Session, admin) -> dict:
     improvement.plan(session, mia, nc.id)
     improvement.raise_nc(session, people["omar.audit"], title="Access reviews for the booking platform not evidenced", source="internal_audit", severity="minor")
 
+    omar = people["omar.audit"]
+    au = audits.save_audit(session, mia, title="Internal audit: identity and access management", audit_type="internal", lead_auditor_id=omar.id, planned_start=date.today() - timedelta(days=20), planned_end=date.today() - timedelta(days=15), scope="Joiner/mover/leaver process, MFA, privileged access", criteria="ISO/IEC 27001:2022 A.5.15-A.5.18, A.8.2, A.8.5; sample of 20 leavers", control_ids=[control_by_code(session, c).id for c in ("KC-ORG-15", "KC-ORG-16", "KC-ORG-18", "KC-TEC-02", "KC-TEC-05")])
+    audits.advance(session, mia, au.id)
+    audits.add_finding(session, omar, au.id, finding_type="minor_nc", title="Two leavers kept access for over a week", evidence="2 of 20 sampled leavers", common_control_id=control_by_code(session, "KC-ORG-18").id)
+    audits.add_finding(session, omar, au.id, finding_type="opportunity", title="Automate access reviews in Entra ID Governance")
+    audits.advance(session, mia, au.id)
+    audits.save_audit(session, mia, au.id, summary="Sampled 20 leavers and 10 admin accounts.", conclusion="Controls partially effective; one minor nonconformity.")
+    audits.advance(session, mia, au.id)
+    audits.save_audit(session, mia, title="Internal audit: backup and recovery", audit_type="internal", lead_auditor_id=omar.id, planned_start=date.today() + timedelta(days=30), control_ids=[control_by_code(session, "KC-TEC-13").id, control_by_code(session, "KC-ORG-30").id])
+
     # Entra exposure: the demo org has a main tenant (two snapshots) and a subsidiary tenant.
     import json
 
@@ -140,4 +152,6 @@ def seed(session: Session, admin) -> dict:
     main = importer.tenants(session)[0]
     nva = tprm.save_assessment(session, mia, nw.id, title="Northwind Signatures exposure review", integration_depth=None, entra_tenant_id=main.id, tef=[0.05, 0.3, 1], tcap=[0.4, 0.6, 0.9], control_strength=[0.4, 0.5, 0.7])
     fair_mapping.generate(session, mia, nva.id)
+    rv = reviews.create_review(session, mia, title="Management review Q4", held_on=date.today(), attendees="CEO, CFO, ISO (Mia Novak)")
+    reviews.update_review(session, mia, rv.id, discussion="Phishing incident and MFA gap discussed.", decisions="Approve budget for phishing-resistant MFA.", actions="Lena Fischer: FIDO2 for all staff by end of Q1.")
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
