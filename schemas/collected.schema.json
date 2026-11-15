@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vendorfair.local/schemas/collected.schema.json",
+  "$id": "https://keystone-isms.local/schemas/vendor-exposure/collected.schema.json",
   "title": "Vendor Exposure Map - collected.json",
   "description": "Output of Invoke-VendorExposureCollector.ps1 for one client tenant. Every dataset is either data or null. null means the collector could not check (see metadata.endpoint_status); [] means it checked and found nothing. additionalProperties is false throughout so that secret hints, key material, tokens and user principal IDs cannot appear in a valid file.",
   "type": "object",

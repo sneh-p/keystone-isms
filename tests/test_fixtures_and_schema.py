@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from modules.exposure.schema import validation_errors
+from keystone.tprm.exposure.schema import validation_errors
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_FILES = sorted((ROOT / "tests" / "fixtures").glob("collected_*.json"))
