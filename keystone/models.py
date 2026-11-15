@@ -1,0 +1,6 @@
+"""Imports every model so SQLAlchemy metadata (and Alembic) see all tables."""
+
+from keystone.core.attachments import Attachment  # noqa: F401
+from keystone.core.audit import AuditLog  # noqa: F401
+from keystone.core.auth import User  # noqa: F401
+from keystone.org.models import InterestedParty, IsmsRoleAssignment, Organisation, SecurityObjective  # noqa: F401
