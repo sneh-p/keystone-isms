@@ -8,3 +8,5 @@ from keystone.frameworks.models import CommonControl, ControlMapping, Framework,
 from keystone.assets.models import Asset  # noqa: F401
 from keystone.risk.models import Risk, RiskAcceptance, TreatmentAction  # noqa: F401
 from keystone.controls.models import Evidence, SoaApproval, SoaEntry  # noqa: F401
+from keystone.tprm.exposure.models import EntraTenant  # noqa: F401
+from keystone.tprm.models import QuestionnaireTemplate, Vendor, VendorAssessment, VendorQuestionnaire  # noqa: F401

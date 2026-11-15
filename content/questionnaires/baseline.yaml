@@ -1,0 +1,29 @@
+# Keystone baseline vendor security questionnaire. Original Keystone content.
+name: Keystone baseline security questionnaire
+version: "1.0"
+description: Short due-diligence questionnaire for suppliers that handle data or connect to our systems.
+questions:
+  - {id: gov1, section: Governance, text: "Do you have a documented information security policy approved by management and reviewed at least yearly?", type: ynp, weight: 2, control: KC-ORG-01, required: true}
+  - {id: gov2, section: Governance, text: "Do you hold a current independent certification or report (e.g. ISO/IEC 27001 certificate, SOC 2 Type II)?", type: ynp, weight: 3, control: KC-ORG-35, required: true}
+  - {id: gov3, section: Governance, text: "Is a named person accountable for information security?", type: yn, weight: 1, control: KC-ORG-02, required: true}
+  - {id: ppl1, section: People, text: "Are staff with access to customer data background-checked where the law allows?", type: ynp, weight: 1, control: KC-PPL-01}
+  - {id: ppl2, section: People, text: "Do all staff complete security awareness training at least yearly?", type: ynp, weight: 2, control: KC-PPL-03, required: true}
+  - {id: iam1, section: Access, text: "Is multi-factor authentication enforced for all staff access to systems holding our data?", type: ynp, weight: 3, control: KC-TEC-05, required: true}
+  - {id: iam2, section: Access, text: "Are access rights reviewed at least every six months and removed promptly when people leave?", type: ynp, weight: 2, control: KC-ORG-18, required: true}
+  - {id: iam3, section: Access, text: "Are privileged accounts separate from everyday accounts and monitored?", type: ynp, weight: 2, control: KC-TEC-02}
+  - {id: dat1, section: Data, text: "Is our data encrypted at rest and in transit using current algorithms?", type: ynp, weight: 3, control: KC-TEC-24, required: true}
+  - {id: dat2, section: Data, text: "Do you know where our data is stored and processed (countries and sub-processors)?", type: ynp, weight: 2, control: KC-ORG-21, required: true}
+  - {id: dat3, section: Data, text: "Will you return or securely delete our data at the end of the contract and confirm it in writing?", type: yn, weight: 2, control: KC-TEC-10, required: true}
+  - {id: dat4, section: Data, text: "Is our data logically separated from other customers' data?", type: ynp, weight: 2, control: KC-TEC-22}
+  - {id: ops1, section: Operations, text: "Do you patch critical vulnerabilities within 14 days?", type: ynp, weight: 3, control: KC-TEC-08, required: true}
+  - {id: ops2, section: Operations, text: "Do you run endpoint protection on all servers and workstations?", type: ynp, weight: 2, control: KC-TEC-07}
+  - {id: ops3, section: Operations, text: "Are security logs centralised, protected and retained for at least 12 months?", type: ynp, weight: 2, control: KC-TEC-15}
+  - {id: ops4, section: Operations, text: "Is there a penetration test at least yearly, with findings tracked to closure?", type: ynp, weight: 2, control: KC-TEC-29}
+  - {id: dev1, section: Development, text: "Do you follow a secure development lifecycle (code review, dependency scanning, security testing)?", type: ynp, weight: 2, control: KC-TEC-25}
+  - {id: bcp1, section: Resilience, text: "Are backups taken, protected from tampering and restore-tested at least yearly?", type: ynp, weight: 2, control: KC-TEC-13, required: true}
+  - {id: bcp2, section: Resilience, text: "Do you have a tested business continuity and disaster recovery plan for the service you provide us?", type: ynp, weight: 2, control: KC-ORG-30}
+  - {id: inc1, section: Incidents, text: "Will you notify us of a security incident affecting our data within 48 hours of becoming aware?", type: yn, weight: 3, control: KC-ORG-20, required: true}
+  - {id: inc2, section: Incidents, text: "Do you have a documented and exercised incident response process?", type: ynp, weight: 2, control: KC-ORG-24}
+  - {id: sup1, section: Supply chain, text: "Do you assess the security of your own critical suppliers and sub-processors?", type: ynp, weight: 2, control: KC-ORG-19}
+  - {id: prv1, section: Privacy, text: "Will you sign a data processing agreement meeting applicable privacy law?", type: yn, weight: 2, control: KC-ORG-34}
+  - {id: oth1, section: Other, text: "Anything else we should know about your security posture?", type: text, weight: 0}

@@ -1,0 +1,15 @@
+# Vendor tiering. Calibration starting point: adjust to your supplier policy.
+# Points are added up; the first tier whose min_points is reached applies.
+points:
+  data_sensitivity: {none: 0, internal: 1, confidential: 2, restricted: 3}
+  operational_criticality: {low: 0, medium: 1, high: 2}
+  access_level: {none: 0, sso: 0, delegated: 1, tenant_wide: 2}
+  processes_personal_data: 1
+tiers:
+  - {tier: 1, label: Critical, min_points: 6, review_days: 180}
+  - {tier: 2, label: High, min_points: 4, review_days: 365}
+  - {tier: 3, label: Moderate, min_points: 2, review_days: 730}
+  - {tier: 4, label: Low, min_points: 0, review_days: 1095}
+# Tier 1-2 vendors need an approved assessment no older than this.
+assessment_max_age_days: 365
+contract_renewal_warning_days: 60

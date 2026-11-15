@@ -17,6 +17,7 @@ from keystone.frameworks import loader
 from keystone.frameworks.service import control_by_code
 from keystone.org import service as org
 from keystone.risk import service as risk
+from keystone.tprm import service as tprm
 
 DEMO_PASSWORD = "Demo-Password-2026!"
 
@@ -80,4 +81,18 @@ def seed(session: Session, admin) -> dict:
     controls.add_evidence(session, lena, control_by_code(session, "KC-TEC-05").id, title="Conditional Access policy export", kind="link", url="https://intranet.alpineskihouse.example/it/ca-policies", collected_on=date.today() - timedelta(days=200), valid_until=date.today() - timedelta(days=2))
     from keystone.frameworks.service import framework_by_code
     controls.approve_soa(session, admin, framework_by_code(session, "ISO27001_2022").id, "Initial SoA")
+    tprm.load_default_templates(session, admin)
+    fab = tprm.save_vendor(session, mia, name="Fabrikam Backup", website="https://fabrikambackup.example", services="Microsoft 365 backup", status="active", data_sensitivity="restricted", operational_criticality="high", access_level="tenant_wide", processes_personal_data=True, dpa_signed=True, owner_id=mia.id, contract_start=date.today() - timedelta(days=300), contract_end=date.today() + timedelta(days=40), asset_ids=[m365.id])
+    nw = tprm.save_vendor(session, mia, name="Northwind Signatures", website="northwindsignatures.example", services="Email signature management", status="active", data_sensitivity="internal", operational_criticality="low", access_level="tenant_wide", processes_personal_data=True, dpa_signed=False, owner_id=lena.id)
+    tprm.save_vendor(session, mia, name="Litware Scheduler", website="litware-scheduler.example", services="Staff shift scheduling", status="active", data_sensitivity="internal", operational_criticality="medium", access_level="delegated", processes_personal_data=True, owner_id=lena.id, risk_ids=[r3.id])
+    tpl = tprm.templates(session)[0]
+    q = tprm.send_questionnaire(session, mia, fab.id, tpl.id)
+    answers = {qq["id"]: {"answer": "yes"} for qq in tpl.questions if qq["type"] != "text"}
+    answers["ops1"] = {"answer": "partial", "comment": "30 days for critical"}
+    answers["gov2"] = {"answer": "yes", "comment": "ISO 27001 certificate valid to 2027"}
+    tprm.record_responses(session, mia, q.id, answers, complete=True)
+    tprm.send_questionnaire(session, mia, nw.id, tpl.id, due_date=date.today() - timedelta(days=4))
+    va = tprm.save_assessment(session, mia, fab.id, title="Fabrikam Backup annual assessment", scenario="Compromise of Fabrikam's platform used to read or delete our Microsoft 365 data.", integration_depth="Tenant-wide application access", tef=[0.05, 0.2, 1], tcap=[0.5, 0.7, 0.95], control_strength=[0.5, 0.7, 0.85], plm=[100_000, 400_000, 2_000_000], slef=[0.2, 0.4, 0.7], slm=[50_000, 250_000, 1_500_000])
+    tprm.run_assessment(session, mia, va.id, iterations=3000, seed=2)
+    tprm.submit_assessment(session, mia, va.id)
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
