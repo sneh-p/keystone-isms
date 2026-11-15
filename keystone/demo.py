@@ -10,6 +10,7 @@ from datetime import date, timedelta
 from sqlalchemy.orm import Session
 
 from keystone.assets import service as assets
+from keystone.controls import service as controls
 from keystone.core import auth
 from keystone.core.rbac import Role
 from keystone.frameworks import loader
@@ -74,4 +75,9 @@ def seed(session: Session, admin) -> dict:
         if status == "not_applicable":
             ctl.na_justification = "No cabling under our control: all sites use the landlord's managed network."
     session.flush()
+    controls.add_evidence(session, lena, control_by_code(session, "KC-TEC-13").id, title="Backup job report, October", kind="file", filename="backup-report.pdf", data=b"%PDF-1.4 demo backup report", valid_until=date.today() + timedelta(days=20))
+    controls.add_evidence(session, admin, control_by_code(session, "KC-ORG-01").id, title="Board approval of policy set v3", kind="note", description="Approved at the board meeting; minutes item 4.")
+    controls.add_evidence(session, lena, control_by_code(session, "KC-TEC-05").id, title="Conditional Access policy export", kind="link", url="https://intranet.alpineskihouse.example/it/ca-policies", collected_on=date.today() - timedelta(days=200), valid_until=date.today() - timedelta(days=2))
+    from keystone.frameworks.service import framework_by_code
+    controls.approve_soa(session, admin, framework_by_code(session, "ISO27001_2022").id, "Initial SoA")
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}

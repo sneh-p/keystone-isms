@@ -7,3 +7,4 @@ from keystone.org.models import InterestedParty, IsmsRoleAssignment, Organisatio
 from keystone.frameworks.models import CommonControl, ControlMapping, Framework, Requirement  # noqa: F401
 from keystone.assets.models import Asset  # noqa: F401
 from keystone.risk.models import Risk, RiskAcceptance, TreatmentAction  # noqa: F401
+from keystone.controls.models import Evidence, SoaApproval, SoaEntry  # noqa: F401
