@@ -19,7 +19,7 @@ CALIBRATION_NOTE = "Values are calibration starting points from config files. Re
 def init_db_once() -> None:
     if not st.session_state.get("_db_ready"):
         db.configure()
-        db.create_all()
+        db.migrate()
         st.session_state["_db_ready"] = True
 
 

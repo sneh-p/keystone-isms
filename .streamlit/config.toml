@@ -1,0 +1,16 @@
+[server]
+headless = true
+# Keep Streamlit's CSRF/XSRF and CORS protections on.
+enableXsrfProtection = true
+enableCORS = true
+maxUploadSize = 50
+
+[browser]
+gatherUsageStats = false
+
+[client]
+showErrorDetails = "none"
+toolbarMode = "minimal"
+
+[theme]
+base = "light"

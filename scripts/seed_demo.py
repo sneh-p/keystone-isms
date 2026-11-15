@@ -15,7 +15,7 @@ from keystone.core import auth, db  # noqa: E402
 
 def main() -> None:
     db.configure()
-    db.create_all()
+    db.migrate()
     with db.session_scope() as s:
         if not auth.needs_bootstrap(s):
             sys.exit("Database already has users; refusing to seed demo data into it.")

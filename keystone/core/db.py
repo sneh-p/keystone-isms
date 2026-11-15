@@ -81,8 +81,15 @@ def engine() -> Engine:
     return _engine or configure()
 
 
+def migrate() -> None:
+    """Bring the configured database to the latest schema with Alembic (app start, scripts)."""
+    from .migrate import upgrade_to_head
+
+    upgrade_to_head(str(engine().url.render_as_string(hide_password=False)))
+
+
 def create_all() -> None:
-    """Create tables directly (tests, first run). Production uses Alembic."""
+    """Create tables directly from the models (fast path used by tests)."""
     from keystone import models  # noqa: F401  - registers every model
 
     Base.metadata.create_all(engine())

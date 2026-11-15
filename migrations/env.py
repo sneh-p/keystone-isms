@@ -10,9 +10,10 @@ from keystone.core.db import Base
 from keystone.core.settings import get_settings
 
 config = context.config
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
-if not config.get_main_option("sqlalchemy.url"):
+# Configure logging only when run from the alembic CLI, not when Keystone runs migrations.
+if config.config_file_name is not None and config.attributes.get("configure_logger", True):
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
+if not config.get_main_option("sqlalchemy.url"):  # CLI use without an explicit URL
     config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
 target_metadata = Base.metadata
