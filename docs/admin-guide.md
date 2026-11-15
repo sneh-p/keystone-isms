@@ -19,6 +19,23 @@ docker run -d --name keystone -p 127.0.0.1:8501:8501 -v keystone-data:/data keys
 On start, Keystone runs its database migrations (Alembic) automatically. The first visitor
 sees a setup screen to create the first administrator. Do this straight away after deploying.
 
+### Behind nginx (port 80)
+
+`deploy/nginx/keystone.conf` publishes Keystone on port 80 and keeps Streamlit on
+`127.0.0.1:8501`. It passes the WebSocket that Streamlit uses for every click, keeps the Host
+header (Streamlit checks it against the browser's Origin), disables buffering and allows 50 MB
+uploads.
+
+```bash
+sudo apt-get install nginx
+sudo cp deploy/nginx/keystone.conf /etc/nginx/sites-available/keystone.conf
+sudo ln -s /etc/nginx/sites-available/keystone.conf /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default && sudo nginx -t && sudo systemctl reload nginx
+```
+
+Run Keystone itself with `deploy/systemd/keystone.service` (or the Docker image bound to
+`127.0.0.1:8501`). Port 80 is plain HTTP: add TLS (for example with certbot) before real use.
+
 ## Hardening checklist
 
 - [ ] Put Keystone behind a reverse proxy (nginx, Caddy, Traefik) that **terminates TLS**, and

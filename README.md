@@ -51,7 +51,9 @@ docker build -t keystone-isms .
 docker run -p 8501:8501 -v keystone-data:/data keystone-isms
 ```
 
-Run it behind a reverse proxy that terminates TLS. See [docs/admin-guide.md](docs/admin-guide.md).
+Run it behind a reverse proxy that terminates TLS. A ready nginx config (port 80, WebSocket
+support) is in `deploy/nginx/`, with a systemd unit in `deploy/systemd/`. See
+[docs/admin-guide.md](docs/admin-guide.md).
 
 ## Framework content and licensing
 

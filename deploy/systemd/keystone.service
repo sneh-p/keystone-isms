@@ -1,0 +1,21 @@
+# Example systemd unit: Keystone on 127.0.0.1:8501, published by nginx (deploy/nginx/keystone.conf).
+# Install: copy to /etc/systemd/system/, adjust paths and user, then
+#   systemctl daemon-reload && systemctl enable --now keystone
+[Unit]
+Description=Keystone ISMS
+After=network.target
+
+[Service]
+User=keystone
+Group=keystone
+WorkingDirectory=/opt/keystone-isms
+Environment=KEYSTONE_DATA_DIR=/srv/keystone
+ExecStart=/opt/keystone-isms/.venv/bin/streamlit run app.py --server.address 127.0.0.1 --server.port 8501
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/srv/keystone
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
