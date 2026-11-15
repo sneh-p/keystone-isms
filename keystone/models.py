@@ -10,3 +10,4 @@ from keystone.risk.models import Risk, RiskAcceptance, TreatmentAction  # noqa: 
 from keystone.controls.models import Evidence, SoaApproval, SoaEntry  # noqa: F401
 from keystone.tprm.exposure.models import AppCredential, AppExposure, AppPermission, ConsentPosture, EntraTenant, ExposureSnapshot, FairSuggestion, TenantApp, VendorAppMapping  # noqa: F401
 from keystone.tprm.models import QuestionnaireTemplate, Vendor, VendorAssessment, VendorQuestionnaire  # noqa: F401
+from keystone.policies.models import PolicyAcknowledgement, PolicyDocument, PolicyVersion  # noqa: F401

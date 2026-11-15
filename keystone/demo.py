@@ -16,6 +16,7 @@ from keystone.core.rbac import Role
 from keystone.frameworks import loader
 from keystone.frameworks.service import control_by_code
 from keystone.org import service as org
+from keystone.policies import service as pol
 from keystone.risk import service as risk
 from keystone.tprm import service as tprm
 
@@ -95,6 +96,17 @@ def seed(session: Session, admin) -> dict:
     va = tprm.save_assessment(session, mia, fab.id, title="Fabrikam Backup annual assessment", scenario="Compromise of Fabrikam's platform used to read or delete our Microsoft 365 data.", integration_depth="Tenant-wide application access", tef=[0.05, 0.2, 1], tcap=[0.5, 0.7, 0.95], control_strength=[0.5, 0.7, 0.85], plm=[100_000, 400_000, 2_000_000], slef=[0.2, 0.4, 0.7], slm=[50_000, 250_000, 1_500_000])
     tprm.run_assessment(session, mia, va.id, iterations=3000, seed=2)
     tprm.submit_assessment(session, mia, va.id)
+    c_pol = control_by_code(session, "KC-ORG-01")
+    isp = pol.save_document(session, mia, code="POL-001", title="Information Security Policy", requires_acknowledgement=True, owner_id=mia.id, control_ids=[c_pol.id])
+    v = pol.start_version(session, mia, isp.id, body="# Information Security Policy\n\n## Purpose\nProtect guest, staff and company information.\n\n## Scope\nAll staff, contractors and systems in the ISMS scope.\n\n## Rules\n1. Use MFA for every account.\n2. Report suspected incidents to security@alpineskihouse.example at once.\n3. Handle guest data only for the purpose it was collected.", change_summary="First issue")
+    pol.submit_version(session, mia, v.id)
+    pol.approve_version(session, admin, v.id, "Approved by the board")
+    pol.acknowledge(session, raj, v.id)
+    aup = pol.save_document(session, mia, code="POL-002", title="Acceptable Use Policy", requires_acknowledgement=True, owner_id=lena.id)
+    v2 = pol.start_version(session, mia, aup.id, body="# Acceptable Use\n\nCompany devices are for business use...", change_summary="First issue")
+    pol.submit_version(session, mia, v2.id)
+    pol.save_document(session, mia, code="PRC-010", title="Incident Response Procedure", doc_type="procedure", owner_id=mia.id)
+
     # Entra exposure: the demo org has a main tenant (two snapshots) and a subsidiary tenant.
     import json
 
