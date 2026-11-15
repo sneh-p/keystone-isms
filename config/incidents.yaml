@@ -1,0 +1,6 @@
+# Incident handling settings. Calibration starting point.
+# Hours after detection by which a regulator must be notified when personal data is involved
+# (e.g. GDPR Art. 33: 72 hours after becoming aware). Adjust for your jurisdictions.
+personal_data_notification_hours: 72
+# Target time to contain, by severity (hours).
+containment_target_hours: {critical: 4, high: 24, medium: 72, low: 168}

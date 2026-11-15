@@ -79,12 +79,11 @@ def start_version(session: Session, actor, document_id: int, *, body: str | None
     if open_version(doc):
         raise ValueError("This document already has a version in draft or review.")
     cur = current_version(session, doc)
-    v = PolicyVersion(document_id=doc.id, version_label=next_label(cur.version_label if cur else None, major), body=body if body is not None else (cur.body if cur else None), change_summary=change_summary, status="draft", author_id=actor.id)
+    v = PolicyVersion(document=doc, version_label=next_label(cur.version_label if cur else None, major), body=body if body is not None else (cur.body if cur else None), change_summary=change_summary, status="draft", author_id=actor.id)
     session.add(v)
     session.flush()
     if data and filename:
         v.attachment_id = save_attachment(session, actor, filename, data, "PolicyVersion", v.id).id
-    doc.versions.append(v)
     session.flush()
     return v
 

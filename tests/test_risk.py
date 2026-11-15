@@ -214,3 +214,10 @@ def test_run_fair_stores_result(users, session):
     r = _risk(session, users["risk_owner"])
     res = risk.run_fair(session, users["risk_owner"], r.id, BASE, iterations=5000, seed=1)
     assert r.fair_result["ale_mean"] == res.ale_mean and r.fair_inputs["tef"] == {"min": 0.5, "ml": 2.0, "max": 6.0}
+
+
+def test_acceptances_collection_has_no_duplicates(users, session):
+    r = _risk(session, users["risk_owner"])
+    risk.accept_risk(session, users["admin"], r.id, "a")
+    risk.accept_risk(session, users["admin"], r.id, "b")
+    assert len(r.acceptances) == 2 and len({a.id for a in r.acceptances}) == 2

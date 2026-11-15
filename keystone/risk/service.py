@@ -161,9 +161,8 @@ def accept_risk(session: Session, actor, risk_id: int, justification: str, expir
     for a in r.acceptances:
         if a.revoked_at is None:
             a.revoked_at, a.revoked_by_id = utcnow(), actor.id
-    acc = RiskAcceptance(risk_id=r.id, level_at_acceptance=level, justification=justification.strip(), accepted_by_id=actor.id, accepted_at=utcnow(), expires_on=expires_on)
+    acc = RiskAcceptance(risk=r, level_at_acceptance=level, justification=justification.strip(), accepted_by_id=actor.id, accepted_at=utcnow(), expires_on=expires_on)
     session.add(acc)
-    r.acceptances.insert(0, acc)
     r.status = "accepted"
     session.flush()
     return acc

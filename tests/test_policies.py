@@ -119,3 +119,9 @@ def test_review_and_retire(users, session):
     assert d not in pol.documents(session) and pol.pending_for(session, users["viewer"]) == []
     with pytest.raises(ValueError, match="Retired"):
         pol.start_version(session, users["admin"], d.id)
+
+
+def test_versions_collection_has_no_duplicates(users, session):
+    d, v = _approved(session, users)
+    pol.start_version(session, users["isms_manager"], d.id, body="v2")
+    assert len(d.versions) == 2 and len({x.id for x in d.versions}) == 2

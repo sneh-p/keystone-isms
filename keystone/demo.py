@@ -15,6 +15,9 @@ from keystone.core import auth
 from keystone.core.rbac import Role
 from keystone.frameworks import loader
 from keystone.frameworks.service import control_by_code
+from keystone.improvement import service as improvement
+from keystone.incidents import service as incidents
+from keystone.core.db import utcnow
 from keystone.org import service as org
 from keystone.policies import service as pol
 from keystone.risk import service as risk
@@ -106,6 +109,19 @@ def seed(session: Session, admin) -> dict:
     v2 = pol.start_version(session, mia, aup.id, body="# Acceptable Use\n\nCompany devices are for business use...", change_summary="First issue")
     pol.submit_version(session, mia, v2.id)
     pol.save_document(session, mia, code="PRC-010", title="Incident Response Procedure", doc_type="procedure", owner_id=mia.id)
+
+    phish = incidents.report_incident(session, lena, title="Phishing email led to one compromised mailbox", category="account_compromise", severity="high", personal_data_involved=False, detected_at=utcnow() - timedelta(days=12), reported_by="Front desk, Hotel Edelweiss", owner_id=lena.id, asset_ids=[m365.id])
+    for stt in ("triage", "contained", "eradicated", "recovered"):
+        incidents.move(session, lena, phish.id, stt)
+    incidents.update_incident(session, lena, phish.id, root_cause="Legacy MFA (SMS) phished through an adversary-in-the-middle page.", lessons_learned="Move all staff to phishing-resistant MFA; block legacy authentication.")
+    incidents.move(session, lena, phish.id, "closed")
+    leak = incidents.report_incident(session, raj, title="Guest list emailed to wrong recipient", category="data_breach", severity="medium", personal_data_involved=True, notification_required=True, detected_at=utcnow() - timedelta(hours=30), owner_id=mia.id)
+    incidents.move(session, raj, leak.id, "triage")
+    incidents.add_note(session, raj, leak.id, "Recipient confirmed deletion by email.")
+    nc = improvement.raise_nc(session, mia, title="Phishing-resistant MFA not enforced for hotel staff", source="incident", severity="major", incident_id=phish.id, common_control_id=c_mfa.id, owner_id=lena.id, root_cause="MFA rollout plan excluded seasonal accounts.", due_date=date.today() + timedelta(days=60))
+    a = improvement.add_action(session, mia, nc.id, "Enforce FIDO2 for all hotel accounts via Conditional Access", owner_id=lena.id, due_date=date.today() + timedelta(days=30))
+    improvement.plan(session, mia, nc.id)
+    improvement.raise_nc(session, people["omar.audit"], title="Access reviews for the booking platform not evidenced", source="internal_audit", severity="minor")
 
     # Entra exposure: the demo org has a main tenant (two snapshots) and a subsidiary tenant.
     import json

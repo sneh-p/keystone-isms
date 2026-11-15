@@ -21,3 +21,5 @@ include = ["keystone*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+# SQLAlchemy warnings (e.g. objects not added to the session) are bugs: fail on them.
+filterwarnings = ["error::sqlalchemy.exc.SAWarning"]
