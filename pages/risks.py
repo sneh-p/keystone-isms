@@ -7,7 +7,7 @@ from keystone.frameworks.service import controls as all_controls
 from keystone.risk import service as risk
 from keystone.risk.models import ACTION_STATUSES, RISK_CATEGORIES, RISK_STATUSES, TREATMENT_OPTIONS, Risk
 from keystone.ui.charts import heat_map
-from keystone.ui.common import CALIBRATION_NOTE, badge, can, fmt_date, guard, run_action, select_user, session, table, user_options
+from keystone.ui.common import person, CALIBRATION_NOTE, badge, can, fmt_date, guard, run_action, select_user, session, table, user_options
 
 guard()
 st.title("⚠️ Risk register")
@@ -106,7 +106,7 @@ with tab_detail:
         r = s.get(Risk, pick)
         info = {
             "status": r.status, "owner": people.get(r.owner_id), "inh": risk.inherent_level(r), "res": risk.residual_level(r),
-            "acc": [(a.id, a.level_at_acceptance, people.get(a.accepted_by_id), fmt_date(a.accepted_at), fmt_date(a.expires_on), a.justification, a.revoked_at) for a in r.acceptances],
+            "acc": [(a.id, a.level_at_acceptance, person(people, a.accepted_by_id), fmt_date(a.accepted_at), fmt_date(a.expires_on), a.justification, a.revoked_at) for a in r.acceptances],
             "actions": [(a.id, a.title, a.status, people.get(a.owner_id), a.due_date, a.common_control_id) for a in r.actions],
             "fair_inputs": r.fair_inputs, "fair_result": r.fair_result, "fair_run_at": r.fair_run_at, "owner_id": r.owner_id,
         }

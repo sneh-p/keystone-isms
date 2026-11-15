@@ -2,7 +2,7 @@ import streamlit as st
 
 from keystone.tprm import service as tprm
 from keystone.tprm.models import VendorQuestionnaire
-from keystone.ui.common import can, fmt_date, guard, run_action, session, table, user_options
+from keystone.ui.common import person, can, fmt_date, guard, run_action, session, table, user_options
 
 guard()
 st.title("📝 Vendor questionnaires")
@@ -14,7 +14,7 @@ with session() as s:
     tpls = {t.id: f"{t.name} v{t.version}" for t in tprm.templates(s)}
     vendors = {v.id: v.name for v in tprm.list_vendors(s)}
     qs = tprm.questionnaires_for(s)
-    rows = [{"Ref": q.ref, "Vendor": vendors.get(q.vendor_id, "?"), "Template": tpls.get(q.template_id, "?"), "Status": q.status, "Due": fmt_date(q.due_date), "Score": f"{q.score:.0f}%" if q.score is not None else "—", "Reviewed by": people.get(q.reviewed_by_id)} for q in qs]
+    rows = [{"Ref": q.ref, "Vendor": vendors.get(q.vendor_id, "?"), "Template": tpls.get(q.template_id, "?"), "Status": q.status, "Due": fmt_date(q.due_date), "Score": f"{q.score:.0f}%" if q.score is not None else "—", "Reviewed by": person(people, q.reviewed_by_id)} for q in qs]
     q_opts = {q.id: f"{q.ref} {vendors.get(q.vendor_id, '?')} ({q.status})" for q in qs}
 
 if not tpls and editable and st.button("Load the Keystone baseline questionnaire"):

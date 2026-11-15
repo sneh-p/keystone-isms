@@ -223,7 +223,12 @@ def heat_map(risks: list[Risk], kind: str = "inherent") -> list[list[int]]:
     """5x5 grid of counts: grid[impact-1][likelihood-1]."""
     grid = [[0] * 5 for _ in range(5)]
     for r in risks:
-        lk, im = (r.inherent_likelihood, r.inherent_impact) if kind == "inherent" else (r.residual_likelihood, r.residual_impact)
+        if kind == "inherent":
+            lk, im = r.inherent_likelihood, r.inherent_impact
+        elif kind == "residual":
+            lk, im = r.residual_likelihood, r.residual_impact
+        else:  # current: residual where assessed, else inherent
+            lk, im = (r.residual_likelihood, r.residual_impact) if r.residual_likelihood else (r.inherent_likelihood, r.inherent_impact)
         if lk and im:
             grid[im - 1][lk - 1] += 1
     return grid

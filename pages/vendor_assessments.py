@@ -2,7 +2,7 @@ import streamlit as st
 
 from keystone.tprm import service as tprm
 from keystone.tprm.models import VendorAssessment
-from keystone.ui.common import CALIBRATION_NOTE, can, fmt_date, guard, run_action, session, table, user_options
+from keystone.ui.common import person, CALIBRATION_NOTE, can, fmt_date, guard, run_action, session, table, user_options
 
 guard()
 st.title("⚖️ Vendor risk assessments")
@@ -13,7 +13,7 @@ with session() as s:
     people = user_options(s)
     vendors = {v.id: v.name for v in tprm.list_vendors(s)}
     items = tprm.assessments_for(s)
-    rows = [{"Ref": a.ref, "Vendor": vendors.get(a.vendor_id, "?"), "Assessment": a.title, "Status": a.status, "Depth": a.integration_depth or "—", "ALE": f"{a.result['ale_mean']:,.0f}" if a.result else "—", "Approved": fmt_date(a.approved_at), "Approver": people.get(a.approved_by_id)} for a in items]
+    rows = [{"Ref": a.ref, "Vendor": vendors.get(a.vendor_id, "?"), "Assessment": a.title, "Status": a.status, "Depth": a.integration_depth or "—", "ALE": f"{a.result['ale_mean']:,.0f}" if a.result else "—", "Approved": fmt_date(a.approved_at), "Approver": person(people, a.approved_by_id)} for a in items]
     a_opts = {a.id: f"{a.ref} {vendors.get(a.vendor_id, '?')}: {a.title} ({a.status})" for a in items}
 
 if not vendors:

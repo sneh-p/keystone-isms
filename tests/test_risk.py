@@ -145,6 +145,8 @@ def test_heat_map():
     grid = risk.heat_map(rs)
     assert grid[4][3] == 2 and sum(map(sum, grid)) == 2
     assert risk.heat_map(rs, "residual")[2][1] == 1
+    current = risk.heat_map(rs, "current")
+    assert current[2][1] == 1 and current[4][3] == 1  # a: residual, b: inherent
 
 
 def test_risk_changes_audited(users, db):

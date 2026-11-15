@@ -11,11 +11,18 @@ from keystone.tprm.models import VendorAssessment
 from .common import CALIBRATION_NOTE, badge, can, fmt_date, run_action, session, table
 
 
+FIELD_LABELS = {"integration_depth": "Integration depth", "plm": "Primary loss magnitude", "slm": "Secondary loss magnitude", "control_strength": "Control strength", "tef": "Threat event frequency"}
+
+
+def _num(x: float) -> str:
+    return f"{x:,.0f}" if abs(x) >= 1000 else f"{x:g}"
+
+
 def _fmt(v) -> str:
     if v is None:
         return "—"
     if isinstance(v, dict):
-        return f"{v['min']:g} / {v['ml']:g} / {v['max']:g}"
+        return f"{_num(v['min'])} / {_num(v['ml'])} / {_num(v['max'])}"
     return str(v)
 
 
@@ -49,11 +56,11 @@ def render(assessment_id: int, vendor_id: int) -> None:
             st.caption("Suggestions never change the assessment until accepted. " + CALIBRATION_NOTE)
             for sid, field, cur, new, reasons, st_, by in sugg:
                 c1, c2, c3 = st.columns([3, 1, 1])
-                c1.markdown(f"**{field}**: {_fmt(cur)} → **{_fmt(new)}** ({st_}{' by ' + by if by else ''})")
+                c1.markdown(f"**{FIELD_LABELS.get(field, field)}** (min / most likely / max): {_fmt(cur)} → **{_fmt(new)}** ({st_}{' by ' + by if by else ''})" if isinstance(new, dict) else f"**{FIELD_LABELS.get(field, field)}**: {_fmt(cur)} → **{_fmt(new)}** ({st_}{' by ' + by if by else ''})")
                 c1.caption(" ".join(f"`{r['rule_id']}` {r['text']}" for r in reasons))
                 if st_ == "pending" and editable:
                     if c2.button("Accept", key=f"acc_{sid}"):
-                        run_action(fair_mapping.accept, sid, success=f"{field} updated.")
+                        run_action(fair_mapping.accept, sid, success=f"{FIELD_LABELS.get(field, field)} updated.")
                         st.rerun()
                     if c3.button("Reject", key=f"rej_{sid}"):
                         run_action(fair_mapping.reject, sid, success="Suggestion rejected.")

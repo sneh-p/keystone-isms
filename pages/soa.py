@@ -4,7 +4,7 @@ from keystone.controls import service as ctl
 from keystone.frameworks import service as fwsvc
 from keystone.org.service import get_org
 from keystone.reporting import exports
-from keystone.ui.common import can, fmt_date, guard, run_action, session, table, user_options
+from keystone.ui.common import person, can, fmt_date, guard, run_action, session, table, user_options
 
 guard()
 st.title("📋 Statement of Applicability")
@@ -21,7 +21,7 @@ fid, code, label = choice
 with session() as s:
     people = user_options(s)
     rows = ctl.soa_rows(s, fid)
-    approvals = [(a.version, people.get(a.approved_by_id), fmt_date(a.approved_at), a.note) for a in ctl.soa_approvals(s, fid)]
+    approvals = [(a.version, person(people, a.approved_by_id), fmt_date(a.approved_at), a.note) for a in ctl.soa_approvals(s, fid)]
     changed = ctl.soa_changes_since_approval(s, fid)
     org = get_org(s)
     org_name = org.name if org else "Organisation"

@@ -4,7 +4,7 @@ from keystone.frameworks.service import controls as all_controls
 from keystone.improvement import service as imp
 from keystone.improvement.models import NC_SEVERITIES, NC_SOURCES, Nonconformity
 from keystone.incidents.service import list_incidents
-from keystone.ui.common import can, fmt_date, guard, run_action, select_user, session, table, user_options
+from keystone.ui.common import person, can, fmt_date, guard, run_action, select_user, session, table, user_options
 
 guard()
 st.title("🔧 Nonconformities and corrective actions")
@@ -52,7 +52,7 @@ nid = st.selectbox("Nonconformity", list(opts), format_func=opts.get)
 with session() as s:
     n = s.get(Nonconformity, nid)
     cur = {k: getattr(n, k) for k in ("status", "description", "containment", "root_cause", "owner_id", "due_date")}
-    actions = [(a.id, a.description, a.status, people.get(a.owner_id), fmt_date(a.due_date), a.completion_notes, people.get(a.verified_by_id), a.effectiveness_notes) for a in n.actions]
+    actions = [(a.id, a.description, a.status, people.get(a.owner_id), fmt_date(a.due_date), a.completion_notes, person(people, a.verified_by_id), a.effectiveness_notes) for a in n.actions]
 st.write(f"Status **{cur['status']}**")
 if cur["description"]:
     st.write(cur["description"])

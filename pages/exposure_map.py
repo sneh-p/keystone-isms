@@ -35,7 +35,7 @@ with session() as s:
     d = diff.latest_diff(s, tid)
 
 c = st.columns(5)
-c[0].metric("Collected (UTC)", hdr[0])
+c[0].metric("Collected", hdr[0][:10], help=f"{hdr[0]} UTC")
 c[1].metric("Entra ID P1/P2", tri(hdr[2]))
 c[2].metric("Users can consent", tri(hdr[4]))
 c[3].metric("Admin consent workflow", tri(hdr[5], "Enabled", "Disabled"))

@@ -131,3 +131,8 @@ LEVEL_COLOURS = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "�
 
 def badge(level: str | None) -> str:
     return f"{LEVEL_COLOURS.get(level, '⚪')} {level or 'Unknown'}"
+
+
+def person(options: dict, user_id: int | None) -> str:
+    """Display name for an optional person column ('—' when nobody, unlike the '(unassigned)' select option)."""
+    return "—" if user_id is None else options.get(user_id, f"user {user_id}")

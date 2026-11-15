@@ -4,7 +4,7 @@ from keystone.core.attachments import Attachment, read_attachment
 from keystone.frameworks.service import controls as all_controls
 from keystone.policies import service as pol
 from keystone.policies.models import DOC_TYPES, PolicyDocument
-from keystone.ui.common import can, current_user, fmt_date, guard, run_action, select_user, session, table, user_options
+from keystone.ui.common import person, can, current_user, fmt_date, guard, run_action, select_user, session, table, user_options
 
 user = guard()
 st.title("📜 Policies and documents")
@@ -66,7 +66,7 @@ st.subheader("Document detail")
 did = st.selectbox("Document", list(doc_opts), format_func=doc_opts.get)
 with session() as s:
     d = s.get(PolicyDocument, did)
-    versions = [(v.id, v.version_label, v.status, people.get(v.author_id), fmt_date(v.submitted_at), people.get(v.approved_by_id), fmt_date(v.approved_at), v.change_summary, v.approval_note, v.body, v.attachment_id, v.author_id) for v in reversed(d.versions)]
+    versions = [(v.id, v.version_label, v.status, people.get(v.author_id), fmt_date(v.submitted_at), person(people, v.approved_by_id), fmt_date(v.approved_at), v.change_summary, v.approval_note, v.body, v.attachment_id, v.author_id) for v in reversed(d.versions)]
     status, controls = d.status, [c.code for c in d.controls]
     ov = pol.open_version(d)
     ov_info = (ov.id, ov.status, ov.body or "", ov.change_summary or "", ov.author_id) if ov else None

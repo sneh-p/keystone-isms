@@ -4,7 +4,7 @@ import streamlit as st
 
 from keystone.audits import review as mr
 from keystone.audits.models import ManagementReview
-from keystone.ui.common import can, fmt_date, guard, run_action, select_user, session, table, user_options
+from keystone.ui.common import person, can, fmt_date, guard, run_action, select_user, session, table, user_options
 
 guard()
 st.title("🧭 Management review")
@@ -14,7 +14,7 @@ editable = can("review.write")
 with session() as s:
     people = user_options(s)
     reviews = mr.list_reviews(s)
-    rows = [{"Ref": r.ref, "Review": r.title, "Held on": fmt_date(r.held_on), "Period from": fmt_date(r.period_start), "Status": r.status, "Finalised by": people.get(r.finalized_by_id)} for r in reviews]
+    rows = [{"Ref": r.ref, "Review": r.title, "Held on": fmt_date(r.held_on), "Period from": fmt_date(r.period_start), "Status": r.status, "Finalised by": person(people, r.finalized_by_id)} for r in reviews]
     opts = {r.id: f"{r.ref} {r.title} ({fmt_date(r.held_on)}, {r.status})" for r in reviews}
 table(rows)
 
