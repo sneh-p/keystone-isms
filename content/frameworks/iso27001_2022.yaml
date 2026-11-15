@@ -1,0 +1,158 @@
+# ISO/IEC 27001:2022 - clause and Annex A identifiers with SHORT TITLES WRITTEN BY
+# KEYSTONE. This file contains no text from the standard. ISO/IEC 27001 is
+# copyright ISO/IEC; organisations that own a licensed copy can import the
+# official wording via Frameworks > Import licensed text (stored only in the DB).
+framework:
+  code: ISO27001_2022
+  name: ISO/IEC 27001
+  version: "2022"
+  publisher: ISO/IEC
+  license: proprietary
+  text_level: summary
+  source_url: https://www.iso.org/standard/27001
+  notice: "Identifiers and Keystone-written summaries only. Import official text from your licensed copy."
+
+requirements:
+  # ---------------------------------------------------------------- Clauses 4-10
+  - {ref: "4", kind: clause_group, title: "Context of the organisation"}
+  - {ref: "4.1", parent: "4", kind: clause, title: "Understand internal and external issues"}
+  - {ref: "4.2", parent: "4", kind: clause, title: "Understand interested parties and their requirements"}
+  - {ref: "4.3", parent: "4", kind: clause, title: "Define the ISMS scope"}
+  - {ref: "4.4", parent: "4", kind: clause, title: "Establish and run the ISMS"}
+  - {ref: "5", kind: clause_group, title: "Leadership"}
+  - {ref: "5.1", parent: "5", kind: clause, title: "Top management leadership and commitment"}
+  - {ref: "5.2", parent: "5", kind: clause, title: "Information security policy"}
+  - {ref: "5.3", parent: "5", kind: clause, title: "Roles, responsibilities and authorities"}
+  - {ref: "6", kind: clause_group, title: "Planning"}
+  - {ref: "6.1", parent: "6", kind: clause_group, title: "Addressing risks and opportunities"}
+  - {ref: "6.1.1", parent: "6.1", kind: clause, title: "Plan to address risks and opportunities"}
+  - {ref: "6.1.2", parent: "6.1", kind: clause, title: "Risk assessment process"}
+  - {ref: "6.1.3", parent: "6.1", kind: clause, title: "Risk treatment process and Statement of Applicability"}
+  - {ref: "6.2", parent: "6", kind: clause, title: "Security objectives and plans to achieve them"}
+  - {ref: "6.3", parent: "6", kind: clause, title: "Planned changes to the ISMS"}
+  - {ref: "7", kind: clause_group, title: "Support"}
+  - {ref: "7.1", parent: "7", kind: clause, title: "Resources"}
+  - {ref: "7.2", parent: "7", kind: clause, title: "Competence"}
+  - {ref: "7.3", parent: "7", kind: clause, title: "Awareness"}
+  - {ref: "7.4", parent: "7", kind: clause, title: "Communication"}
+  - {ref: "7.5", parent: "7", kind: clause_group, title: "Documented information"}
+  - {ref: "7.5.1", parent: "7.5", kind: clause, title: "Documented information needed by the ISMS"}
+  - {ref: "7.5.2", parent: "7.5", kind: clause, title: "Creating and updating documents"}
+  - {ref: "7.5.3", parent: "7.5", kind: clause, title: "Controlling documented information"}
+  - {ref: "8", kind: clause_group, title: "Operation"}
+  - {ref: "8.1", parent: "8", kind: clause, title: "Operational planning and control"}
+  - {ref: "8.2", parent: "8", kind: clause, title: "Performing risk assessments"}
+  - {ref: "8.3", parent: "8", kind: clause, title: "Implementing risk treatment"}
+  - {ref: "9", kind: clause_group, title: "Performance evaluation"}
+  - {ref: "9.1", parent: "9", kind: clause, title: "Monitoring, measurement, analysis and evaluation"}
+  - {ref: "9.2", parent: "9", kind: clause_group, title: "Internal audit"}
+  - {ref: "9.2.1", parent: "9.2", kind: clause, title: "Conduct internal audits"}
+  - {ref: "9.2.2", parent: "9.2", kind: clause, title: "Internal audit programme"}
+  - {ref: "9.3", parent: "9", kind: clause_group, title: "Management review"}
+  - {ref: "9.3.1", parent: "9.3", kind: clause, title: "Hold management reviews"}
+  - {ref: "9.3.2", parent: "9.3", kind: clause, title: "Management review inputs"}
+  - {ref: "9.3.3", parent: "9.3", kind: clause, title: "Management review results"}
+  - {ref: "10", kind: clause_group, title: "Improvement"}
+  - {ref: "10.1", parent: "10", kind: clause, title: "Continual improvement"}
+  - {ref: "10.2", parent: "10", kind: clause, title: "Nonconformity and corrective action"}
+  # ---------------------------------------------------------------- Annex A.5 Organisational
+  - {ref: "A.5", kind: annex_theme, title: "Organisational controls"}
+  - {ref: "A.5.1", parent: "A.5", kind: annex_control, title: "Security policies"}
+  - {ref: "A.5.2", parent: "A.5", kind: annex_control, title: "Security roles and responsibilities"}
+  - {ref: "A.5.3", parent: "A.5", kind: annex_control, title: "Separating conflicting duties"}
+  - {ref: "A.5.4", parent: "A.5", kind: annex_control, title: "Management duties for security"}
+  - {ref: "A.5.5", parent: "A.5", kind: annex_control, title: "Contacts with authorities"}
+  - {ref: "A.5.6", parent: "A.5", kind: annex_control, title: "Contacts with specialist groups"}
+  - {ref: "A.5.7", parent: "A.5", kind: annex_control, title: "Threat intelligence"}
+  - {ref: "A.5.8", parent: "A.5", kind: annex_control, title: "Security in projects"}
+  - {ref: "A.5.9", parent: "A.5", kind: annex_control, title: "Inventory of information and assets"}
+  - {ref: "A.5.10", parent: "A.5", kind: annex_control, title: "Acceptable use of information and assets"}
+  - {ref: "A.5.11", parent: "A.5", kind: annex_control, title: "Return of assets"}
+  - {ref: "A.5.12", parent: "A.5", kind: annex_control, title: "Information classification"}
+  - {ref: "A.5.13", parent: "A.5", kind: annex_control, title: "Information labelling"}
+  - {ref: "A.5.14", parent: "A.5", kind: annex_control, title: "Transferring information"}
+  - {ref: "A.5.15", parent: "A.5", kind: annex_control, title: "Access control rules"}
+  - {ref: "A.5.16", parent: "A.5", kind: annex_control, title: "Identity lifecycle"}
+  - {ref: "A.5.17", parent: "A.5", kind: annex_control, title: "Authentication secrets"}
+  - {ref: "A.5.18", parent: "A.5", kind: annex_control, title: "Granting, reviewing and removing access"}
+  - {ref: "A.5.19", parent: "A.5", kind: annex_control, title: "Supplier relationship security"}
+  - {ref: "A.5.20", parent: "A.5", kind: annex_control, title: "Security terms in supplier contracts"}
+  - {ref: "A.5.21", parent: "A.5", kind: annex_control, title: "ICT supply chain security"}
+  - {ref: "A.5.22", parent: "A.5", kind: annex_control, title: "Monitoring and changes to supplier services"}
+  - {ref: "A.5.23", parent: "A.5", kind: annex_control, title: "Cloud service security"}
+  - {ref: "A.5.24", parent: "A.5", kind: annex_control, title: "Preparing for incident management"}
+  - {ref: "A.5.25", parent: "A.5", kind: annex_control, title: "Triage of security events"}
+  - {ref: "A.5.26", parent: "A.5", kind: annex_control, title: "Responding to incidents"}
+  - {ref: "A.5.27", parent: "A.5", kind: annex_control, title: "Lessons from incidents"}
+  - {ref: "A.5.28", parent: "A.5", kind: annex_control, title: "Evidence collection"}
+  - {ref: "A.5.29", parent: "A.5", kind: annex_control, title: "Security during disruption"}
+  - {ref: "A.5.30", parent: "A.5", kind: annex_control, title: "ICT continuity readiness"}
+  - {ref: "A.5.31", parent: "A.5", kind: annex_control, title: "Legal, regulatory and contractual obligations"}
+  - {ref: "A.5.32", parent: "A.5", kind: annex_control, title: "Intellectual property"}
+  - {ref: "A.5.33", parent: "A.5", kind: annex_control, title: "Protecting records"}
+  - {ref: "A.5.34", parent: "A.5", kind: annex_control, title: "Privacy and personal data"}
+  - {ref: "A.5.35", parent: "A.5", kind: annex_control, title: "Independent security review"}
+  - {ref: "A.5.36", parent: "A.5", kind: annex_control, title: "Compliance with security policies and standards"}
+  - {ref: "A.5.37", parent: "A.5", kind: annex_control, title: "Documented operating procedures"}
+  # ---------------------------------------------------------------- Annex A.6 People
+  - {ref: "A.6", kind: annex_theme, title: "People controls"}
+  - {ref: "A.6.1", parent: "A.6", kind: annex_control, title: "Background screening"}
+  - {ref: "A.6.2", parent: "A.6", kind: annex_control, title: "Security in employment terms"}
+  - {ref: "A.6.3", parent: "A.6", kind: annex_control, title: "Security awareness and training"}
+  - {ref: "A.6.4", parent: "A.6", kind: annex_control, title: "Disciplinary process"}
+  - {ref: "A.6.5", parent: "A.6", kind: annex_control, title: "Duties after leaving or changing role"}
+  - {ref: "A.6.6", parent: "A.6", kind: annex_control, title: "Confidentiality agreements"}
+  - {ref: "A.6.7", parent: "A.6", kind: annex_control, title: "Remote working"}
+  - {ref: "A.6.8", parent: "A.6", kind: annex_control, title: "Reporting security events"}
+  # ---------------------------------------------------------------- Annex A.7 Physical
+  - {ref: "A.7", kind: annex_theme, title: "Physical controls"}
+  - {ref: "A.7.1", parent: "A.7", kind: annex_control, title: "Physical perimeters"}
+  - {ref: "A.7.2", parent: "A.7", kind: annex_control, title: "Physical entry"}
+  - {ref: "A.7.3", parent: "A.7", kind: annex_control, title: "Securing offices and facilities"}
+  - {ref: "A.7.4", parent: "A.7", kind: annex_control, title: "Physical monitoring"}
+  - {ref: "A.7.5", parent: "A.7", kind: annex_control, title: "Environmental and physical threats"}
+  - {ref: "A.7.6", parent: "A.7", kind: annex_control, title: "Working in secure areas"}
+  - {ref: "A.7.7", parent: "A.7", kind: annex_control, title: "Clear desk and screen"}
+  - {ref: "A.7.8", parent: "A.7", kind: annex_control, title: "Equipment placement and protection"}
+  - {ref: "A.7.9", parent: "A.7", kind: annex_control, title: "Assets used off-site"}
+  - {ref: "A.7.10", parent: "A.7", kind: annex_control, title: "Storage media"}
+  - {ref: "A.7.11", parent: "A.7", kind: annex_control, title: "Supporting utilities"}
+  - {ref: "A.7.12", parent: "A.7", kind: annex_control, title: "Cabling"}
+  - {ref: "A.7.13", parent: "A.7", kind: annex_control, title: "Equipment maintenance"}
+  - {ref: "A.7.14", parent: "A.7", kind: annex_control, title: "Disposal and re-use of equipment"}
+  # ---------------------------------------------------------------- Annex A.8 Technological
+  - {ref: "A.8", kind: annex_theme, title: "Technological controls"}
+  - {ref: "A.8.1", parent: "A.8", kind: annex_control, title: "Endpoint devices"}
+  - {ref: "A.8.2", parent: "A.8", kind: annex_control, title: "Privileged access"}
+  - {ref: "A.8.3", parent: "A.8", kind: annex_control, title: "Restricting access to information"}
+  - {ref: "A.8.4", parent: "A.8", kind: annex_control, title: "Source code access"}
+  - {ref: "A.8.5", parent: "A.8", kind: annex_control, title: "Secure authentication"}
+  - {ref: "A.8.6", parent: "A.8", kind: annex_control, title: "Capacity"}
+  - {ref: "A.8.7", parent: "A.8", kind: annex_control, title: "Malware protection"}
+  - {ref: "A.8.8", parent: "A.8", kind: annex_control, title: "Technical vulnerabilities"}
+  - {ref: "A.8.9", parent: "A.8", kind: annex_control, title: "Configuration"}
+  - {ref: "A.8.10", parent: "A.8", kind: annex_control, title: "Deleting information"}
+  - {ref: "A.8.11", parent: "A.8", kind: annex_control, title: "Data masking"}
+  - {ref: "A.8.12", parent: "A.8", kind: annex_control, title: "Preventing data leakage"}
+  - {ref: "A.8.13", parent: "A.8", kind: annex_control, title: "Backups"}
+  - {ref: "A.8.14", parent: "A.8", kind: annex_control, title: "Redundant processing facilities"}
+  - {ref: "A.8.15", parent: "A.8", kind: annex_control, title: "Logging"}
+  - {ref: "A.8.16", parent: "A.8", kind: annex_control, title: "Monitoring"}
+  - {ref: "A.8.17", parent: "A.8", kind: annex_control, title: "Clock synchronisation"}
+  - {ref: "A.8.18", parent: "A.8", kind: annex_control, title: "Privileged utility programs"}
+  - {ref: "A.8.19", parent: "A.8", kind: annex_control, title: "Installing software on operational systems"}
+  - {ref: "A.8.20", parent: "A.8", kind: annex_control, title: "Network security"}
+  - {ref: "A.8.21", parent: "A.8", kind: annex_control, title: "Network service security"}
+  - {ref: "A.8.22", parent: "A.8", kind: annex_control, title: "Network segregation"}
+  - {ref: "A.8.23", parent: "A.8", kind: annex_control, title: "Web filtering"}
+  - {ref: "A.8.24", parent: "A.8", kind: annex_control, title: "Cryptography"}
+  - {ref: "A.8.25", parent: "A.8", kind: annex_control, title: "Secure development lifecycle"}
+  - {ref: "A.8.26", parent: "A.8", kind: annex_control, title: "Application security requirements"}
+  - {ref: "A.8.27", parent: "A.8", kind: annex_control, title: "Secure architecture and engineering"}
+  - {ref: "A.8.28", parent: "A.8", kind: annex_control, title: "Secure coding"}
+  - {ref: "A.8.29", parent: "A.8", kind: annex_control, title: "Security testing before release"}
+  - {ref: "A.8.30", parent: "A.8", kind: annex_control, title: "Outsourced development"}
+  - {ref: "A.8.31", parent: "A.8", kind: annex_control, title: "Separating development, test and production"}
+  - {ref: "A.8.32", parent: "A.8", kind: annex_control, title: "Change management"}
+  - {ref: "A.8.33", parent: "A.8", kind: annex_control, title: "Test data"}
+  - {ref: "A.8.34", parent: "A.8", kind: annex_control, title: "Protecting systems during audit testing"}

@@ -85,3 +85,12 @@ def session(db):
     """A session with no actor; tests pass actors explicitly to services."""
     with db.session_scope() as s:
         yield s
+
+
+@pytest.fixture
+def content(db, users):
+    """Database with all framework packs, common controls and crosswalk loaded."""
+    from keystone.frameworks.loader import seed_content
+
+    with db.session_scope(users["admin"]) as s:
+        return seed_content(s, users["admin"])

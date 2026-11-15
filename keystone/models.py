@@ -4,3 +4,4 @@ from keystone.core.attachments import Attachment  # noqa: F401
 from keystone.core.audit import AuditLog  # noqa: F401
 from keystone.core.auth import User  # noqa: F401
 from keystone.org.models import InterestedParty, IsmsRoleAssignment, Organisation, SecurityObjective  # noqa: F401
+from keystone.frameworks.models import CommonControl, ControlMapping, Framework, Requirement  # noqa: F401

@@ -1,0 +1,117 @@
+# Keystone common control set. Original Keystone content.
+# Each control is implemented once and satisfies requirements in several frameworks.
+# `iso` lists ISO/IEC 27001:2022 references; mappings to NIST CSF 2.0, SOC 2 and
+# CIS v8.1 are in crosswalk.yaml. Mappings are a starting point: verify them.
+controls:
+  # ---------------------------------------------------------------- ISMS governance
+  - {code: KC-GOV-01, domain: Governance, title: "ISMS context and scope", description: "Internal and external issues, interested parties and dependencies are documented, and an approved ISMS scope sets the boundaries of the management system.", iso: ["4.1", "4.2", "4.3", "4.4"]}
+  - {code: KC-GOV-02, domain: Governance, title: "Leadership commitment and top-level policy", description: "Top management approves the information security policy, sets direction, and demonstrates accountability for the ISMS and an ethical, risk-aware culture.", iso: ["5.1", "5.2"]}
+  - {code: KC-GOV-03, domain: Governance, title: "ISMS roles and authorities", description: "Responsibilities and authorities for running and reporting on the ISMS are assigned, communicated and held to account.", iso: ["5.3"]}
+  - {code: KC-GOV-04, domain: Governance, title: "Risk assessment method and appetite", description: "A documented, repeatable method identifies, analyses and evaluates information security risks (including fraud and change-related risk) against an agreed risk appetite.", iso: ["6.1.1", "6.1.2", "8.2"]}
+  - {code: KC-GOV-05, domain: Governance, title: "Risk treatment and Statement of Applicability", description: "Risk treatment options are selected and planned, necessary controls are determined and compared with reference control sets, and the Statement of Applicability is maintained.", iso: ["6.1.3", "8.3"]}
+  - {code: KC-GOV-06, domain: Governance, title: "Security objectives and planned change", description: "Measurable security objectives are set, resourced and tracked, and changes to the ISMS are planned and controlled.", iso: ["6.2", "6.3"]}
+  - {code: KC-GOV-07, domain: Governance, title: "Resources and competence", description: "Adequate resources are provided and people doing ISMS work are competent, with evidence of training and experience retained.", iso: ["7.1", "7.2"]}
+  - {code: KC-GOV-08, domain: Governance, title: "ISMS awareness and communication", description: "Staff know the policy and their contribution to the ISMS, and what is communicated, when, to whom and by whom is defined, internally and externally.", iso: ["7.3", "7.4"]}
+  - {code: KC-GOV-09, domain: Governance, title: "Control of documented information", description: "ISMS documents and records are identified, reviewed, approved, versioned, protected and retained.", iso: ["7.5.1", "7.5.2", "7.5.3"]}
+  - {code: KC-GOV-10, domain: Governance, title: "Operational planning and control", description: "Processes needed to meet security requirements are planned, run and controlled, including externally provided processes.", iso: ["8.1"]}
+  - {code: KC-GOV-11, domain: Governance, title: "Monitoring and measurement", description: "What is measured, how, when and by whom is defined, and results are analysed and reported to evaluate ISMS performance.", iso: ["9.1"]}
+  - {code: KC-GOV-12, domain: Governance, title: "Internal audit programme", description: "An internal audit programme with defined criteria and scope is run by objective auditors, and results are reported to management.", iso: ["9.2.1", "9.2.2"]}
+  - {code: KC-GOV-13, domain: Governance, title: "Management review", description: "Top management reviews the ISMS at planned intervals using defined inputs and records decisions on improvement and change.", iso: ["9.3.1", "9.3.2", "9.3.3"]}
+  - {code: KC-GOV-14, domain: Governance, title: "Nonconformity, corrective action and improvement", description: "Nonconformities are recorded, root causes analysed, corrective actions taken and checked for effectiveness, and the ISMS is continually improved.", iso: ["10.1", "10.2"]}
+  # ---------------------------------------------------------------- Organisational (A.5)
+  - {code: KC-ORG-01, domain: Organisational, title: "Information security policies", description: "A policy set is defined, approved, published, acknowledged by staff and reviewed at planned intervals or after significant change.", iso: ["A.5.1"]}
+  - {code: KC-ORG-02, domain: Organisational, title: "Security roles and responsibilities", description: "Security responsibilities are defined and allocated across the organisation.", iso: ["A.5.2"]}
+  - {code: KC-ORG-03, domain: Organisational, title: "Segregation of duties", description: "Conflicting duties and areas of responsibility are separated or compensated where separation is impractical.", iso: ["A.5.3"]}
+  - {code: KC-ORG-04, domain: Organisational, title: "Management responsibilities", description: "Managers require staff and contractors to apply security in line with policy.", iso: ["A.5.4"]}
+  - {code: KC-ORG-05, domain: Organisational, title: "Contact with authorities", description: "Contacts with regulators, law enforcement and other authorities are maintained, including for breach notification.", iso: ["A.5.5"]}
+  - {code: KC-ORG-06, domain: Organisational, title: "Contact with special interest groups", description: "Contacts with professional associations, forums and information sharing groups are maintained.", iso: ["A.5.6"]}
+  - {code: KC-ORG-07, domain: Organisational, title: "Threat intelligence", description: "Information about threats is collected, analysed and used to inform risk assessment and defences.", iso: ["A.5.7"]}
+  - {code: KC-ORG-08, domain: Organisational, title: "Security in project management", description: "Security requirements are identified and addressed in every project.", iso: ["A.5.8"]}
+  - {code: KC-ORG-09, domain: Organisational, title: "Asset inventory", description: "Information and associated assets (hardware, software, services, data) are inventoried with owners, kept current and managed through their lifecycle.", iso: ["A.5.9"]}
+  - {code: KC-ORG-10, domain: Organisational, title: "Acceptable use", description: "Rules for acceptable use and handling of information and assets are documented and communicated.", iso: ["A.5.10"]}
+  - {code: KC-ORG-11, domain: Organisational, title: "Return of assets", description: "Staff and third parties return organisational assets when employment or a contract ends.", iso: ["A.5.11"]}
+  - {code: KC-ORG-12, domain: Organisational, title: "Classification of information", description: "Information is classified by confidentiality, integrity, availability and legal requirements.", iso: ["A.5.12"]}
+  - {code: KC-ORG-13, domain: Organisational, title: "Labelling of information", description: "Information is labelled according to the classification scheme.", iso: ["A.5.13"]}
+  - {code: KC-ORG-14, domain: Organisational, title: "Information transfer", description: "Rules and agreements protect information transferred internally and externally by any channel, including email authentication.", iso: ["A.5.14"]}
+  - {code: KC-ORG-15, domain: Organisational, title: "Access control policy", description: "Access to information and systems follows documented, least-privilege, business-driven rules.", iso: ["A.5.15"]}
+  - {code: KC-ORG-16, domain: Organisational, title: "Identity management", description: "Identities for people, services and devices are uniquely registered, managed centrally and removed when no longer needed.", iso: ["A.5.16"]}
+  - {code: KC-ORG-17, domain: Organisational, title: "Authentication information", description: "Passwords, keys and other secrets are issued, stored and changed securely, and default credentials are changed.", iso: ["A.5.17"]}
+  - {code: KC-ORG-18, domain: Organisational, title: "Access rights lifecycle", description: "Access is requested, approved, provisioned, reviewed periodically and revoked promptly on change or departure.", iso: ["A.5.18"]}
+  - {code: KC-ORG-19, domain: Organisational, title: "Supplier security", description: "Supplier risks are identified, suppliers are inventoried and tiered by criticality, and due diligence is done before engagement.", iso: ["A.5.19"]}
+  - {code: KC-ORG-20, domain: Organisational, title: "Security in supplier agreements", description: "Contracts set security, privacy, incident notification and audit obligations appropriate to the supplier's access.", iso: ["A.5.20"]}
+  - {code: KC-ORG-21, domain: Organisational, title: "ICT supply chain", description: "Risks from ICT products and services, including software components and their provenance, are managed.", iso: ["A.5.21"]}
+  - {code: KC-ORG-22, domain: Organisational, title: "Supplier monitoring and change", description: "Supplier performance and security are monitored and reviewed, changes are assessed, and offboarding is controlled.", iso: ["A.5.22"]}
+  - {code: KC-ORG-23, domain: Organisational, title: "Cloud service security", description: "Acquisition, use, management and exit of cloud services follow defined security requirements.", iso: ["A.5.23"]}
+  - {code: KC-ORG-24, domain: Organisational, title: "Incident management planning", description: "Incident roles, procedures, contacts and communication channels are defined and exercised.", iso: ["A.5.24"]}
+  - {code: KC-ORG-25, domain: Organisational, title: "Event assessment and triage", description: "Security events are analysed, correlated, sized and classified, and declared as incidents against defined criteria.", iso: ["A.5.25"]}
+  - {code: KC-ORG-26, domain: Organisational, title: "Incident response", description: "Incidents are contained, eradicated, escalated and communicated to stakeholders following documented procedures.", iso: ["A.5.26"]}
+  - {code: KC-ORG-27, domain: Organisational, title: "Learning from incidents", description: "Root causes and lessons from incidents and exercises are recorded and used to improve controls.", iso: ["A.5.27"]}
+  - {code: KC-ORG-28, domain: Organisational, title: "Collection of evidence", description: "Evidence relating to incidents is identified, collected and preserved with integrity and chain of custody.", iso: ["A.5.28"]}
+  - {code: KC-ORG-29, domain: Organisational, title: "Security during disruption", description: "Security is maintained at an appropriate level during disruption, and recovery is coordinated and communicated.", iso: ["A.5.29"]}
+  - {code: KC-ORG-30, domain: Organisational, title: "ICT continuity readiness", description: "ICT continuity is planned, implemented and tested against business continuity objectives.", iso: ["A.5.30"]}
+  - {code: KC-ORG-31, domain: Organisational, title: "Legal and contractual requirements", description: "Applicable legal, regulatory and contractual security requirements are identified, documented and kept current.", iso: ["A.5.31"]}
+  - {code: KC-ORG-32, domain: Organisational, title: "Intellectual property rights", description: "Procedures protect intellectual property rights, including software licensing.", iso: ["A.5.32"]}
+  - {code: KC-ORG-33, domain: Organisational, title: "Protection of records", description: "Records are protected from loss, destruction, falsification and unauthorised access, and retained per schedule.", iso: ["A.5.33"]}
+  - {code: KC-ORG-34, domain: Organisational, title: "Privacy and protection of personal data", description: "Personal data is processed according to privacy law and commitments: notice, consent, minimisation, rights requests, disclosures and breach notification.", iso: ["A.5.34"]}
+  - {code: KC-ORG-35, domain: Organisational, title: "Independent review", description: "The approach to information security is reviewed independently at planned intervals and after significant change.", iso: ["A.5.35"]}
+  - {code: KC-ORG-36, domain: Organisational, title: "Compliance with policies and standards", description: "Compliance with security policies, rules and standards is reviewed regularly and gaps are fixed.", iso: ["A.5.36"]}
+  - {code: KC-ORG-37, domain: Organisational, title: "Documented operating procedures", description: "Operating procedures for information processing facilities are documented and available to those who need them.", iso: ["A.5.37"]}
+  # ---------------------------------------------------------------- People (A.6)
+  - {code: KC-PPL-01, domain: People, title: "Screening", description: "Background checks proportionate to role and risk are carried out before joining and repeated where required.", iso: ["A.6.1"]}
+  - {code: KC-PPL-02, domain: People, title: "Terms of employment", description: "Employment and contractor agreements state security responsibilities.", iso: ["A.6.2"]}
+  - {code: KC-PPL-03, domain: People, title: "Awareness, education and training", description: "Everyone receives security awareness training (phishing, passwords, data handling, reporting) and role-specific training.", iso: ["A.6.3"]}
+  - {code: KC-PPL-04, domain: People, title: "Disciplinary process", description: "A formal, communicated disciplinary process exists for policy violations.", iso: ["A.6.4"]}
+  - {code: KC-PPL-05, domain: People, title: "Leaver and mover responsibilities", description: "Security duties that continue after leaving or changing role are defined and communicated, and access is adjusted.", iso: ["A.6.5"]}
+  - {code: KC-PPL-06, domain: People, title: "Confidentiality agreements", description: "Confidentiality or non-disclosure agreements reflecting protection needs are signed and reviewed.", iso: ["A.6.6"]}
+  - {code: KC-PPL-07, domain: People, title: "Remote working", description: "Security measures protect information accessed, processed or stored when working remotely.", iso: ["A.6.7"]}
+  - {code: KC-PPL-08, domain: People, title: "Security event reporting", description: "Staff can and do report observed or suspected security events quickly through known channels.", iso: ["A.6.8"]}
+  # ---------------------------------------------------------------- Physical (A.7)
+  - {code: KC-PHY-01, domain: Physical, title: "Physical security perimeters", description: "Perimeters protect areas containing information and processing facilities.", iso: ["A.7.1"]}
+  - {code: KC-PHY-02, domain: Physical, title: "Physical entry controls", description: "Entry to secure areas is restricted to authorised people and logged.", iso: ["A.7.2"]}
+  - {code: KC-PHY-03, domain: Physical, title: "Securing offices and facilities", description: "Offices, rooms and facilities are designed and secured against unauthorised access.", iso: ["A.7.3"]}
+  - {code: KC-PHY-04, domain: Physical, title: "Physical security monitoring", description: "Premises are monitored for unauthorised physical access.", iso: ["A.7.4"]}
+  - {code: KC-PHY-05, domain: Physical, title: "Environmental threat protection", description: "Protection against fire, flood, power and other environmental threats is designed and implemented.", iso: ["A.7.5"]}
+  - {code: KC-PHY-06, domain: Physical, title: "Working in secure areas", description: "Rules for working in secure areas are defined and applied.", iso: ["A.7.6"]}
+  - {code: KC-PHY-07, domain: Physical, title: "Clear desk and clear screen", description: "Clear desk and screen rules are defined and enforced.", iso: ["A.7.7"]}
+  - {code: KC-PHY-08, domain: Physical, title: "Equipment siting and protection", description: "Equipment is sited and protected to reduce physical and environmental risk.", iso: ["A.7.8"]}
+  - {code: KC-PHY-09, domain: Physical, title: "Off-premises assets", description: "Assets used off-site are protected.", iso: ["A.7.9"]}
+  - {code: KC-PHY-10, domain: Physical, title: "Storage media", description: "Removable and storage media are managed, encrypted where needed, transported and disposed of securely.", iso: ["A.7.10"]}
+  - {code: KC-PHY-11, domain: Physical, title: "Supporting utilities", description: "Facilities are protected from power and other utility failures.", iso: ["A.7.11"]}
+  - {code: KC-PHY-12, domain: Physical, title: "Cabling security", description: "Power and data cabling is protected from interception, interference and damage.", iso: ["A.7.12"]}
+  - {code: KC-PHY-13, domain: Physical, title: "Equipment maintenance", description: "Equipment is maintained correctly to keep it available and intact.", iso: ["A.7.13"]}
+  - {code: KC-PHY-14, domain: Physical, title: "Secure disposal and re-use", description: "Storage is wiped or destroyed before equipment is disposed of or re-used.", iso: ["A.7.14"]}
+  # ---------------------------------------------------------------- Technological (A.8)
+  - {code: KC-TEC-01, domain: Technological, title: "Endpoint device security", description: "Laptops, desktops and mobile devices are managed: encryption, screen lock, firewall, remote wipe and separation of work data.", iso: ["A.8.1"]}
+  - {code: KC-TEC-02, domain: Technological, title: "Privileged access", description: "Privileged rights are restricted, separate admin accounts and workstations are used, and use is reviewed.", iso: ["A.8.2"]}
+  - {code: KC-TEC-03, domain: Technological, title: "Information access restriction", description: "Access to information and application functions is restricted according to the access control policy.", iso: ["A.8.3"]}
+  - {code: KC-TEC-04, domain: Technological, title: "Access to source code", description: "Read and write access to source code, tools and libraries is managed.", iso: ["A.8.4"]}
+  - {code: KC-TEC-05, domain: Technological, title: "Secure authentication", description: "Authentication is strong and appropriate to risk, with MFA for remote, admin and internet-facing access.", iso: ["A.8.5"]}
+  - {code: KC-TEC-06, domain: Technological, title: "Capacity management", description: "Use of resources is monitored and capacity is planned to meet demand.", iso: ["A.8.6"]}
+  - {code: KC-TEC-07, domain: Technological, title: "Malware protection", description: "Centrally managed, updated anti-malware and anti-exploit protection runs on endpoints, servers and email.", iso: ["A.8.7"]}
+  - {code: KC-TEC-08, domain: Technological, title: "Technical vulnerability management", description: "Vulnerabilities are found by scanning, testing and disclosure reports, rated, and remediated within defined timescales.", iso: ["A.8.8"]}
+  - {code: KC-TEC-09, domain: Technological, title: "Configuration management", description: "Secure baseline configurations are defined, applied, monitored and changed under control.", iso: ["A.8.9"]}
+  - {code: KC-TEC-10, domain: Technological, title: "Information deletion", description: "Information is deleted when no longer required, in line with retention rules.", iso: ["A.8.10"]}
+  - {code: KC-TEC-11, domain: Technological, title: "Data masking", description: "Data masking or pseudonymisation is used where required by policy and law.", iso: ["A.8.11"]}
+  - {code: KC-TEC-12, domain: Technological, title: "Data leakage prevention", description: "Measures detect and prevent unauthorised disclosure of sensitive information.", iso: ["A.8.12"]}
+  - {code: KC-TEC-13, domain: Technological, title: "Backup", description: "Backups are automated, protected, kept partly isolated, and restores are tested.", iso: ["A.8.13"]}
+  - {code: KC-TEC-14, domain: Technological, title: "Redundancy", description: "Processing facilities have enough redundancy to meet availability requirements.", iso: ["A.8.14"]}
+  - {code: KC-TEC-15, domain: Technological, title: "Logging", description: "Security-relevant logs (including DNS, URL, command-line and provider logs) are produced, centralised, protected and retained.", iso: ["A.8.15"]}
+  - {code: KC-TEC-16, domain: Technological, title: "Monitoring activities", description: "Networks, systems and applications are monitored for anomalous behaviour, with tuned alerting and log review.", iso: ["A.8.16"]}
+  - {code: KC-TEC-17, domain: Technological, title: "Clock synchronisation", description: "System clocks are synchronised to approved time sources.", iso: ["A.8.17"]}
+  - {code: KC-TEC-18, domain: Technological, title: "Privileged utility programs", description: "Use of utilities that can override system controls is restricted and controlled.", iso: ["A.8.18"]}
+  - {code: KC-TEC-19, domain: Technological, title: "Software installation control", description: "Only approved, supported software, libraries and scripts can be installed and run.", iso: ["A.8.19"]}
+  - {code: KC-TEC-20, domain: Technological, title: "Network security", description: "Networks and devices are secured, managed and documented, with firewalls, intrusion detection and access control.", iso: ["A.8.20"]}
+  - {code: KC-TEC-21, domain: Technological, title: "Security of network services", description: "Security mechanisms and service levels for network services (DNS, email, VPN, management protocols) are defined and monitored.", iso: ["A.8.21"]}
+  - {code: KC-TEC-22, domain: Technological, title: "Network segregation", description: "Groups of services, users and systems are segregated on networks according to sensitivity.", iso: ["A.8.22"]}
+  - {code: KC-TEC-23, domain: Technological, title: "Web filtering", description: "Access to malicious or unwanted websites is filtered.", iso: ["A.8.23"]}
+  - {code: KC-TEC-24, domain: Technological, title: "Use of cryptography", description: "Cryptography, including key management, protects data at rest and in transit.", iso: ["A.8.24"]}
+  - {code: KC-TEC-25, domain: Technological, title: "Secure development lifecycle", description: "Rules for the secure development of software and systems are established and applied.", iso: ["A.8.25"]}
+  - {code: KC-TEC-26, domain: Technological, title: "Application security requirements", description: "Security and data integrity requirements for applications (inputs, processing, outputs) are specified and approved.", iso: ["A.8.26"]}
+  - {code: KC-TEC-27, domain: Technological, title: "Secure architecture and engineering", description: "Secure design principles and threat modelling are applied to system architecture.", iso: ["A.8.27"]}
+  - {code: KC-TEC-28, domain: Technological, title: "Secure coding", description: "Secure coding practices and vetted components are used.", iso: ["A.8.28"]}
+  - {code: KC-TEC-29, domain: Technological, title: "Security testing", description: "Security testing, code analysis and penetration testing take place before release and periodically.", iso: ["A.8.29"]}
+  - {code: KC-TEC-30, domain: Technological, title: "Outsourced development", description: "Outsourced development is directed, monitored and reviewed.", iso: ["A.8.30"]}
+  - {code: KC-TEC-31, domain: Technological, title: "Separation of environments", description: "Development, test and production environments are separated and secured.", iso: ["A.8.31"]}
+  - {code: KC-TEC-32, domain: Technological, title: "Change management", description: "Changes to systems and facilities are assessed, approved, tested and recorded.", iso: ["A.8.32"]}
+  - {code: KC-TEC-33, domain: Technological, title: "Test information", description: "Test data is selected, protected and managed appropriately.", iso: ["A.8.33"]}
+  - {code: KC-TEC-34, domain: Technological, title: "Protection during audit testing", description: "Audit tests on operational systems are planned and agreed to limit disruption.", iso: ["A.8.34"]}

@@ -86,8 +86,12 @@ def _hashed_fields(row: dict) -> dict:
     return {k: row[k] for k in ("ts", "actor_id", "actor_name", "action", "entity_type", "entity_id", "summary", "changes")}
 
 
-def _write(conn: Connection, actor, action: str, entity_type: str, entity_id: int | None, summary: str, changes: dict | None) -> None:
-    prev = conn.execute(select(AuditLog.hash).order_by(AuditLog.id.desc()).limit(1)).scalar()
+def _write(conn: Connection, actor, action: str, entity_type: str, entity_id: int | None, summary: str, changes: dict | None, session: Session | None = None) -> None:
+    # Within one transaction the write lock is already held (the audited row was
+    # written first), so the last hash can be cached until commit/rollback.
+    prev = session.info.get("_audit_prev") if session is not None else None
+    if prev is None:
+        prev = conn.execute(select(AuditLog.hash).order_by(AuditLog.id.desc()).limit(1)).scalar()
     row = {
         "ts": utcnow(),
         "actor_id": getattr(actor, "id", None),
@@ -101,11 +105,21 @@ def _write(conn: Connection, actor, action: str, entity_type: str, entity_id: in
     row["prev_hash"] = prev or GENESIS
     row["hash"] = _entry_hash(row["prev_hash"], _hashed_fields(row))
     conn.execute(insert(AuditLog).values(**row))
+    if session is not None:
+        session.info["_audit_prev"] = row["hash"]
+
+
+def _reset_cache(session: Session, *_args) -> None:
+    session.info.pop("_audit_prev", None)
+
+
+for _evt in ("after_commit", "after_rollback", "after_soft_rollback", "after_begin"):
+    event.listen(Session, _evt, _reset_cache)
 
 
 def log_event(session: Session, actor, action: str, entity_type: str, entity_id: int | None = None, summary: str = "", changes: dict | None = None) -> None:
     """Explicit audit entry for events that are not row changes (login, export, approval)."""
-    _write(session.connection(), actor, action, entity_type, entity_id, summary, changes)
+    _write(session.connection(), actor, action, entity_type, entity_id, summary, changes, session)
 
 
 def _columns(obj) -> list[str]:
@@ -154,15 +168,15 @@ def _audit_changes(session: Session, _ctx):
     conn = session.connection()
     for obj in list(session.new):
         if isinstance(obj, Audited):
-            _write(conn, actor, "create", type(obj).__name__, obj.id, f"Created {type(obj).__name__} {_label(obj)}".strip(), _snapshot(obj))
+            _write(conn, actor, "create", type(obj).__name__, obj.id, f"Created {type(obj).__name__} {_label(obj)}".strip(), _snapshot(obj), session)
     for obj in list(session.dirty):
         if isinstance(obj, Audited) and session.is_modified(obj, include_collections=False):
             changes = _diff(obj)
             if changes:
-                _write(conn, actor, "update", type(obj).__name__, obj.id, f"Updated {type(obj).__name__} {_label(obj)}".strip(), changes)
+                _write(conn, actor, "update", type(obj).__name__, obj.id, f"Updated {type(obj).__name__} {_label(obj)}".strip(), changes, session)
     for obj in list(session.deleted):
         if isinstance(obj, Audited):
-            _write(conn, actor, "delete", type(obj).__name__, obj.id, f"Deleted {type(obj).__name__} {_label(obj)}".strip(), _snapshot(obj))
+            _write(conn, actor, "delete", type(obj).__name__, obj.id, f"Deleted {type(obj).__name__} {_label(obj)}".strip(), _snapshot(obj), session)
 
 
 def verify_chain(session: Session) -> tuple[bool, int | None]:

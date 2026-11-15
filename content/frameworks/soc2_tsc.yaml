@@ -1,0 +1,95 @@
+# AICPA Trust Services Criteria (2017, revised points of focus 2022) used for SOC 2.
+# Criteria identifiers with SUMMARIES WRITTEN BY KEYSTONE; no AICPA text.
+# The TSC are copyright AICPA. Import the official wording from your licensed copy.
+framework:
+  code: SOC2_TSC_2017
+  name: SOC 2 Trust Services Criteria
+  version: "2017 (rev. 2022)"
+  publisher: AICPA
+  license: proprietary
+  text_level: summary
+  source_url: https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services
+  notice: "Identifiers and Keystone-written summaries only. Import official text from your licensed copy."
+
+requirements:
+  - {ref: CC1, kind: series, title: "Control environment"}
+  - {ref: CC1.1, parent: CC1, kind: criterion, title: "Commitment to integrity and ethics"}
+  - {ref: CC1.2, parent: CC1, kind: criterion, title: "Independent oversight of internal control"}
+  - {ref: CC1.3, parent: CC1, kind: criterion, title: "Structures, reporting lines and authority"}
+  - {ref: CC1.4, parent: CC1, kind: criterion, title: "Attracting, developing and keeping competent people"}
+  - {ref: CC1.5, parent: CC1, kind: criterion, title: "Holding people accountable for control duties"}
+  - {ref: CC2, kind: series, title: "Communication and information"}
+  - {ref: CC2.1, parent: CC2, kind: criterion, title: "Quality information supports internal control"}
+  - {ref: CC2.2, parent: CC2, kind: criterion, title: "Internal communication about control"}
+  - {ref: CC2.3, parent: CC2, kind: criterion, title: "Communication with external parties"}
+  - {ref: CC3, kind: series, title: "Risk assessment"}
+  - {ref: CC3.1, parent: CC3, kind: criterion, title: "Clear objectives that allow risks to be identified"}
+  - {ref: CC3.2, parent: CC3, kind: criterion, title: "Identifying and analysing risks"}
+  - {ref: CC3.3, parent: CC3, kind: criterion, title: "Considering fraud risk"}
+  - {ref: CC3.4, parent: CC3, kind: criterion, title: "Assessing changes that affect internal control"}
+  - {ref: CC4, kind: series, title: "Monitoring activities"}
+  - {ref: CC4.1, parent: CC4, kind: criterion, title: "Ongoing and separate evaluations of controls"}
+  - {ref: CC4.2, parent: CC4, kind: criterion, title: "Reporting and fixing control deficiencies"}
+  - {ref: CC5, kind: series, title: "Control activities"}
+  - {ref: CC5.1, parent: CC5, kind: criterion, title: "Selecting controls that reduce risk"}
+  - {ref: CC5.2, parent: CC5, kind: criterion, title: "General controls over technology"}
+  - {ref: CC5.3, parent: CC5, kind: criterion, title: "Deploying controls through policies and procedures"}
+  - {ref: CC6, kind: series, title: "Logical and physical access"}
+  - {ref: CC6.1, parent: CC6, kind: criterion, title: "Logical access security architecture"}
+  - {ref: CC6.2, parent: CC6, kind: criterion, title: "Registering and authorising users"}
+  - {ref: CC6.3, parent: CC6, kind: criterion, title: "Role-based access changes and removal"}
+  - {ref: CC6.4, parent: CC6, kind: criterion, title: "Restricting physical access"}
+  - {ref: CC6.5, parent: CC6, kind: criterion, title: "Retiring assets and data protection"}
+  - {ref: CC6.6, parent: CC6, kind: criterion, title: "Protection against threats from outside the boundary"}
+  - {ref: CC6.7, parent: CC6, kind: criterion, title: "Restricting data movement and transmission"}
+  - {ref: CC6.8, parent: CC6, kind: criterion, title: "Preventing unauthorised or malicious software"}
+  - {ref: CC7, kind: series, title: "System operations"}
+  - {ref: CC7.1, parent: CC7, kind: criterion, title: "Detecting configuration changes and vulnerabilities"}
+  - {ref: CC7.2, parent: CC7, kind: criterion, title: "Monitoring for anomalies"}
+  - {ref: CC7.3, parent: CC7, kind: criterion, title: "Evaluating security events"}
+  - {ref: CC7.4, parent: CC7, kind: criterion, title: "Responding to security incidents"}
+  - {ref: CC7.5, parent: CC7, kind: criterion, title: "Recovering from security incidents"}
+  - {ref: CC8, kind: series, title: "Change management"}
+  - {ref: CC8.1, parent: CC8, kind: criterion, title: "Controlled changes to infrastructure, data and software"}
+  - {ref: CC9, kind: series, title: "Risk mitigation"}
+  - {ref: CC9.1, parent: CC9, kind: criterion, title: "Mitigating business disruption risk"}
+  - {ref: CC9.2, parent: CC9, kind: criterion, title: "Managing vendor and partner risk"}
+  - {ref: A1, kind: series, title: "Availability"}
+  - {ref: A1.1, parent: A1, kind: criterion, title: "Capacity planning and management"}
+  - {ref: A1.2, parent: A1, kind: criterion, title: "Environmental protection, backup and recovery infrastructure"}
+  - {ref: A1.3, parent: A1, kind: criterion, title: "Testing recovery"}
+  - {ref: C1, kind: series, title: "Confidentiality"}
+  - {ref: C1.1, parent: C1, kind: criterion, title: "Identifying and protecting confidential information"}
+  - {ref: C1.2, parent: C1, kind: criterion, title: "Disposing of confidential information"}
+  - {ref: PI1, kind: series, title: "Processing integrity"}
+  - {ref: PI1.1, parent: PI1, kind: criterion, title: "Defining processing specifications"}
+  - {ref: PI1.2, parent: PI1, kind: criterion, title: "Controls over system inputs"}
+  - {ref: PI1.3, parent: PI1, kind: criterion, title: "Controls over processing"}
+  - {ref: PI1.4, parent: PI1, kind: criterion, title: "Controls over outputs"}
+  - {ref: PI1.5, parent: PI1, kind: criterion, title: "Controls over stored inputs and outputs"}
+  - {ref: P1, kind: series, title: "Privacy: notice"}
+  - {ref: P1.1, parent: P1, kind: criterion, title: "Privacy notice to data subjects"}
+  - {ref: P2, kind: series, title: "Privacy: choice and consent"}
+  - {ref: P2.1, parent: P2, kind: criterion, title: "Choice and consent for personal data"}
+  - {ref: P3, kind: series, title: "Privacy: collection"}
+  - {ref: P3.1, parent: P3, kind: criterion, title: "Collecting only what is needed"}
+  - {ref: P3.2, parent: P3, kind: criterion, title: "Explicit consent where required"}
+  - {ref: P4, kind: series, title: "Privacy: use, retention and disposal"}
+  - {ref: P4.1, parent: P4, kind: criterion, title: "Using personal data only for stated purposes"}
+  - {ref: P4.2, parent: P4, kind: criterion, title: "Retaining personal data"}
+  - {ref: P4.3, parent: P4, kind: criterion, title: "Disposing of personal data"}
+  - {ref: P5, kind: series, title: "Privacy: access"}
+  - {ref: P5.1, parent: P5, kind: criterion, title: "Data subject access to their data"}
+  - {ref: P5.2, parent: P5, kind: criterion, title: "Correcting personal data"}
+  - {ref: P6, kind: series, title: "Privacy: disclosure and notification"}
+  - {ref: P6.1, parent: P6, kind: criterion, title: "Disclosing personal data to third parties"}
+  - {ref: P6.2, parent: P6, kind: criterion, title: "Recording authorised disclosures"}
+  - {ref: P6.3, parent: P6, kind: criterion, title: "Recording unauthorised disclosures"}
+  - {ref: P6.4, parent: P6, kind: criterion, title: "Privacy commitments from third parties"}
+  - {ref: P6.5, parent: P6, kind: criterion, title: "Third parties report unauthorised disclosures"}
+  - {ref: P6.6, parent: P6, kind: criterion, title: "Notifying data subjects of breaches"}
+  - {ref: P6.7, parent: P6, kind: criterion, title: "Accounting of disclosures to data subjects"}
+  - {ref: P7, kind: series, title: "Privacy: quality"}
+  - {ref: P7.1, parent: P7, kind: criterion, title: "Keeping personal data accurate and complete"}
+  - {ref: P8, kind: series, title: "Privacy: monitoring and enforcement"}
+  - {ref: P8.1, parent: P8, kind: criterion, title: "Handling privacy inquiries, complaints and disputes"}

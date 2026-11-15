@@ -1,0 +1,186 @@
+# CIS Critical Security Controls v8.1 - control and safeguard identifiers with
+# SHORT TITLES WRITTEN BY KEYSTONE. The CIS Controls are licensed CC BY-NC-ND 4.0
+# by the Center for Internet Security; that licence does not allow derivatives,
+# so no CIS text is reproduced here. Import official text from your own copy.
+framework:
+  code: CIS_V8_1
+  name: CIS Critical Security Controls
+  version: "8.1"
+  publisher: Center for Internet Security
+  license: cc_by_nc_nd
+  text_level: summary
+  source_url: https://www.cisecurity.org/controls/v8-1
+  notice: "Identifiers and Keystone-written titles only. Import official text from your licensed copy."
+
+requirements:
+  - {ref: "1", kind: control, title: "Enterprise asset inventory and control"}
+  - {ref: "1.1", parent: "1", kind: safeguard, title: "Keep a detailed inventory of enterprise assets"}
+  - {ref: "1.2", parent: "1", kind: safeguard, title: "Deal with unauthorised assets"}
+  - {ref: "1.3", parent: "1", kind: safeguard, title: "Use an active asset discovery tool"}
+  - {ref: "1.4", parent: "1", kind: safeguard, title: "Feed DHCP logs into the asset inventory"}
+  - {ref: "1.5", parent: "1", kind: safeguard, title: "Use a passive asset discovery tool"}
+  - {ref: "2", kind: control, title: "Software asset inventory and control"}
+  - {ref: "2.1", parent: "2", kind: safeguard, title: "Keep a software inventory"}
+  - {ref: "2.2", parent: "2", kind: safeguard, title: "Run only vendor-supported software"}
+  - {ref: "2.3", parent: "2", kind: safeguard, title: "Deal with unauthorised software"}
+  - {ref: "2.4", parent: "2", kind: safeguard, title: "Use automated software inventory tooling"}
+  - {ref: "2.5", parent: "2", kind: safeguard, title: "Allowlist approved software"}
+  - {ref: "2.6", parent: "2", kind: safeguard, title: "Allowlist approved libraries"}
+  - {ref: "2.7", parent: "2", kind: safeguard, title: "Allowlist approved scripts"}
+  - {ref: "3", kind: control, title: "Data protection"}
+  - {ref: "3.1", parent: "3", kind: safeguard, title: "Run a data management process"}
+  - {ref: "3.2", parent: "3", kind: safeguard, title: "Keep a data inventory"}
+  - {ref: "3.3", parent: "3", kind: safeguard, title: "Set access control lists on data"}
+  - {ref: "3.4", parent: "3", kind: safeguard, title: "Apply data retention rules"}
+  - {ref: "3.5", parent: "3", kind: safeguard, title: "Dispose of data securely"}
+  - {ref: "3.6", parent: "3", kind: safeguard, title: "Encrypt data on end-user devices"}
+  - {ref: "3.7", parent: "3", kind: safeguard, title: "Maintain a data classification scheme"}
+  - {ref: "3.8", parent: "3", kind: safeguard, title: "Document data flows"}
+  - {ref: "3.9", parent: "3", kind: safeguard, title: "Encrypt removable media"}
+  - {ref: "3.10", parent: "3", kind: safeguard, title: "Encrypt sensitive data in transit"}
+  - {ref: "3.11", parent: "3", kind: safeguard, title: "Encrypt sensitive data at rest"}
+  - {ref: "3.12", parent: "3", kind: safeguard, title: "Segment processing and storage by sensitivity"}
+  - {ref: "3.13", parent: "3", kind: safeguard, title: "Deploy data loss prevention"}
+  - {ref: "3.14", parent: "3", kind: safeguard, title: "Log access to sensitive data"}
+  - {ref: "4", kind: control, title: "Secure configuration of assets and software"}
+  - {ref: "4.1", parent: "4", kind: safeguard, title: "Run a secure configuration process"}
+  - {ref: "4.2", parent: "4", kind: safeguard, title: "Secure configuration for network devices"}
+  - {ref: "4.3", parent: "4", kind: safeguard, title: "Lock idle sessions automatically"}
+  - {ref: "4.4", parent: "4", kind: safeguard, title: "Firewall on servers"}
+  - {ref: "4.5", parent: "4", kind: safeguard, title: "Firewall on end-user devices"}
+  - {ref: "4.6", parent: "4", kind: safeguard, title: "Manage assets and software securely"}
+  - {ref: "4.7", parent: "4", kind: safeguard, title: "Manage default accounts"}
+  - {ref: "4.8", parent: "4", kind: safeguard, title: "Remove or disable unneeded services"}
+  - {ref: "4.9", parent: "4", kind: safeguard, title: "Use trusted DNS resolvers"}
+  - {ref: "4.10", parent: "4", kind: safeguard, title: "Lock portable devices after failed unlocks"}
+  - {ref: "4.11", parent: "4", kind: safeguard, title: "Remote wipe for portable devices"}
+  - {ref: "4.12", parent: "4", kind: safeguard, title: "Separate work data on mobile devices"}
+  - {ref: "5", kind: control, title: "Account management"}
+  - {ref: "5.1", parent: "5", kind: safeguard, title: "Keep an inventory of accounts"}
+  - {ref: "5.2", parent: "5", kind: safeguard, title: "Use unique passwords"}
+  - {ref: "5.3", parent: "5", kind: safeguard, title: "Disable dormant accounts"}
+  - {ref: "5.4", parent: "5", kind: safeguard, title: "Use dedicated accounts for admin rights"}
+  - {ref: "5.5", parent: "5", kind: safeguard, title: "Keep an inventory of service accounts"}
+  - {ref: "5.6", parent: "5", kind: safeguard, title: "Manage accounts centrally"}
+  - {ref: "6", kind: control, title: "Access control management"}
+  - {ref: "6.1", parent: "6", kind: safeguard, title: "Process for granting access"}
+  - {ref: "6.2", parent: "6", kind: safeguard, title: "Process for revoking access"}
+  - {ref: "6.3", parent: "6", kind: safeguard, title: "MFA for internet-facing applications"}
+  - {ref: "6.4", parent: "6", kind: safeguard, title: "MFA for remote network access"}
+  - {ref: "6.5", parent: "6", kind: safeguard, title: "MFA for administrative access"}
+  - {ref: "6.6", parent: "6", kind: safeguard, title: "Inventory of authentication and authorisation systems"}
+  - {ref: "6.7", parent: "6", kind: safeguard, title: "Centralise access control"}
+  - {ref: "6.8", parent: "6", kind: safeguard, title: "Define role-based access"}
+  - {ref: "7", kind: control, title: "Continuous vulnerability management"}
+  - {ref: "7.1", parent: "7", kind: safeguard, title: "Run a vulnerability management process"}
+  - {ref: "7.2", parent: "7", kind: safeguard, title: "Run a remediation process"}
+  - {ref: "7.3", parent: "7", kind: safeguard, title: "Automate operating system patching"}
+  - {ref: "7.4", parent: "7", kind: safeguard, title: "Automate application patching"}
+  - {ref: "7.5", parent: "7", kind: safeguard, title: "Scan internal assets automatically"}
+  - {ref: "7.6", parent: "7", kind: safeguard, title: "Scan internet-facing assets automatically"}
+  - {ref: "7.7", parent: "7", kind: safeguard, title: "Fix detected vulnerabilities"}
+  - {ref: "8", kind: control, title: "Audit log management"}
+  - {ref: "8.1", parent: "8", kind: safeguard, title: "Run an audit log management process"}
+  - {ref: "8.2", parent: "8", kind: safeguard, title: "Collect audit logs"}
+  - {ref: "8.3", parent: "8", kind: safeguard, title: "Provide enough log storage"}
+  - {ref: "8.4", parent: "8", kind: safeguard, title: "Synchronise time"}
+  - {ref: "8.5", parent: "8", kind: safeguard, title: "Collect detailed audit logs"}
+  - {ref: "8.6", parent: "8", kind: safeguard, title: "Log DNS queries"}
+  - {ref: "8.7", parent: "8", kind: safeguard, title: "Log URL requests"}
+  - {ref: "8.8", parent: "8", kind: safeguard, title: "Log command-line activity"}
+  - {ref: "8.9", parent: "8", kind: safeguard, title: "Centralise audit logs"}
+  - {ref: "8.10", parent: "8", kind: safeguard, title: "Retain audit logs"}
+  - {ref: "8.11", parent: "8", kind: safeguard, title: "Review audit logs"}
+  - {ref: "8.12", parent: "8", kind: safeguard, title: "Collect service provider logs"}
+  - {ref: "9", kind: control, title: "Email and web browser protection"}
+  - {ref: "9.1", parent: "9", kind: safeguard, title: "Use only supported browsers and email clients"}
+  - {ref: "9.2", parent: "9", kind: safeguard, title: "Use DNS filtering"}
+  - {ref: "9.3", parent: "9", kind: safeguard, title: "Filter URLs at the network"}
+  - {ref: "9.4", parent: "9", kind: safeguard, title: "Restrict browser and email add-ons"}
+  - {ref: "9.5", parent: "9", kind: safeguard, title: "Enforce DMARC"}
+  - {ref: "9.6", parent: "9", kind: safeguard, title: "Block unneeded file types"}
+  - {ref: "9.7", parent: "9", kind: safeguard, title: "Anti-malware on email servers"}
+  - {ref: "10", kind: control, title: "Malware defences"}
+  - {ref: "10.1", parent: "10", kind: safeguard, title: "Deploy anti-malware"}
+  - {ref: "10.2", parent: "10", kind: safeguard, title: "Update anti-malware signatures automatically"}
+  - {ref: "10.3", parent: "10", kind: safeguard, title: "Disable autorun for removable media"}
+  - {ref: "10.4", parent: "10", kind: safeguard, title: "Scan removable media automatically"}
+  - {ref: "10.5", parent: "10", kind: safeguard, title: "Turn on anti-exploitation features"}
+  - {ref: "10.6", parent: "10", kind: safeguard, title: "Manage anti-malware centrally"}
+  - {ref: "10.7", parent: "10", kind: safeguard, title: "Use behaviour-based anti-malware"}
+  - {ref: "11", kind: control, title: "Data recovery"}
+  - {ref: "11.1", parent: "11", kind: safeguard, title: "Run a data recovery process"}
+  - {ref: "11.2", parent: "11", kind: safeguard, title: "Automate backups"}
+  - {ref: "11.3", parent: "11", kind: safeguard, title: "Protect backup data"}
+  - {ref: "11.4", parent: "11", kind: safeguard, title: "Keep an isolated copy of backups"}
+  - {ref: "11.5", parent: "11", kind: safeguard, title: "Test data recovery"}
+  - {ref: "12", kind: control, title: "Network infrastructure management"}
+  - {ref: "12.1", parent: "12", kind: safeguard, title: "Keep network infrastructure up to date"}
+  - {ref: "12.2", parent: "12", kind: safeguard, title: "Design a secure network architecture"}
+  - {ref: "12.3", parent: "12", kind: safeguard, title: "Manage network infrastructure securely"}
+  - {ref: "12.4", parent: "12", kind: safeguard, title: "Keep architecture diagrams"}
+  - {ref: "12.5", parent: "12", kind: safeguard, title: "Centralise network AAA"}
+  - {ref: "12.6", parent: "12", kind: safeguard, title: "Use secure management protocols"}
+  - {ref: "12.7", parent: "12", kind: safeguard, title: "Remote devices use VPN and central AAA"}
+  - {ref: "12.8", parent: "12", kind: safeguard, title: "Dedicated systems for admin work"}
+  - {ref: "13", kind: control, title: "Network monitoring and defence"}
+  - {ref: "13.1", parent: "13", kind: safeguard, title: "Centralise security alerting"}
+  - {ref: "13.2", parent: "13", kind: safeguard, title: "Host-based intrusion detection"}
+  - {ref: "13.3", parent: "13", kind: safeguard, title: "Network intrusion detection"}
+  - {ref: "13.4", parent: "13", kind: safeguard, title: "Filter traffic between network segments"}
+  - {ref: "13.5", parent: "13", kind: safeguard, title: "Control access for remote assets"}
+  - {ref: "13.6", parent: "13", kind: safeguard, title: "Collect network flow logs"}
+  - {ref: "13.7", parent: "13", kind: safeguard, title: "Host-based intrusion prevention"}
+  - {ref: "13.8", parent: "13", kind: safeguard, title: "Network intrusion prevention"}
+  - {ref: "13.9", parent: "13", kind: safeguard, title: "Port-level access control"}
+  - {ref: "13.10", parent: "13", kind: safeguard, title: "Application-layer filtering"}
+  - {ref: "13.11", parent: "13", kind: safeguard, title: "Tune alert thresholds"}
+  - {ref: "14", kind: control, title: "Security awareness and skills training"}
+  - {ref: "14.1", parent: "14", kind: safeguard, title: "Run a security awareness programme"}
+  - {ref: "14.2", parent: "14", kind: safeguard, title: "Train staff to spot social engineering"}
+  - {ref: "14.3", parent: "14", kind: safeguard, title: "Train staff on authentication good practice"}
+  - {ref: "14.4", parent: "14", kind: safeguard, title: "Train staff on data handling"}
+  - {ref: "14.5", parent: "14", kind: safeguard, title: "Train staff on accidental data exposure"}
+  - {ref: "14.6", parent: "14", kind: safeguard, title: "Train staff to recognise and report incidents"}
+  - {ref: "14.7", parent: "14", kind: safeguard, title: "Train staff to report missing updates"}
+  - {ref: "14.8", parent: "14", kind: safeguard, title: "Train staff on insecure networks"}
+  - {ref: "14.9", parent: "14", kind: safeguard, title: "Role-specific security training"}
+  - {ref: "15", kind: control, title: "Service provider management"}
+  - {ref: "15.1", parent: "15", kind: safeguard, title: "Keep an inventory of service providers"}
+  - {ref: "15.2", parent: "15", kind: safeguard, title: "Service provider management policy"}
+  - {ref: "15.3", parent: "15", kind: safeguard, title: "Classify service providers"}
+  - {ref: "15.4", parent: "15", kind: safeguard, title: "Security requirements in provider contracts"}
+  - {ref: "15.5", parent: "15", kind: safeguard, title: "Assess service providers"}
+  - {ref: "15.6", parent: "15", kind: safeguard, title: "Monitor service providers"}
+  - {ref: "15.7", parent: "15", kind: safeguard, title: "Decommission service providers securely"}
+  - {ref: "16", kind: control, title: "Application software security"}
+  - {ref: "16.1", parent: "16", kind: safeguard, title: "Secure development process"}
+  - {ref: "16.2", parent: "16", kind: safeguard, title: "Process for reported software vulnerabilities"}
+  - {ref: "16.3", parent: "16", kind: safeguard, title: "Root-cause analysis of vulnerabilities"}
+  - {ref: "16.4", parent: "16", kind: safeguard, title: "Inventory of third-party components"}
+  - {ref: "16.5", parent: "16", kind: safeguard, title: "Use current, trusted third-party components"}
+  - {ref: "16.6", parent: "16", kind: safeguard, title: "Severity rating for application vulnerabilities"}
+  - {ref: "16.7", parent: "16", kind: safeguard, title: "Hardened templates for application infrastructure"}
+  - {ref: "16.8", parent: "16", kind: safeguard, title: "Separate production and non-production"}
+  - {ref: "16.9", parent: "16", kind: safeguard, title: "Secure coding training for developers"}
+  - {ref: "16.10", parent: "16", kind: safeguard, title: "Apply secure design principles"}
+  - {ref: "16.11", parent: "16", kind: safeguard, title: "Use vetted security components"}
+  - {ref: "16.12", parent: "16", kind: safeguard, title: "Code-level security checks"}
+  - {ref: "16.13", parent: "16", kind: safeguard, title: "Application penetration testing"}
+  - {ref: "16.14", parent: "16", kind: safeguard, title: "Threat modelling"}
+  - {ref: "17", kind: control, title: "Incident response management"}
+  - {ref: "17.1", parent: "17", kind: safeguard, title: "Name people to handle incidents"}
+  - {ref: "17.2", parent: "17", kind: safeguard, title: "Keep incident reporting contacts"}
+  - {ref: "17.3", parent: "17", kind: safeguard, title: "Process for reporting incidents"}
+  - {ref: "17.4", parent: "17", kind: safeguard, title: "Incident response process"}
+  - {ref: "17.5", parent: "17", kind: safeguard, title: "Assign key incident roles"}
+  - {ref: "17.6", parent: "17", kind: safeguard, title: "Communication methods during response"}
+  - {ref: "17.7", parent: "17", kind: safeguard, title: "Regular incident response exercises"}
+  - {ref: "17.8", parent: "17", kind: safeguard, title: "Post-incident reviews"}
+  - {ref: "17.9", parent: "17", kind: safeguard, title: "Incident thresholds"}
+  - {ref: "18", kind: control, title: "Penetration testing"}
+  - {ref: "18.1", parent: "18", kind: safeguard, title: "Penetration testing programme"}
+  - {ref: "18.2", parent: "18", kind: safeguard, title: "Regular external penetration tests"}
+  - {ref: "18.3", parent: "18", kind: safeguard, title: "Fix penetration test findings"}
+  - {ref: "18.4", parent: "18", kind: safeguard, title: "Validate security measures"}
+  - {ref: "18.5", parent: "18", kind: safeguard, title: "Regular internal penetration tests"}
