@@ -80,3 +80,32 @@ def test_page_renders(users, db, path, perm, role):
         return
     at.switch_page(path).run()
     assert not at.exception, [e.value for e in at.exception]
+
+
+@pytest.fixture
+def demo_db(db):
+    from keystone import demo
+    from keystone.core import auth
+
+    with db.session_scope() as s:
+        admin = auth.create_user(s, None, username="admin", display_name="Demo Admin", password=demo.DEMO_PASSWORD)
+    with db.session_scope(admin) as s:
+        handles = demo.seed(s, s.get(auth.User, admin.id))
+        return {k: v.id for k, v in handles["people"].items()}
+
+
+@pytest.mark.parametrize("path,perm", PAGES, ids=[p[0] for p in PAGES])
+@pytest.mark.parametrize("who", ["admin", "omar.audit"])
+def test_page_renders_with_demo_data(demo_db, path, perm, who):
+    from keystone.core.rbac import has_permission
+    from keystone.core.auth import User
+    from keystone.core import db as dbmod
+
+    with dbmod.session_scope() as s:
+        allowed = has_permission(s.get(User, demo_db[who]), perm)
+    at = _app(demo_db[who])
+    at.run()
+    if not allowed:
+        return
+    at.switch_page(path).run()
+    assert not at.exception, [e.value for e in at.exception]

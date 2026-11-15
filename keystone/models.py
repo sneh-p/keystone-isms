@@ -5,3 +5,5 @@ from keystone.core.audit import AuditLog  # noqa: F401
 from keystone.core.auth import User  # noqa: F401
 from keystone.org.models import InterestedParty, IsmsRoleAssignment, Organisation, SecurityObjective  # noqa: F401
 from keystone.frameworks.models import CommonControl, ControlMapping, Framework, Requirement  # noqa: F401
+from keystone.assets.models import Asset  # noqa: F401
+from keystone.risk.models import Risk, RiskAcceptance, TreatmentAction  # noqa: F401

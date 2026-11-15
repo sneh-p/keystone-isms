@@ -1,0 +1,24 @@
+# Qualitative risk matrix. Calibration starting point: adjust to your risk method.
+likelihood:
+  1: "Rare (less than once in 10 years)"
+  2: "Unlikely (once in 3-10 years)"
+  3: "Possible (once in 1-3 years)"
+  4: "Likely (about once a year)"
+  5: "Almost certain (several times a year)"
+impact:
+  1: "Negligible"
+  2: "Minor"
+  3: "Moderate"
+  4: "Major"
+  5: "Severe"
+# Level = first band whose `min` the score (likelihood x impact, 1-25) reaches, highest first.
+levels:
+  - {level: Critical, min: 17}
+  - {level: High, min: 10}
+  - {level: Medium, min: 5}
+  - {level: Low, min: 1}
+# Risks with a residual level above this need treatment or a time-limited acceptance.
+appetite_max_level: Medium
+max_acceptance_days: 365
+# Days until the next review, by current (residual, else inherent) level.
+review_days: {Critical: 90, High: 180, Medium: 365, Low: 365}
