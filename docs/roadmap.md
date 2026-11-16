@@ -16,8 +16,8 @@ access, logins, uploads or outbound connections follow the secure coding standar
 | 8 | Cloud posture: AWS Security Hub, Microsoft Defender for Cloud, Google Security Command Center | Done (not yet validated against live accounts) |
 | 9 | Ticketing: Jira, ServiceNow, ConnectWise PSA, Autotask | Done (not yet validated against live instances) |
 | 10 | Frameworks: NIS2, DORA, GDPR, ISO 27701, ISO 42001, PCI DSS, Cyber Essentials, Essential Eight | Done |
-| 11 | Privacy: records of processing, DPIAs, data subject requests, breach log | Planned |
-| 12 | Business continuity: BIA, recovery objectives, continuity tests | Planned |
+| 11 | Privacy: records of processing, DPIAs, data subject requests, breach log | Done |
+| 12 | Business continuity: BIA, recovery objectives, continuity tests | Done |
 | 13 | Policy e-signature and versioned PDF export | Planned |
 | 14 | SCIM provisioning; HR system connectors; Okta sign-in | Planned |
 | 15 | Access review campaigns | Planned |

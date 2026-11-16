@@ -161,6 +161,14 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   no details, and the link back is to Keystone, so the ticket system doesn't become a second copy of sensitive data.
   Status flows one way: a closed ticket notifies the person who raised it but never closes the Keystone record, which
   keeps verification in Keystone. Automatic tickets are capped per run to avoid flooding a service desk.
+- **Privacy records minimise themselves.** Data subject requests are the one register that exists to hold a
+  private individual's details, so those fields are redacted in the hash-chained audit log (which can never be edited
+  later) and cleared from the record a year after closing by a daily job; the request remains as proof it was
+  handled. The breach log doesn't duplicate incidents: it adds an Article 33(5) assessment to each incident involving
+  personal data, and takes deadlines and notification dates from the incident.
+- **Continuity tests produce evidence.** A recorded test is compared with each process's RTO and RPO, can't be marked
+  passed if an objective was missed, and files evidence on KC-ORG-29/30, so "tested within the year" is visible on the
+  controls without a separate upload.
 - **Connector client decoding bug (found 2026-11-16).** The shared client rebuilt responses from already-decompressed
   bytes but kept `Content-Encoding`, so any real API that gzips its responses failed with `DecodingError`. Mocked
   connector tests never sent compressed responses; a regression test now does. This affected every attack surface

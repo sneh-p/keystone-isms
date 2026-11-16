@@ -192,6 +192,39 @@ Once the vendor submits, the questionnaire is read-only for them and its owner i
    expired credentials, credentials added to vendor apps, and tenants where users can consent.
    Export them to Excel for the Entra administrators.
 
+## Privacy
+
+**Compliance → Privacy** holds four registers:
+
+- **Records of processing** (GDPR Article 30): each activity's purpose, lawful basis, people and data, processors
+  (from the vendor register), systems (from the asset register), transfers outside the EEA and their safeguard, and
+  retention. Keystone refuses a legitimate-interest record without the interest, special category data without an
+  Article 9 condition, and transfers without a safeguard.
+- **DPIAs** (Article 35): describe the processing and why it's necessary, list risks to people with likelihood,
+  severity, measures and residual risk, record the DPO's advice, and submit. Someone with risk-acceptance rights who
+  didn't write it decides. A high residual risk is flagged: the authority must be consulted first.
+- **Data subject requests** (visible only to people who handle privacy): due one month after receipt; one extension of
+  two more months needs a reason. Identity must be verified before work starts. Closing needs a note of what was done or
+  why it was refused. Names and contact details are removed a year after closing (`KEYSTONE_DSR_REDACT_DAYS`) and never
+  appear in the audit log.
+- **Breach log**: every incident involving personal data, with its 72-hour deadline from the incident and an
+  assessment of the data, people affected, consequences, measures and risk to people, including why it was or
+  wasn't notified.
+
+## Business continuity
+
+**Operations → Business continuity** has three tabs:
+
+- **Business impact analysis**: each process's criticality, impact of a day's outage, maximum tolerable disruption,
+  RTO and RPO (the RTO can't exceed the maximum), the systems and suppliers it depends on, and manual workarounds.
+  Critical and high processes without a plan are flagged.
+- **Plans**: which processes each plan covers, the recovery strategy and who activates it, and how often it must be
+  tested. A plan never tested is due now.
+- **Tests**: plan an exercise (tabletop, walkthrough, simulation, backup restore, full interruption), then record the
+  result with the recovery time and data loss achieved for each process. Keystone compares them with the RTO and RPO,
+  won't record a test as passed if an objective was missed, files evidence on the continuity controls, and can raise a
+  nonconformity for the issues in one step.
+
 ## Policies
 
 Create a document, write a version (Markdown or an attached file) and submit it. An approver

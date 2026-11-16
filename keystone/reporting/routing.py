@@ -148,6 +148,31 @@ def routed_items(session: Session, on: date | None = None) -> dict[int, list[dic
             for m in managers:
                 out[m].append(it)
 
+    # Privacy: data subject requests to their assignee (else everyone who handles requests); DPIAs to approvers
+    from keystone.continuity import service as bcs
+    from keystone.privacy import service as pvs
+
+    patt_ = pvs.attention(session, on)
+    for r in patt_["requests_overdue"] + patt_["requests_due_soon"]:
+        it = item(f"Data subject request {r.ref} ({r.request_type}) due {r.due_date:%d %b}", "/privacy?tab=requests", r.due_date)
+        if r.assignee_id in active:
+            out[r.assignee_id].append(it)
+        else:
+            to_holders("privacy.write", it)
+    for d in patt_["dpias_awaiting_decision"]:
+        to_holders("risk.accept", item(f"Decide DPIA {d.ref} {d.title}", "/privacy?tab=dpias"), exclude=frozenset({d.submitted_by_id, d.created_by_id}))
+    for a in patt_["activities_review_overdue"]:
+        to_owner(a.owner_id, item(f"Review the processing record {a.name}", "/privacy", a.next_review_date), "ropa_review", "processing record(s) due for review", "/privacy")
+    for i in patt_["breaches_unassessed"]:
+        to_holders("privacy.write", item(f"Assess incident {i.ref} as a personal data breach", "/privacy?tab=breaches"))
+
+    # Business continuity: plan tests and BIA reviews to their owners
+    batt = bcs.attention(session, on)
+    for p in batt["plans_test_due"]:
+        to_owner(p.owner_id, item(f"Test the continuity plan {p.title}", "/continuity?tab=plans"), "bcp_test", "continuity plan(s) due for a test", "/continuity?tab=plans")
+    for p in batt["process_review_overdue"]:
+        to_owner(p.owner_id, item(f"Review the business impact analysis for {p.name}", "/continuity", p.next_review_date), "bia_review", "BIA review(s) overdue", "/continuity")
+
     # Work nobody is assigned to
     unassigned = [t for t in tsk.list_tasks(session, include_closed=False) if t.assignee_id is None and t.status in ("todo", "in_progress")]
     if unassigned:

@@ -40,6 +40,15 @@ def require_text(value: str | None, label: str) -> str:
     return value.strip()
 
 
+def add_months(d: date, months: int) -> date:
+    """Same day `months` later, clamped to the end of shorter months (31 Jan + 1 month = 28/29 Feb)."""
+    import calendar
+
+    y, m = divmod(d.month - 1 + months, 12)
+    year, month = d.year + y, m + 1
+    return date(year, month, min(d.day, calendar.monthrange(year, month)[1]))
+
+
 def today() -> date:
     return datetime.now().date()
 

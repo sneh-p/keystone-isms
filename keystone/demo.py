@@ -175,6 +175,7 @@ def seed(session: Session, admin) -> dict:
     _seed_trend_history(session)
     _seed_attack_surface(session, admin)
     seed_external(session)
+    seed_privacy_continuity(session, people)
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
 
 
@@ -356,3 +357,51 @@ def seed_external(session: Session) -> None:
     for name, src, facts, issues in hosts:
         session.add(ExternalHost(domain_id=d.id, host=name, source=src, first_seen=now - timedelta(days=30), last_seen=now, checked_at=now, facts=facts, issues=issues, worst=_worst(issues)))
     session.flush()
+
+
+def seed_privacy_continuity(session: Session, people: dict) -> None:
+    """Fictional privacy records and continuity data for the demo organisation."""
+    from keystone.assets.models import Asset
+    from keystone.continuity import service as bc
+    from keystone.privacy import service as pv
+    from keystone.tprm.models import Vendor
+
+    mia, raj = people["mia.isms"], people["raj.risk"]
+    vendors = {v.name: v.id for v in session.scalars(select(Vendor))}
+    assets = {a.name: a.id for a in session.scalars(select(Asset))}
+    book = pv.save_activity(session, mia, name="Guest bookings", purpose="Take, change and fulfil hotel and ski-school bookings", lawful_basis="contract",
+                            data_subjects="Guests and their party members", data_categories="Names, contact details, stay dates, payment references",
+                            recipients="Hotels, payment provider", retention="7 years after the stay (tax law)", owner_id=raj.id,
+                            asset_ids=[i for n, i in assets.items() if n in ("Online booking platform", "Guest database")],
+                            vendor_ids=[i for n, i in vendors.items() if n.startswith("Fabrikam")], security_measures="Encryption at rest, MFA for staff, daily backups")
+    pv.save_activity(session, mia, name="Marketing newsletter", purpose="Send season offers to people who signed up", lawful_basis="consent",
+                     data_subjects="Subscribers", data_categories="Email address, language", retention="Until consent is withdrawn", owner_id=mia.id,
+                     transfers="United States", transfer_safeguard="scc")
+    pv.save_activity(session, mia, name="Staff medical certificates", purpose="Record sick leave", lawful_basis="legal_obligation", special_category=True,
+                     special_condition="Art. 9(2)(b) employment law", data_subjects="Employees", retention="3 years", owner_id=mia.id, dpia_required=False)
+    d = pv.save_dpia(session, mia, title="Lift-pass face recognition pilot", activity_id=book.id, description="Pilot of face matching at two lift gates to stop pass sharing",
+                     necessity="Pass sharing costs revenue; a photo check by staff is the less intrusive alternative",
+                     risks=[{"risk": "Biometric data of guests processed at scale", "likelihood": 3, "severity": 3, "measures": "Opt-in only; templates deleted at end of stay", "residual": 2},
+                            {"risk": "False matches deny access", "likelihood": 2, "severity": 2, "measures": "Staff override at every gate", "residual": 1}],
+                     outcome="proceed_with_measures", dpo_advice="Only with explicit opt-in and a non-biometric alternative")
+    pv.submit_dpia(session, mia, d.id)
+    on = today_ = date.today()
+    r = pv.save_request(session, mia, request_type="access", received_on=today_ - timedelta(days=24), channel="Email", requester_name="A. Guest",
+                        requester_contact="guest@example.com", details="Copy of all booking data", assignee_id=mia.id, identity_verified=True)
+    pv.move_request(session, mia, r.id, "in_progress")
+    pv.save_request(session, mia, request_type="erasure", received_on=today_ - timedelta(days=3), channel="Web form", requester_name="B. Visitor", details="Delete my newsletter data")
+
+    pb = bc.save_process(session, raj, name="Online bookings", criticality="critical", owner_id=raj.id, mtpd_hours=24, rto_hours=8, rpo_hours=1,
+                         impact={"financial": 5, "operational": 4, "legal": 2, "reputational": 4}, asset_ids=[assets.get("Online booking platform")] if assets.get("Online booking platform") else [],
+                         workarounds="Phone bookings on paper forms at each hotel desk", minimum_staff=4)
+    pl = bc.save_process(session, raj, name="Lift operations", criticality="critical", owner_id=raj.id, mtpd_hours=4, rto_hours=2, rpo_hours=24,
+                         impact={"financial": 5, "operational": 5, "legal": 3, "reputational": 5})
+    bc.save_process(session, raj, name="Payroll", criticality="high", owner_id=mia.id, mtpd_hours=120, rto_hours=72, rpo_hours=24)
+    bc.save_process(session, raj, name="Hotel housekeeping scheduling", criticality="low", mtpd_hours=168, rto_hours=72)
+    plan = bc.save_plan(session, raj, title="Booking platform recovery", process_ids=[pb.id], owner_id=raj.id, strategy="Restore from immutable backup to the secondary region",
+                        activation="Head of IT or duty manager, when bookings are down for 30 minutes")
+    bc.save_plan(session, raj, title="Lift operations continuity", process_ids=[pl.id], owner_id=raj.id, strategy="Manual gate operation; paper pass checks")
+    t = bc.plan_test(session, raj, plan_id=plan.id, title="Restore booking database from backup", test_type="backup_restore", planned_on=on - timedelta(days=40))
+    bc.complete_test(session, raj, t.id, performed_on=on - timedelta(days=38), outcome="passed_with_issues", findings="Restore took 11 hours: the runbook missed the DNS change",
+                     results=[{"process_id": pb.id, "recovered_hours": 11, "data_loss_hours": 0.5}], raise_nc=True)
+    bc.plan_test(session, raj, plan_id=plan.id, title="Tabletop: ransomware during peak week", test_type="tabletop", planned_on=on + timedelta(days=21))

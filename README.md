@@ -17,6 +17,7 @@ All screenshots show the fictional demo organisation, Alpine Ski House.
 - [Screenshots](#screenshots)
 - [Quick start](#quick-start)
 - [Attack surface management](#attack-surface-management)
+- [Privacy and business continuity](#privacy-and-business-continuity)
 - [Ticketing](#ticketing)
 - [Integrations](#integrations)
 - [Security model](#security-model)
@@ -146,6 +147,13 @@ nightly and test-restores each backup; copy the backups off the host and keep th
    can't be approved for your own device.
 
 Data a tool doesn't report is "no data", never compliant; failed or partial runs never retire anything.
+
+## Privacy and business continuity
+
+**Privacy**: records of processing (Article 30), DPIAs with an independent decision, data subject requests with legal
+deadlines and automatic removal of requesters' details after closing, and a breach log built on incidents.
+**Business continuity**: business impact analysis with RTO/RPO/MTPD, continuity plans, and tests whose results are
+checked against the objectives and filed as evidence.
 
 ## Ticketing
 

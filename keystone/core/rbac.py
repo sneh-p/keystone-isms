@@ -60,6 +60,8 @@ ALL_PERMISSIONS = frozenset(
         "questionnaire.write",
         "questionnaire.approve",
         "ai.manage",
+        "privacy.write",  # round 3: records of processing, DPIAs, data subject requests, breach assessments
+        "continuity.write",  # round 3: business impact analysis, continuity plans and tests
     }
 )
 
@@ -68,7 +70,7 @@ _BASE = {"read", "policy.acknowledge", "portal"}
 ROLE_PERMISSIONS: dict[Role, frozenset[str]] = {
     Role.ADMIN: ALL_PERMISSIONS,
     Role.ISMS_MANAGER: ALL_PERMISSIONS - {"users.manage", "ai.manage"},
-    Role.RISK_OWNER: frozenset(_BASE | {"asset.write", "risk.write", "evidence.write", "incident.write", "nc.write", "task.write"}),
+    Role.RISK_OWNER: frozenset(_BASE | {"asset.write", "risk.write", "evidence.write", "incident.write", "nc.write", "task.write", "continuity.write"}),
     Role.CONTROL_OWNER: frozenset(_BASE | {"control.write", "evidence.write", "incident.write", "nc.write", "task.write", "questionnaire.write"}),
     Role.AUDITOR: frozenset(_BASE | {"audit.findings", "audit_log.view"}),
     Role.VIEWER: frozenset(_BASE),

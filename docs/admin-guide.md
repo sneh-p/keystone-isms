@@ -101,6 +101,7 @@ plain HTTP for evaluation on a private network only.
 | `KEYSTONE_DATA_DIR` | `./data` | Database (SQLite), attachments and `secret.key` |
 | `KEYSTONE_DB_URL` | SQLite in the data dir | e.g. `postgresql+psycopg://keystone@db/keystone` |
 | `KEYSTONE_DB_PASSWORD_FILE` | unset | File holding the database password (for example a Docker secret), added to `KEYSTONE_DB_URL` |
+| `KEYSTONE_DSR_REDACT_DAYS` | 365 | Days after a data subject request is closed before the requester's name, contact details and request text are removed |
 | `KEYSTONE_BACKUP_DIR` | `<data dir>/backups` | Where nightly backups are written. Use a different disk or volume, and copy them off the host |
 | `KEYSTONE_BACKUP_KEEP` | 14 | How many backups to keep; older ones Keystone wrote are deleted |
 | `KEYSTONE_BACKUP_DISABLE` | unset | Set to `1` when backups are taken another way (for example managed PostgreSQL snapshots plus a file backup) |
@@ -120,6 +121,12 @@ plain HTTP for evaluation on a private network only.
 Don't put secrets in the repository. Pass database credentials through the environment.
 
 ## Users and roles
+
+Two permissions were added in round 3: `privacy.write` (records of processing, DPIAs, data subject requests, breach
+assessments) for administrators and ISMS managers, and `continuity.write` (business impact analysis, plans, tests) for
+administrators, ISMS managers and risk owners. Data subject requests are visible only with `privacy.write`; deciding a
+DPIA needs `risk.accept` and must be someone other than its author.
+
 
 | Role | Can |
 |---|---|

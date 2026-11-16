@@ -64,6 +64,15 @@ def scan_external() -> None:
         raise RuntimeError(f"{out['failed']} domain(s) lost their verification record")
 
 
+@register("privacy-redaction", minutes=1440)
+def redact_privacy_requests() -> None:
+    """Clear requesters' names and contact details from requests closed longer than KEYSTONE_DSR_REDACT_DAYS ago."""
+    from keystone.privacy.service import redact_closed_requests
+
+    with db.session_scope() as s:
+        redact_closed_requests(s)
+
+
 @register("backup", minutes=1440)
 def nightly_backup() -> None:
     """Back up the database and stored files, test-restore the result into a scratch database, then prune old

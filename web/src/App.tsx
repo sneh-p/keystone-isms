@@ -45,6 +45,8 @@ const SecurityQuestionnaires = lazy(() => import("@/pages/SecurityQuestionnaires
 const QuestionnaireDetail = lazy(() => import("@/pages/SecurityQuestionnaires").then((m) => ({ default: m.QuestionnaireDetail })));
 const VendorPortal = lazy(() => import("@/pages/VendorPortal"));
 const Workload = lazy(() => import("@/pages/Workload"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
+const Continuity = lazy(() => import("@/pages/Continuity"));
 const CalendarPage = lazy(() => import("@/pages/Calendar"));
 const AttackSurface = lazy(() => import("@/pages/AttackSurface"));
 
@@ -55,6 +57,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/frameworks/:code", element: <FrameworkDetail /> },
   { path: "/controls", element: <Controls />, nav: true },
   { path: "/soa", element: <Soa />, nav: true },
+  { path: "/privacy", element: <Privacy />, nav: true },
   { path: "/evidence", element: <Evidence />, nav: true },
   { path: "/risks", element: <Risks />, nav: true },
   { path: "/tasks", element: <Tasks />, nav: true },
@@ -78,6 +81,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/reports", element: <Reports />, nav: true },
   { path: "/calendar", element: <CalendarPage />, nav: true },
   { path: "/workload", element: <Workload />, nav: true },
+  { path: "/continuity", element: <Continuity />, nav: true },
   { path: "/settings/organisation", element: <Organisation />, nav: true },
   { path: "/settings/users", element: <Users />, nav: true },
   { path: "/settings/audit-log", element: <AuditLog />, nav: true },

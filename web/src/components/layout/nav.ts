@@ -1,5 +1,5 @@
 import {
-  Activity, AlertOctagon, CalendarDays, Crosshair, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Handshake, HeartPulse, KeyRound,
+  Activity, AlertOctagon, CalendarDays, Crosshair, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Fingerprint, Handshake, HeartPulse, KeyRound, LifeBuoy,
   LayoutDashboard, ListChecks, Mail, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, Settings, ShieldCheck, Siren, Sparkles, UserCog, Users, Wrench,
 } from "lucide-react";
 
@@ -45,6 +45,7 @@ export const NAV: NavSection[] = [
       { label: "Policies", to: "/policies", icon: ScrollText },
       { label: "Evidence", to: "/evidence", icon: Paperclip },
       { label: "Statement of Applicability", to: "/soa", icon: FileCheck2 },
+      { label: "Privacy", to: "/privacy", icon: Fingerprint },
     ],
   },
   {
@@ -75,6 +76,7 @@ export const NAV: NavSection[] = [
     label: "Operations",
     items: [
       { label: "Incidents", to: "/incidents", icon: Siren },
+      { label: "Business continuity", to: "/continuity", icon: LifeBuoy },
       { label: "Improvement", to: "/nonconformities", icon: Wrench, also: areaPaths("Improvement") },
       { label: "Workload", to: "/workload", icon: UsersRound },
       { label: "Reports", to: "/reports", icon: Activity },

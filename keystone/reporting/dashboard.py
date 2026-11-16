@@ -71,6 +71,17 @@ def overview(session: Session, on: date | None = None) -> dict:
     vs = vuln_summary(session, on)
     add(vs["known_exploited"], "known-exploited vulnerability(ies) open (CISA KEV)", "/attack-surface?tab=vulnerabilities&kev=1")
     add(vs["overdue"], "vulnerability(ies) past their fix-by date", "/attack-surface?tab=vulnerabilities&overdue=1")
+    from keystone.continuity import service as bcs
+    from keystone.privacy import service as pvs
+
+    pa = pvs.attention(session, on)
+    add(len(pa["requests_overdue"]), "data subject request(s) past their deadline", "/privacy?tab=requests")
+    add(len(pa["requests_due_soon"]), "data subject request(s) due within a week", "/privacy?tab=requests")
+    add(len(pa["breaches_unassessed"]), "personal data breach(es) not yet assessed", "/privacy?tab=breaches")
+    add(len(pa["dpias_awaiting_decision"]), "DPIA(s) awaiting a decision", "/privacy?tab=dpias")
+    ba = bcs.attention(session, on)
+    add(len(ba["processes_without_plan"]), "critical or high business process(es) without a continuity plan", "/continuity")
+    add(len(ba["plans_test_due"]), "continuity plan(s) due for a test", "/continuity?tab=plans")
     from keystone.asm.external import summary as ext_summary
 
     es = ext_summary(session)
