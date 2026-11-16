@@ -19,7 +19,8 @@ a week's value. Keystone records the figures once a day; the line shows the last
 **Registers.** Filters on Controls (domain, status, owner, needs attention) and Tasks (assignee, framework, control,
 due window) are kept in the page address, so you can bookmark or share a filtered view. Tick rows to change several at
 once: owner and status for controls (marking not applicable stays one at a time, with a reason), assignee and due
-date for open tasks (list view). Every changed record gets its own audit entry, and if any one change is refused,
+date for open tasks (list view). When you give controls an owner, **Also hand over their open tasks** (on by default)
+moves those controls' open tasks to the new owner; a task shared with another owner's control stays where it is. Every changed record gets its own audit entry, and if any one change is refused,
 nothing changes. Control and risk details open read-only; choose **Edit** to change them. Keystone asks before
 discarding unsaved edits.
 
@@ -34,7 +35,11 @@ valid and you confirm; the import is all or nothing, up to 1,000 rows at a time.
 
 The bell at the top of every page (and of the employee portal) lists what needs you: tasks and
 reviews due within two weeks, approvals waiting, policies to accept, failed integrations, and
-vendor questionnaires that came back. Choosing an item opens it and marks it read. If an
+vendor questionnaires that came back. Anything the dashboard flags goes to the owner of the record: a risk above
+appetite to its risk owner, expiring evidence to the control owner, a vendor's missing DPA to the vendor owner, and so
+on. Approvals and effectiveness checks go to people allowed to approve, never to the person whose work it is. Items
+on records without an owner reach the ISMS managers as one summary line each. Choosing an item opens it and marks it
+read. If an
 administrator has set up email, you also get a daily digest of unread items; turn it off under
 **My account**.
 
@@ -130,8 +135,8 @@ the knowledge base so the next questionnaire is faster.
 
 ## Third parties
 
-**Vendor portal.** In a vendor questionnaire, **Create vendor link** and send the link to your
-contact. They answer the questions and upload supporting documents (PDF, PNG, JPG, DOCX or XLSX,
+**Vendor portal.** In a vendor questionnaire, enter the contact and choose **Email link to the contact** (when
+email is set up) or **Create vendor link** to copy it yourself. They answer the questions and upload supporting documents (PDF, PNG, JPG, DOCX or XLSX,
 up to 10 MB each, 20 files) themselves; every file is virus-scanned. Links don't expire unless
 you set a date, and you can revoke one at any time (creating a new link replaces the old one).
 Once the vendor submits, the questionnaire is read-only for them and its owner is notified.
