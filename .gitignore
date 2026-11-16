@@ -26,3 +26,4 @@ coverage.xml
 # Web build
 web/node_modules/
 web/dist/
+web/tsconfig.tsbuildinfo

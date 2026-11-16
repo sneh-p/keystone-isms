@@ -38,22 +38,22 @@ def overview(session: Session, on: date | None = None) -> dict:
         if n:
             attention.append({"count": n, "text": text, "page": page})
 
-    add(len(iatt["notification_overdue"]), "incident(s) past the regulator notification deadline", "pages/incidents.py")
-    add(len(iatt["notification_due"]) - len(iatt["notification_overdue"]), "incident(s) with a regulator notification still to make", "pages/incidents.py")
-    add(len(ratt["above_appetite_untreated"]), "risk(s) above appetite without treatment or acceptance", "pages/risks.py")
-    add(len(ratt["acceptance_expired"]), "risk acceptance(s) expired", "pages/risks.py")
-    add(len(ratt["actions_overdue"]), "risk(s) with overdue treatment actions", "pages/risks.py")
-    add(len(ratt["review_overdue"]), "risk review(s) overdue", "pages/risks.py")
-    add(len(natt["overdue"]), "nonconformity(ies) past their target date", "pages/nonconformities.py")
-    add(len(natt["awaiting_verification"]), "corrective action(s) awaiting an effectiveness check", "pages/nonconformities.py")
-    add(len(catt["implemented_without_evidence"]), "implemented control(s) without current evidence", "pages/controls.py")
-    add(len(catt["evidence_expired"]), "evidence item(s) expired", "pages/evidence.py")
-    add(len(catt["review_overdue"]), "control review(s) overdue", "pages/controls.py")
-    add(len(vatt["needs_assessment"]), "tier 1-2 vendor(s) without a current approved assessment", "pages/vendors.py")
-    add(len(vatt["no_dpa"]), "vendor(s) processing personal data without a DPA", "pages/vendors.py")
-    add(len(vatt["contract_ending"]), "vendor contract(s) ending soon", "pages/vendors.py")
-    add(len(patt["review_overdue"]), "policy review(s) overdue", "pages/policies.py")
-    add(len(patt["awaiting_approval"]), "policy version(s) awaiting approval", "pages/policies.py")
+    add(len(iatt["notification_overdue"]), "incident(s) past the regulator notification deadline", "/incidents")
+    add(len(iatt["notification_due"]) - len(iatt["notification_overdue"]), "incident(s) with a regulator notification still to make", "/incidents")
+    add(len(ratt["above_appetite_untreated"]), "risk(s) above appetite without treatment or acceptance", "/risks")
+    add(len(ratt["acceptance_expired"]), "risk acceptance(s) expired", "/risks")
+    add(len(ratt["actions_overdue"]), "risk(s) with overdue treatment actions", "/risks")
+    add(len(ratt["review_overdue"]), "risk review(s) overdue", "/risks")
+    add(len(natt["overdue"]), "nonconformity(ies) past their target date", "/nonconformities")
+    add(len(natt["awaiting_verification"]), "corrective action(s) awaiting an effectiveness check", "/nonconformities")
+    add(len(catt["implemented_without_evidence"]), "implemented control(s) without current evidence", "/controls")
+    add(len(catt["evidence_expired"]), "evidence item(s) expired", "/evidence")
+    add(len(catt["review_overdue"]), "control review(s) overdue", "/controls")
+    add(len(vatt["needs_assessment"]), "tier 1-2 vendor(s) without a current approved assessment", "/vendors")
+    add(len(vatt["no_dpa"]), "vendor(s) processing personal data without a DPA", "/vendors")
+    add(len(vatt["contract_ending"]), "vendor contract(s) ending soon", "/vendors")
+    add(len(patt["review_overdue"]), "policy review(s) overdue", "/policies")
+    add(len(patt["awaiting_approval"]), "policy version(s) awaiting approval", "/policies")
     from keystone.tasks import service as tsk
 
     open_tasks = tsk.list_tasks(session, include_closed=False)
@@ -79,30 +79,30 @@ def my_tasks(session: Session, user, on: date | None = None) -> list[dict]:
     on = on or date.today()
     out = []
     for v in pol.pending_for(session, user):
-        out.append({"what": f"Acknowledge {v.document.code} {v.document.title} v{v.version_label}", "due": None, "page": "pages/policies.py"})
+        out.append({"what": f"Acknowledge {v.document.code} {v.document.title} v{v.version_label}", "due": None, "page": "/policies"})
     for r in risk.list_risks(session):
         if r.owner_id == user.id and r.review_date and r.review_date <= on:
-            out.append({"what": f"Review risk {r.ref} {r.title}", "due": r.review_date, "page": "pages/risks.py"})
+            out.append({"what": f"Review risk {r.ref} {r.title}", "due": r.review_date, "page": "/risks"})
         for a in r.actions:
             if a.owner_id == user.id and a.status in ("open", "in_progress"):
-                out.append({"what": f"Treatment action: {a.title} ({r.ref})", "due": a.due_date, "page": "pages/risks.py"})
+                out.append({"what": f"Treatment action: {a.title} ({r.ref})", "due": a.due_date, "page": "/risks"})
     for n in imp.list_ncs(session, include_closed=False):
         for a in n.actions:
             if a.owner_id == user.id and a.status == "open":
-                out.append({"what": f"Corrective action: {a.description[:80]} ({n.ref})", "due": a.due_date, "page": "pages/nonconformities.py"})
+                out.append({"what": f"Corrective action: {a.description[:80]} ({n.ref})", "due": a.due_date, "page": "/nonconformities"})
     for c in fw.controls(session):
         if c.owner_id == user.id and c.next_review_date and c.next_review_date <= on and c.status != "not_applicable":
-            out.append({"what": f"Review control {c.code} {c.title}", "due": c.next_review_date, "page": "pages/controls.py"})
+            out.append({"what": f"Review control {c.code} {c.title}", "due": c.next_review_date, "page": "/controls"})
     for i in inc.list_incidents(session, include_closed=False):
         if i.owner_id == user.id:
-            out.append({"what": f"Incident {i.ref} {i.title} ({i.status})", "due": inc.notification_deadline(i).date() if inc.notification_deadline(i) else None, "page": "pages/incidents.py"})
+            out.append({"what": f"Incident {i.ref} {i.title} ({i.status})", "due": inc.notification_deadline(i).date() if inc.notification_deadline(i) else None, "page": "/incidents"})
     for d in pol.documents(session):
         v = pol.open_version(d)
         if v and v.status == "in_review" and v.author_id != user.id:
             from keystone.core.rbac import has_permission
 
             if has_permission(user, "policy.approve"):
-                out.append({"what": f"Approve {d.code} {d.title} v{v.version_label}", "due": None, "page": "pages/policies.py"})
+                out.append({"what": f"Approve {d.code} {d.title} v{v.version_label}", "due": None, "page": "/policies"})
     from keystone.core.rbac import has_permission as _has
     from keystone.tasks import service as tsk
 

@@ -66,10 +66,52 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
 
 ## Platform
 
-- Streamlit has no authentication, so Keystone has local accounts, roles, segregation of duties
-  and a hash-chained audit log. OIDC single sign-on is on the roadmap.
-- Reloading the browser starts a new Streamlit session, so you sign in again. This is a
-  deliberate choice not to keep login tokens in cookies.
+- **Web app (v2).** The Streamlit UI was replaced by a React single-page app (Vite, TypeScript,
+  Tailwind, Radix primitives) over a FastAPI API. The API routers are thin: every rule still
+  lives in the `keystone/<module>/service.py` functions, which check permissions themselves, so
+  the API and the services can't disagree. A test fails if a write route has no declared
+  permission, and an authorisation matrix checks every write route against every role.
+- **Sessions.** Server-side sessions in the database; the browser holds only a random token in
+  an `HttpOnly`, `SameSite=Lax` cookie (`Secure` over HTTPS) and the database stores its hash.
+  Unsafe requests need a CSRF header matching the session. Sessions have an idle and an
+  absolute timeout; disabling a user or offboarding a person ends their sessions. Reloading
+  the page no longer signs you out.
+- **Workflows inspired by Comp AI.** Onboarding, evidence tasks, the employee portal, the Trust
+  Center, integrations and security questionnaires follow the product ideas of the open-source
+  Comp AI platform. Comp AI is AGPL-3.0, so nothing was copied: the code, templates, training
+  text and task library are written for Keystone.
+- **Control readiness** combines approved linked policies, current evidence, no overdue tasks
+  and no failing or erroring integration checks. Only implemented controls that are ready are
+  shown as passing on the Trust Center; unknown is never shown as passing.
+- **Integrations** are read-only and pull-based on an in-process scheduler (APScheduler). The
+  Entra integration derives its checks from the imported collector snapshots, so the app still
+  never connects to Microsoft Graph. Credentials are Fernet-encrypted and write-only.
+- **Email** is not sent: invitation and Trust Center links are shown to copy. An SMTP hook is
+  on the roadmap.
+- **No device agent.** Device checks are self-attested by employees with an optional
+  screenshot, and expire after a set period.
 - SQLite by default; models avoid SQLite-only types so PostgreSQL works. Migrations are applied
   at start-up. The audit-log immutability triggers exist for SQLite and PostgreSQL.
 - The Docker image has not been built in the development environment (Docker was unavailable).
+  The container layout was checked by running the app from a copy of exactly the files the
+  Dockerfile copies.
+
+## AI features
+
+- **Optional and off by default.** Without a key, questionnaires are answered by hand or from
+  the knowledge base (fuzzy matching: strict for automatic filling, lenient for suggestions).
+  Tests check that no API client is created when AI is off.
+- **Claude API** through the official Anthropic SDK, model `claude-opus-5-5` by default with a
+  configurable effort level. Responses use structured outputs (a JSON schema), and the
+  server-side refusal fallback is enabled for models that support it. Long requests stream.
+- **Grounding.** Questionnaire answers may use only approved policy text and approved
+  knowledge-base answers, sent as tagged source documents in a cached system prompt. Each
+  citation must quote its source; Keystone checks every quote against the source text
+  (ignoring case and whitespace) and discards quotes it can't find. An answer left without a
+  verified source gets confidence "none" and a warning. Approved answers are never sent or
+  overwritten. Questions are treated as untrusted input, and the model has no tools.
+- **Human approval.** AI output is a draft: policy revisions become a draft version that still
+  needs review and approval (segregation of duties applies), and questionnaire answers need an
+  approver before they are exported.
+- **Accounting.** Every call, including failures and refusals, is stored with user, feature,
+  model and token counts and written to the audit log.

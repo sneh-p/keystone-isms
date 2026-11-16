@@ -154,4 +154,83 @@ def seed(session: Session, admin) -> dict:
     fair_mapping.generate(session, mia, nva.id)
     rv = reviews.create_review(session, mia, title="Management review Q4", held_on=date.today(), attendees="CEO, CFO, ISO (Mia Novak)")
     reviews.update_review(session, mia, rv.id, discussion="Phishing incident and MFA gap discussed.", decisions="Approve budget for phishing-resistant MFA.", actions="Lena Fischer: FIDO2 for all staff by end of Q1.")
+    _seed_workflows(session, people, fab, nw)
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
+
+
+def _seed_workflows(session: Session, people: dict, fab, nw) -> None:
+    """Onboarding, tasks, people and portal, Trust Center, integrations and questionnaires."""
+    from keystone.answers import service as answers
+    from keystone.integrations import service as integ
+    from keystone.onboarding import service as onboarding
+    from keystone.people import service as ppl
+    from keystone.policies.models import PolicyDocument
+    from keystone.tasks import service as tasks
+    from keystone.trust import service as trust
+    from sqlalchemy import select
+
+    admin, mia, lena = people["admin"], people["mia.isms"], people["lena.ctl"]
+    onboarding.complete(session, admin, {
+        "company_name": "Alpine Ski House", "legal_name": "Alpine Ski House AG", "industry": "Leisure and hospitality", "size": "201-1000",
+        "hosting": ["m365", "cloud_azure"], "data_types": ["customer_personal", "payment_cards", "employee"], "develops_software": True, "offices": True,
+        "locations": "the Geneva head office and three resort sites", "frameworks": ["ISO27001_2022", "NIST_CSF_2_0", "SOC2_TSC_2017", "CIS_V8_1"], "isms_owner_id": mia.id, "review_months": 12,
+    })
+    # Approve a core set of the generated policies (written by admin, approved by the ISMS manager).
+    for code in ("POL-003", "POL-006", "POL-007", "POL-008", "POL-012", "POL-015"):
+        d = session.scalar(select(PolicyDocument).where(PolicyDocument.code == code))
+        v = d and pol.open_version(d)
+        if v is not None:
+            pol.submit_version(session, admin, v.id)
+            pol.approve_version(session, mia, v.id, "Reviewed for Alpine Ski House")
+
+    # Tasks: a few done (evidence filed on their controls), one in review, one not relevant.
+    open_tasks = [t for t in tasks.list_tasks(session, include_closed=False) if t.status == "todo"]
+    for t in open_tasks[:3]:
+        tasks.start(session, mia, t.id)
+        tasks.submit(session, mia, t.id, f"Completed for the {date.today():%B %Y} cycle; records kept on the IT share.")
+        tasks.approve(session, admin, t.id, "Checked")
+    if len(open_tasks) > 4:
+        tasks.submit(session, mia, open_tasks[3].id, "Draft register attached in the IT share; please review.")
+        tasks.mark_not_relevant(session, mia, open_tasks[4].id, "Covered by the landlord's building management at all sites.")
+
+    # People: staff with sign-ins, an employee who joined through the portal, and a leaver.
+    for user, title, dept in ((mia, "Information Security Officer", "IT"), (people["raj.risk"], "Head of Digital", "Digital"), (lena, "IT Operations Lead", "IT")):
+        p = ppl.save_person(session, admin, full_name=user.display_name, email=user.email, job_title=title, department=dept, start_date=date.today() - timedelta(days=700))
+        ppl.link_user(session, admin, p.id, user.id)
+        ppl.set_status(session, admin, p.id, "active")
+    nina = ppl.save_person(session, admin, full_name="Nina Weber", email="nina.weber@alpineskihouse.example", job_title="Front desk supervisor", department="Hotels", start_date=date.today() - timedelta(days=10))
+    token = ppl.invite(session, admin, nina.id)
+    nina_user = ppl.accept_invite(session, token, DEMO_PASSWORD)
+    for m in ppl.modules()[:3]:
+        ppl.submit_quiz(session, nina_user, m["key"], [q["answer"] for q in m["quiz"]])
+    ppl.attest_device(session, nina_user, device_name="Front desk laptop 3", os="windows", checks={k: True for k in ("disk_encryption", "screen_lock", "antivirus", "auto_updates", "firewall")})
+    ppl.save_person(session, admin, full_name="Tomás García", email="tomas.garcia@alpineskihouse.example", job_title="Seasonal ski instructor", department="Ski school", employment_type="contractor", start_date=date.today() + timedelta(days=14))
+    leaver = ppl.save_person(session, admin, full_name="Olivia Brown", email="olivia.brown@alpineskihouse.example", job_title="Marketing coordinator", department="Marketing", start_date=date.today() - timedelta(days=400), end_date=date.today() - timedelta(days=2))
+    ppl.set_status(session, admin, leaver.id, "active")
+    ppl.set_status(session, admin, leaver.id, "offboarding")
+    ppl.tick_offboarding(session, admin, leaver.id, "accounts_disabled")
+
+    # Trust Center (published).
+    trust.update_settings(session, admin, published=True, slug="alpine-ski-house", headline="Security at Alpine Ski House",
+                          overview="We protect guest, payment and staff data with an ISO/IEC 27001-aligned security programme.\n\n- Encryption in transit and at rest\n- Phishing-resistant MFA rollout\n- Independent penetration testing every year",
+                          contact_email="security@alpineskihouse.example")
+    trust.save_faq(session, admin, question="Where is guest data stored?", answer="In EU data centres operated by our cloud provider.")
+    trust.save_faq(session, admin, question="How do I report a security issue?", answer="Email security@alpineskihouse.example. We reply within one working day.")
+    trust.set_subprocessor(session, admin, fab.id, "Microsoft 365 backup", "EU")
+    trust.add_document(session, admin, title="Penetration test summary 2026", kind="report", access="nda", filename="pentest-summary.pdf", data=b"%PDF-1.4 demo penetration test summary")
+
+    # Integrations: the Entra checks read the imported exposure snapshots (no network).
+    entra = integ.save_integration(session, admin, provider_key="entra", name="Microsoft Entra ID (Alpine Ski House)")
+    integ.run(session, admin, entra.id)
+
+    # Security questionnaires: an approved knowledge base and a partly answered questionnaire.
+    kb = [("Do you encrypt customer data at rest?", "Yes. Guest and payment data is encrypted at rest with AES-256 in our cloud platform."),
+          ("Do you require multi-factor authentication?", "Yes. MFA is required for all staff accounts, and we are moving all staff to phishing-resistant methods."),
+          ("Do you have an incident response plan?", "Yes. Our Incident Response Policy and procedure are tested once a year.")]
+    for q, a in kb:
+        e = answers.save_entry(session, lena, question=q, answer=a, tags="standard answers")
+        answers.approve_entry(session, mia, e.id)
+    sq = answers.create(session, lena, title="Contoso Travel vendor security review", requester="Contoso Travel", due_date=date.today() + timedelta(days=12),
+                        pasted="Do you encrypt customer data at rest?\nDo you require multi-factor authentication?\nDo you have an incident response plan?\nHow often do you test restores from backup?\nDo you hold an ISO 27001 certificate?")
+    answers.fill_from_knowledge_base(session, lena, sq.id)
+    answers.approve_item(session, mia, sq.items[0].id)

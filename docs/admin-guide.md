@@ -2,61 +2,78 @@
 
 ## Installing
 
-**Python** (3.11 or later):
+**Python** (3.11 or later) and **Node.js** 22 (to build the web app once):
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install .
-KEYSTONE_DATA_DIR=/srv/keystone .venv/bin/streamlit run app.py --server.address 127.0.0.1
+python3 -m venv .venv && .venv/bin/pip install -e .
+(cd web && npm ci && npm run build)
+KEYSTONE_DATA_DIR=/srv/keystone .venv/bin/uvicorn keystone.api.app:create_app --factory --host 127.0.0.1 --port 8000
 ```
 
-**Docker**:
+**Docker** (multi-stage: Node builds the web app, a slim Python image runs it):
 
 ```bash
+docker compose up -d --build      # Keystone plus nginx on port 80
+# or the image alone:
 docker build -t keystone-isms .
-docker run -d --name keystone -p 127.0.0.1:8501:8501 -v keystone-data:/data keystone-isms
+docker run -d --name keystone -p 127.0.0.1:8000:8000 -v keystone-data:/data keystone-isms
 ```
 
 On start, Keystone runs its database migrations (Alembic) automatically. The first visitor
-sees a setup screen to create the first administrator. Do this straight away after deploying.
+sees a setup screen to create the first administrator, followed by the onboarding wizard. Do
+this straight away after deploying.
+
+One process serves everything: the web app, the API under `/api` (OpenAPI docs at
+`/api/docs`), the public Trust Center under `/trust/<slug>`, and a background scheduler that
+runs integration checks every 15 minutes. Run **one** instance per database, or set
+`KEYSTONE_DISABLE_SCHEDULER=1` on all but one.
 
 ### Behind nginx (port 80)
 
-`deploy/nginx/keystone.conf` publishes Keystone on port 80 and keeps Streamlit on
-`127.0.0.1:8501`. It passes the WebSocket that Streamlit uses for every click, keeps the Host
-header (Streamlit checks it against the browser's Origin), disables buffering and allows 50 MB
-uploads.
+`deploy/nginx/keystone.conf` publishes Keystone on port 80 and keeps uvicorn on
+`127.0.0.1:8000`. It rate-limits the sign-in endpoint, allows uploads up to the upload limit
+and gives AI drafting and integration runs up to five minutes.
 
 ```bash
 sudo apt-get install nginx
+sudo cp deploy/nginx/keystone-proxy.conf /etc/nginx/snippets/keystone-proxy.conf
 sudo cp deploy/nginx/keystone.conf /etc/nginx/sites-available/keystone.conf
 sudo ln -s /etc/nginx/sites-available/keystone.conf /etc/nginx/sites-enabled/
 sudo rm /etc/nginx/sites-enabled/default && sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Run Keystone itself with `deploy/systemd/keystone.service` (or the Docker image bound to
-`127.0.0.1:8501`). Port 80 is plain HTTP: add TLS (for example with certbot) before real use.
+Run Keystone itself with `deploy/systemd/keystone.service`, which passes `--proxy-headers` so
+Keystone sees real client addresses (used for Trust Center rate limits and NDA records). Port
+80 is plain HTTP: add TLS (for example with certbot) before real use. The session cookie is
+marked `Secure` automatically when the request arrived over HTTPS.
 
 ## Hardening checklist
 
 - [ ] Put Keystone behind a reverse proxy (nginx, Caddy, Traefik) that **terminates TLS**, and
-      bind Streamlit to `127.0.0.1` or a private network. The proxy must allow WebSocket upgrades
-      for `/_stcore/stream`.
-- [ ] Restrict who can reach the site: VPN, IP allowlist or an identity-aware proxy.
-- [ ] Put the data directory on an **encrypted** volume. It holds the database and every
-      uploaded evidence file.
+      bind uvicorn to `127.0.0.1` or a private network.
+- [ ] Restrict who can reach the site: VPN, IP allowlist or an identity-aware proxy. If the
+      Trust Center is public, allow `/trust/*`, `/api/public/*` and `/assets/*` from anywhere
+      and keep everything else restricted.
+- [ ] Put the data directory on an **encrypted** volume. It holds the database, every uploaded
+      file and `secret.key`, which encrypts integration and AI credentials.
 - [ ] Back up the data directory (see below) and test a restore.
 - [ ] Set `KEYSTONE_SESSION_TIMEOUT_MINUTES` to match your policy.
 - [ ] Review `config/*.yaml`. The shipped values are calibration starting points.
 - [ ] Give people the least-privileged role that fits their work. Keep two administrators.
+- [ ] Give integrations read-only credentials only (see **Integrations**).
 
 ## Configuration
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `KEYSTONE_DATA_DIR` | `./data` | Database (SQLite) and attachments |
+| `KEYSTONE_DATA_DIR` | `./data` | Database (SQLite), attachments and `secret.key` |
 | `KEYSTONE_DB_URL` | SQLite in the data dir | e.g. `postgresql+psycopg://keystone:…@db/keystone` (install the driver) |
 | `KEYSTONE_SESSION_TIMEOUT_MINUTES` | 30 | Idle sign-out |
 | `KEYSTONE_MAX_UPLOAD_MB` | 25 | Per-file upload limit |
+| `KEYSTONE_SECRET_KEY` | generated in the data dir | Fernet key that encrypts integration and AI credentials. Set it to keep the key out of the data volume |
+| `KEYSTONE_FRAME_ANCESTORS` | `'self'` | Who may embed Keystone in a frame (CSP source list), e.g. `https://intranet.example` |
+| `KEYSTONE_DISABLE_SCHEDULER` | unset | Set to `1` to stop this instance running scheduled integration checks |
+| `ANTHROPIC_API_KEY` | unset | Optional key for AI features, used when no key is stored under **Settings → AI** |
 
 Don't put secrets in the repository. Pass database credentials through the environment.
 
@@ -64,12 +81,16 @@ Don't put secrets in the repository. Pass database credentials through the envir
 
 | Role | Can |
 |---|---|
-| `admin` | Everything, including managing users |
-| `isms_manager` | Everything except managing users: approve policies, accept risks, approve vendor assessments, verify corrective actions, run management reviews |
+| `admin` | Everything, including managing users and AI settings |
+| `isms_manager` | Everything except managing users and AI settings: approve policies, tasks and questionnaire answers, accept risks, approve vendor assessments, verify corrective actions, run management reviews, manage the Trust Center and integrations |
 | `risk_owner` | Assets, risks, evidence, incidents, nonconformities |
 | `control_owner` | Control implementation, evidence, incidents, nonconformities |
 | `auditor` | Read everything (including the audit log) and record audit findings |
 | `viewer` | Read, and acknowledge policies |
+| `employee` | Only the employee portal: their policies, training and device checklist. No ISMS records |
+
+Control owners can also draft security-questionnaire answers. Only administrators can change
+AI settings.
 
 Users created by an admin must change their password at first sign-in. Five wrong passwords
 lock an account for 15 minutes. An admin can reset a password (the user must then change it),
@@ -87,7 +108,9 @@ the database outside Keystone. Treat that as a security incident.
 ## Backups
 
 SQLite: stop the app, or use `sqlite3 keystone.db ".backup backup.db"`, and copy the
-`attachments/` directory with it. PostgreSQL: `pg_dump` plus the attachments directory.
+`attachments/` directory and `secret.key` with it. PostgreSQL: `pg_dump` plus the attachments
+directory and `secret.key` (or your `KEYSTONE_SECRET_KEY`). Without the key, stored integration
+and AI credentials can't be decrypted and must be entered again.
 Attachments are stored by SHA-256, and Keystone checks the hash whenever a file is downloaded.
 
 ## Upgrades
@@ -107,3 +130,50 @@ Technicians run `collector/Invoke-VendorExposureCollector.ps1` with a read-only 
 upload `collected.json` on **Entra exposure → Exposure import**. Read
 [collector/README.md](../collector/README.md) before the first run, including the guidance on
 the Graph Command Line Tools consent prompt and on handling the output files.
+
+## Employees and invitations
+
+Add people under **People** and create an invitation link (valid for seven days, single use).
+Keystone doesn't send email: copy the link to the person through your usual channel. Accepting
+it creates an `employee` account that sees only the portal. Offboarding a person disables their
+account and ends their sessions.
+
+## Trust Center
+
+**Trust Center → Settings** chooses the public address (`/trust/<slug>`), what is shown and the
+NDA text. Only controls that are implemented **and** ready (approved policies, current
+evidence, no overdue tasks, no failing checks) are listed as passing. Gated documents need an
+approved access request; approval produces a private link that expires after the configured
+number of days. Requests are rate-limited per address, and every approval, NDA signature and
+download is in the audit log. Changing the NDA text raises its version, so earlier signatures no
+longer count.
+
+## Integrations
+
+Integrations run read-only checks on a schedule and file passing results as evidence. Give
+each one the narrowest read-only credential:
+
+| Integration | Credential |
+|---|---|
+| Website / TLS | None. Only public hosts are checked; private and local addresses are refused |
+| GitHub | Fine-grained token with read-only *Administration* and *Metadata* on the organisation |
+| AWS | An IAM user or role with the AWS-managed `SecurityAudit` policy |
+| Microsoft Entra ID | None. It reads the latest imported exposure snapshot; it never calls Microsoft Graph |
+
+Secrets are encrypted with `secret.key` and are write-only: the API never returns them, and the
+audit log records only that they changed. A check that errors or can't decide is reported as
+error or unknown, never as passing.
+
+## AI (optional)
+
+Keystone works fully without AI. To turn on the policy assistant and questionnaire drafting,
+open **Settings → AI** (administrators only), paste an Anthropic API key (or set
+`ANTHROPIC_API_KEY`), choose the model (default `claude-opus-5-5`) and effort, and switch it on.
+The server needs outbound HTTPS to `api.anthropic.com`.
+
+What is sent: the policy assistant sends the document being edited, its linked controls, the
+instruction and the organisation profile. Questionnaire drafting sends the questions and the
+text of **approved** policies and approved knowledge-base answers. People records, users,
+risks, incidents, evidence files and credentials are never sent. Every call is listed under
+**Settings → AI** with its user, feature, model and token counts, and written to the audit
+log. A refused or failed call is recorded too and changes nothing.

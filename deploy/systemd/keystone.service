@@ -1,5 +1,6 @@
-# Example systemd unit: Keystone on 127.0.0.1:8501, published by nginx (deploy/nginx/keystone.conf).
-# Install: copy to /etc/systemd/system/, adjust paths and user, then
+# Example systemd unit: Keystone on 127.0.0.1:8000, published by nginx (deploy/nginx/keystone.conf).
+# Install: copy to /etc/systemd/system/, adjust paths and user, build the web app
+# (cd web && npm ci && npm run build), then
 #   systemctl daemon-reload && systemctl enable --now keystone
 [Unit]
 Description=Keystone ISMS
@@ -10,7 +11,8 @@ User=keystone
 Group=keystone
 WorkingDirectory=/opt/keystone-isms
 Environment=KEYSTONE_DATA_DIR=/srv/keystone
-ExecStart=/opt/keystone-isms/.venv/bin/streamlit run app.py --server.address 127.0.0.1 --server.port 8501
+# Optional: Environment=ANTHROPIC_API_KEY=... (or set the key under Settings → AI)
+ExecStart=/opt/keystone-isms/.venv/bin/uvicorn keystone.api.app:create_app --factory --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=on-failure
 NoNewPrivileges=true
 ProtectSystem=strict

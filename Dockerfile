@@ -1,24 +1,45 @@
-# Keystone ISMS container. Put it behind a TLS-terminating reverse proxy.
+# Keystone ISMS container: the web app is built with Node, then served by FastAPI (uvicorn).
+# Put it behind a TLS-terminating reverse proxy (see deploy/nginx/).
+
+# ---- 1. Build the React app -------------------------------------------------------------
+FROM node:22-slim AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/ ./
+RUN npm run build
+
+# ---- 2. Python runtime ------------------------------------------------------------------
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    KEYSTONE_DATA_DIR=/data
+    KEYSTONE_DATA_DIR=/data \
+    PYTHONPATH=/app
 
 RUN useradd --create-home --uid 10001 keystone
 WORKDIR /app
 
-COPY pyproject.toml requirements.txt ./
+COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
-COPY --chown=keystone:keystone . .
-RUN pip install --no-deps . && mkdir -p /data && chown keystone:keystone /data
+COPY --chown=keystone:keystone keystone/ keystone/
+COPY --chown=keystone:keystone migrations/ migrations/
+COPY --chown=keystone:keystone content/ content/
+COPY --chown=keystone:keystone config/ config/
+COPY --chown=keystone:keystone schemas/ schemas/
+COPY --chown=keystone:keystone scripts/ scripts/
+COPY --chown=keystone:keystone alembic.ini pyproject.toml README.md ./
+COPY --from=web --chown=keystone:keystone /web/dist web/dist
+# Run from the source tree (content/, config/ and web/dist are found relative to it).
+RUN mkdir -p /data && chown keystone:keystone /data
 
 USER keystone
 VOLUME ["/data"]
-EXPOSE 8501
+EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
-  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health').status == 200 else 1)"
+  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/auth/status').status == 200 else 1)"
 
-CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+# --proxy-headers: trust X-Forwarded-For from the reverse proxy (set FORWARDED_ALLOW_IPS to its address).
+CMD ["sh", "-c", "exec uvicorn keystone.api.app:create_app --factory --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips \"${FORWARDED_ALLOW_IPS:-127.0.0.1}\""]

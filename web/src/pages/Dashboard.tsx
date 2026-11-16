@@ -8,11 +8,6 @@ import { HeatMap } from "@/components/viz/HeatMap";
 import { StatusBar, CONTROL_SEGMENTS } from "@/components/viz/StatusBar";
 import { Button } from "@/components/ui/button";
 
-const PAGE_FOR: Record<string, string> = {
-  "pages/incidents.py": "/incidents", "pages/risks.py": "/risks", "pages/nonconformities.py": "/nonconformities", "pages/controls.py": "/controls",
-  "pages/evidence.py": "/evidence", "pages/vendors.py": "/vendors", "pages/policies.py": "/policies", "/tasks": "/tasks",
-};
-
 export default function Dashboard() {
   const { data, isLoading } = useApi<any>("/dashboard");
   const onb = useApi<any>("/onboarding");
@@ -78,7 +73,7 @@ export default function Dashboard() {
               <ul className="divide-y">
                 {data.attention.map((a: any, i: number) => (
                   <li key={i}>
-                    <Link to={PAGE_FOR[a.page] ?? "/"} className="flex items-center gap-3 px-5 py-3 text-sm hover:bg-muted/50">
+                    <Link to={a.page ?? "/"} className="flex items-center gap-3 px-5 py-3 text-sm hover:bg-muted/50">
                       <span className="grid size-7 shrink-0 place-items-center rounded-full bg-warning/15 text-xs font-semibold text-[#8a5a00] dark:text-warning">{a.count}</span>
                       <span className="flex-1">{a.text}</span>
                       <ArrowRight className="size-4 text-muted-foreground" />
@@ -100,7 +95,7 @@ export default function Dashboard() {
                   const d = daysUntil(t.due);
                   return (
                     <li key={i}>
-                      <Link to={PAGE_FOR[t.page] ?? "/"} className="flex items-center gap-3 px-5 py-3 text-sm hover:bg-muted/50">
+                      <Link to={t.page ?? "/"} className="flex items-center gap-3 px-5 py-3 text-sm hover:bg-muted/50">
                         {d !== null && d < 0 ? <AlertTriangle className="size-4 shrink-0 text-critical" /> : <CheckCircle2 className="size-4 shrink-0 text-muted-foreground" />}
                         <span className="flex-1">{t.what}</span>
                         <span className={cn("whitespace-nowrap text-xs", d !== null && d < 0 ? "font-medium text-critical" : "text-muted-foreground")}>{t.due ? fmtDate(t.due) : ""}</span>

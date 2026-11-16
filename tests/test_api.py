@@ -204,3 +204,14 @@ def test_service_errors_map_to_http(demo_api):
 def test_security_headers(demo_api):
     h = demo_api.get("/api/dashboard").headers
     assert h["x-content-type-options"] == "nosniff" and h["cache-control"] == "no-store" and "default-src 'self'" in h["content-security-policy"]
+
+
+def test_framing_is_same_origin_by_default(monkeypatch):
+    from keystone.api.app import security_headers
+
+    monkeypatch.delenv("KEYSTONE_FRAME_ANCESTORS", raising=False)
+    h = security_headers()
+    assert "frame-ancestors 'self'" in h["Content-Security-Policy"] and h["X-Frame-Options"] == "SAMEORIGIN"
+    monkeypatch.setenv("KEYSTONE_FRAME_ANCESTORS", "https://intranet.example")
+    h = security_headers()
+    assert "frame-ancestors https://intranet.example;" in h["Content-Security-Policy"] and "X-Frame-Options" not in h

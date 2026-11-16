@@ -8,3 +8,6 @@ output/
 .env
 .env.*
 tests/
+web/node_modules
+web/dist
+**/*.tsbuildinfo

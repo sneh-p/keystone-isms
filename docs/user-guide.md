@@ -6,12 +6,62 @@ tasks assigned to you.
 
 ## Getting started (ISMS manager)
 
-1. **Frameworks**: load the bundled content. Turn off frameworks you don't use.
-2. **Organisation & scope**: record internal and external issues, interested parties, ISMS
-   roles and security objectives. Write the scope, then approve it. Editing the scope later
-   clears the approval.
-3. **Assets**: list the information, systems, services and sites in scope, with owners and
+1. **Onboarding wizard**: after the first sign-in, describe the company (size, where systems are
+   hosted, the data you handle, whether you build software or run offices) and choose the
+   frameworks. Keystone loads the frameworks, writes the scope, creates draft policies from its
+   templates, creates evidence tasks and marks controls that clearly don't apply as not
+   applicable, with the reason. You can run it again; existing records are kept.
+2. **Policies**: review the generated drafts, adapt them and send them for approval.
+3. **Organisation & scope**: record internal and external issues, interested parties, ISMS
+   roles and security objectives. Approve the scope. Editing the scope later clears the
+   approval.
+4. **Assets**: list the information, systems, services and sites in scope, with owners and
    confidentiality, integrity and availability ratings.
+
+## Tasks
+
+Tasks are the recurring work that produces evidence, such as "review admin accounts" or "test a
+backup restore". Each is linked to controls and has an assignee, a due date and a frequency.
+Start a task, add a note or attach files, and submit it for review. Someone other than the
+assignee approves it: the note or files are filed as evidence on every linked control, and the
+next occurrence is scheduled. Overdue tasks make their controls not ready.
+
+## People and the employee portal
+
+Add people under **People**, create an invitation link and send it to them. In the portal,
+employees accept the policies that need acknowledgement, complete short training modules with a
+quiz, and confirm their device checklist (disk encryption, screen lock, anti-malware, updates,
+firewall, password manager). The People page shows who is complete. When someone leaves, work
+through the offboarding checklist; completing it disables their account.
+
+## Trust Center
+
+Publish a public page for customers at `/trust/<your-slug>`: an overview, the frameworks you
+work to, controls that are passing, published policies, subprocessors and FAQs. Reports and
+other documents can be public or require an approved request and a signed NDA. Review requests
+under **Trust Center → Requests**; approving produces a private link to send to the requester.
+
+## Integrations
+
+Connect a website, GitHub, AWS or the imported Entra data to run read-only checks on a
+schedule. Passing checks become evidence on their controls. A failing, erroring or unknown
+check shows on the control and makes it not ready.
+
+## Security questionnaires
+
+Upload a customer's questionnaire (.xlsx or .csv) or paste the questions. Keystone finds the
+question column, plus any answer column. For each question you can:
+
+- **Fill from the knowledge base**: close matches to approved knowledge-base answers are filled
+  in automatically, and similar answers are suggested on each question.
+- **Draft with AI** (if an administrator turned AI on): Claude drafts answers from your
+  approved policies and knowledge base, with quoted sources. Answers marked "No verified source"
+  or "Not covered by sources" need particular care.
+- Write or edit the answer yourself.
+
+Every answer is approved by a person. **Export** writes the approved answers into the customer's
+own spreadsheet, in their answer column (or a new "Answer" column). Add good approved answers to
+the knowledge base so the next questionnaire is faster.
 
 ## Risk
 
@@ -67,7 +117,12 @@ tasks assigned to you.
 Create a document, write a version (Markdown or an attached file) and submit it. An approver
 other than the author approves it, or returns it with a reason. Approving publishes the version,
 sets the next review date and, if acknowledgement is required, asks every active user to
-acknowledge it. A new version needs new acknowledgements.
+acknowledge it. A new version needs new acknowledgements. Employees acknowledge policies in
+their portal.
+
+**AI assist** (when AI is on): describe the change you want, for example "add a section on
+privileged access". Claude proposes a revision, shown as a diff with points to check. Accepting it
+puts the text in a draft version; it still goes through review and approval.
 
 ## Incidents
 

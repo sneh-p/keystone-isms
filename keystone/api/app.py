@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -20,12 +21,19 @@ from keystone.core.workflow import InvalidTransition
 
 WEB_DIST = PROJECT_ROOT / "web" / "dist"
 
-SECURITY_HEADERS = {
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "same-origin",
-    "X-Frame-Options": "SAMEORIGIN",
-    "Content-Security-Policy": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors *; base-uri 'self'; form-action 'self'",
-}
+def security_headers() -> dict[str, str]:
+    # Who may embed Keystone in a frame. Default: only Keystone itself. Set
+    # KEYSTONE_FRAME_ANCESTORS (CSP source list, e.g. "https://intranet.example") to allow a portal.
+    ancestors = os.environ.get("KEYSTONE_FRAME_ANCESTORS", "").strip() or "'self'"
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "same-origin",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+        "Content-Security-Policy": f"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors {ancestors}; base-uri 'self'; form-action 'self'",
+    }
+    if ancestors == "'self'":
+        headers["X-Frame-Options"] = "SAMEORIGIN"
+    return headers
 
 
 def create_app(migrate: bool = True) -> FastAPI:
@@ -42,10 +50,12 @@ def create_app(migrate: bool = True) -> FastAPI:
 
     app = FastAPI(title="Keystone ISMS API", version=__version__, docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None, lifespan=lifespan)
 
+    headers = security_headers()
+
     @app.middleware("http")
     async def _headers(request: Request, call_next):
         resp = await call_next(request)
-        for k, v in SECURITY_HEADERS.items():
+        for k, v in headers.items():
             resp.headers.setdefault(k, v)
         if request.url.path.startswith("/api/"):
             resp.headers.setdefault("Cache-Control", "no-store")
@@ -85,7 +95,7 @@ def _mount_spa(app: FastAPI) -> None:
     if assets.exists():
         app.mount("/assets", StaticFiles(directory=assets), name="assets")
 
-    @app.get("/{path:path}", include_in_schema=False)
+    @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     def spa(path: str):
         if path.startswith("api/"):
             return JSONResponse({"detail": "Not found"}, status_code=404)
