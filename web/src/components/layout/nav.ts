@@ -1,6 +1,6 @@
 import {
-  Activity, AlertOctagon, BookOpen, Boxes, Building2, ClipboardCheck, ClipboardList, FileCheck2, FileText, Gauge, Globe2, Handshake, KeyRound,
-  LayoutDashboard, ListChecks, Map as MapIcon, Paperclip, Plug, ScrollText, Search, Settings, ShieldCheck, Siren, UserCog, Users, Wrench, Scale,
+  Activity, AlertOctagon, BookOpen, Boxes, Building2, ClipboardCheck, ClipboardList, FileCheck2, Gauge, Globe2, Handshake, KeyRound,
+  LayoutDashboard, ListChecks, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, Search, ShieldCheck, Siren, Sparkles, UserCog, Users, Wrench, Scale,
 } from "lucide-react";
 
 export type NavItem = { label: string; to: string; icon: any; perm?: string };
@@ -40,7 +40,7 @@ export const NAV: NavSection[] = [
     items: [
       { label: "People", to: "/people", icon: Users },
       { label: "Trust Center", to: "/trust-center", icon: Globe2 },
-      { label: "Security questionnaires", to: "/security-questionnaires", icon: FileText },
+      { label: "Security questionnaires", to: "/security-questionnaires", icon: MessageSquareText },
       { label: "Integrations", to: "/integrations", icon: Plug },
     ],
   },
@@ -61,7 +61,7 @@ export const NAV: NavSection[] = [
       { label: "Users", to: "/settings/users", icon: UserCog, perm: "users.manage" },
       { label: "Audit log", to: "/settings/audit-log", icon: AlertOctagon, perm: "audit_log.view" },
       { label: "My account", to: "/settings/account", icon: KeyRound },
-      { label: "AI", to: "/settings/ai", icon: Settings, perm: "org.write" },
+      { label: "AI", to: "/settings/ai", icon: Sparkles, perm: "ai.manage" },
     ],
   },
 ];

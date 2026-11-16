@@ -37,6 +37,9 @@ const Users = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Us
 const AuditLog = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.AuditLog })));
 const Account = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Account })));
 const Reports = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Reports })));
+const AiSettings = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.AiSettings })));
+const SecurityQuestionnaires = lazy(() => import("@/pages/SecurityQuestionnaires"));
+const QuestionnaireDetail = lazy(() => import("@/pages/SecurityQuestionnaires").then((m) => ({ default: m.QuestionnaireDetail })));
 
 /** Authenticated application routes. `nav` marks routes that appear in the sidebar. */
 export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] = [
@@ -52,6 +55,8 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/people", element: <People />, nav: true },
   { path: "/trust-center", element: <TrustCenterAdmin />, nav: true },
   { path: "/integrations", element: <Integrations />, nav: true },
+  { path: "/security-questionnaires", element: <SecurityQuestionnaires />, nav: true },
+  { path: "/security-questionnaires/:id", element: <QuestionnaireDetail /> },
   { path: "/assets", element: <Assets />, nav: true },
   { path: "/vendors", element: <Vendors />, nav: true },
   { path: "/questionnaires", element: <Questionnaires />, nav: true },
@@ -67,6 +72,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/settings/users", element: <Users />, nav: true },
   { path: "/settings/audit-log", element: <AuditLog />, nav: true },
   { path: "/settings/account", element: <Account />, nav: true },
+  { path: "/settings/ai", element: <AiSettings />, nav: true },
 ];
 APP_ROUTES.filter((r) => r.nav).forEach((r) => BUILT.add(r.path));
 

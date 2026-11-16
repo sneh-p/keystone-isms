@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CheckCircle2, Download, FilePlus2, Plus, ScrollText, Send, Stamp, Undo2 } from "lucide-react";
+import { CheckCircle2, Download, FilePlus2, Plus, ScrollText, Send, Sparkles, Stamp, Undo2 } from "lucide-react";
 import { api, downloadUrl, upload } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -16,6 +16,7 @@ import { StatusBadge } from "@/components/ui/status";
 import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
 import { Markdown } from "@/components/Markdown";
+import { PolicyAssistant } from "@/components/PolicyAssistant";
 import { EnumSelect, OwnerSelect } from "@/components/forms";
 
 const TYPES = ["policy", "standard", "procedure", "guideline", "plan"];
@@ -117,9 +118,14 @@ function DocumentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   const review = useAction(() => api(`/policies/${id}/review`, { method: "POST" }), { success: "Periodic review recorded.", invalidate: inv });
   const retire = useAction(() => api(`/policies/${id}/retire`, { method: "POST" }), { success: "Document retired.", invalidate: inv });
   const current = data?.versions.find((v: any) => v.status === "approved");
+  const aiStatus = useApi<any>("/ai/status");
+  const [assist, setAssist] = useState(false);
+  const canAssist = aiStatus.data?.available && can("policy.write") && data && data.status !== "retired" && (!ov || ov.status === "draft");
   return (
+    <>
+    {assist && <PolicyAssistant docId={id} unsaved={!!ov && (body !== (ov.body ?? "") || summary !== (ov.change_summary ?? ""))} onClose={() => setAssist(false)} onAccepted={(b, s) => { setBody(b); setSummary(s); }} />}
     <Sheet open onOpenChange={(o) => !o && onClose()} title={data ? `${data.code} · ${data.title}` : "Loading…"} subtitle={data && <span className="flex items-center gap-2"><StatusBadge status={data.status} />{data.current_version && <Badge tone="outline">v{data.current_version}</Badge>}{data.next_review_date && <span>review {fmtDate(data.next_review_date)}</span>}</span>}
-      actions={data && can("policy.approve") && data.status === "approved" && <><Button size="sm" variant="outline" onClick={() => review.mutate(undefined)}><CheckCircle2 /> Reviewed, no change</Button><Button size="sm" variant="ghost" onClick={() => retire.mutate(undefined)}>Retire</Button></>}>
+      actions={<>{canAssist && <Button size="sm" variant="outline" onClick={() => setAssist(true)}><Sparkles /> AI assist</Button>}{data && can("policy.approve") && data.status === "approved" && <><Button size="sm" variant="outline" onClick={() => review.mutate(undefined)}><CheckCircle2 /> Reviewed, no change</Button><Button size="sm" variant="ghost" onClick={() => retire.mutate(undefined)}>Retire</Button></>}</>}>
       {!data ? <Skeleton className="h-64" /> : (
         <Tabs tabs={[
           { value: "doc", label: current ? `Current (v${current.version_label})` : "Document", content: current ? (
@@ -178,5 +184,6 @@ function DocumentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
         ]} />
       )}
     </Sheet>
+    </>
   );
 }

@@ -57,6 +57,9 @@ ALL_PERMISSIONS = frozenset(
         "portal",
         "trust.manage",
         "integration.manage",
+        "questionnaire.write",
+        "questionnaire.approve",
+        "ai.manage",
     }
 )
 
@@ -64,9 +67,9 @@ _BASE = {"read", "policy.acknowledge", "portal"}
 
 ROLE_PERMISSIONS: dict[Role, frozenset[str]] = {
     Role.ADMIN: ALL_PERMISSIONS,
-    Role.ISMS_MANAGER: ALL_PERMISSIONS - {"users.manage"},
+    Role.ISMS_MANAGER: ALL_PERMISSIONS - {"users.manage", "ai.manage"},
     Role.RISK_OWNER: frozenset(_BASE | {"asset.write", "risk.write", "evidence.write", "incident.write", "nc.write", "task.write"}),
-    Role.CONTROL_OWNER: frozenset(_BASE | {"control.write", "evidence.write", "incident.write", "nc.write", "task.write"}),
+    Role.CONTROL_OWNER: frozenset(_BASE | {"control.write", "evidence.write", "incident.write", "nc.write", "task.write", "questionnaire.write"}),
     Role.AUDITOR: frozenset(_BASE | {"audit.findings", "audit_log.view"}),
     Role.VIEWER: frozenset(_BASE),
     # Employees use only their own portal: no access to ISMS records.

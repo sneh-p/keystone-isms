@@ -37,6 +37,9 @@ const STATUS: Record<string, { tone: Tone; icon?: any }> = {
   expired: { tone: "critical", icon: AlertTriangle },
   expiring: { tone: "warning", icon: AlertTriangle },
   current: { tone: "good", icon: CheckCircle2 },
+  drafted: { tone: "primary", icon: CircleDot },
+  completed: { tone: "good", icon: CheckCircle2 },
+  open: { tone: "neutral", icon: CircleDashed },
 };
 
 export function StatusBadge({ status, label }: { status?: string | null; label?: string }) {

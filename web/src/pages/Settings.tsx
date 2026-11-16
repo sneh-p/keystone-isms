@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertOctagon, Building2, CheckCircle2, Download, KeyRound, Plus, ShieldAlert, Stamp, Trash2, UserCog, Activity } from "lucide-react";
+import { AlertOctagon, Building2, CheckCircle2, Download, KeyRound, Plus, ShieldAlert, Sparkles, Stamp, Trash2, UserCog, Activity } from "lucide-react";
 import { api, downloadUrl } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Textarea } from "@/components/ui/input";
-import { KeyValue, PageHeader, Skeleton } from "@/components/ui/misc";
+import { KeyValue, PageHeader, Skeleton, Switch } from "@/components/ui/misc";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
@@ -181,6 +181,66 @@ export function Reports() {
         ))}
         <Card><CardBody className="flex items-center justify-between"><span className="font-medium">Entra remediation candidates</span><a href={downloadUrl("/exposure/remediation.xlsx")}><Button variant="outline" size="sm"><Download /> Excel</Button></a></CardBody></Card>
       </div>
+    </div>
+  );
+}
+
+const FEATURE_LABEL: Record<string, string> = { policy_assistant: "Policy assistant", questionnaire_answers: "Questionnaire answers" };
+
+export function AiSettings() {
+  const { data } = useApi<any>("/ai/settings");
+  const [form, setForm] = useState<any>(null);
+  const [key, setKey] = useState("");
+  useEffect(() => { if (data) setForm({ enabled: data.enabled, model: data.model, effort: data.effort }); }, [data?.enabled, data?.model, data?.effort]); // eslint-disable-line react-hooks/exhaustive-deps
+  const save = useAction((extra: any) => api("/ai/settings", { method: "PATCH", body: { ...form, ...(key ? { api_key: key } : {}), ...extra } }), { success: "AI settings saved.", invalidate: ["/ai"], onSuccess: () => setKey("") });
+  if (!data || !form) return <Skeleton className="h-96" />;
+  const keyLabel = data.key_source === "settings" ? "Stored in Keystone (encrypted)" : data.key_source === "environment" ? "From the ANTHROPIC_API_KEY environment variable" : "No key";
+  return (
+    <div className="animate-fade-in">
+      <PageHeader icon={Sparkles} title="AI" description="Optional Claude features: the policy assistant and security-questionnaire drafting. Keystone works fully without them." />
+      <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
+        <Card>
+          <CardHeader title="Claude API" description="Requests go to Anthropic's API only when someone uses an AI feature. Each call is recorded below and in the audit log." />
+          <CardBody className="space-y-5">
+            <Switch checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} label={form.enabled ? "AI features are on" : "AI features are off"} />
+            <Field label="API key" hint={<>Current: {keyLabel}. The key is write-only and can never be read back. Leave empty to keep it.</>}>
+              <Input type="password" autoComplete="off" placeholder={data.key_source ? "•••••••• (set)" : "sk-ant-…"} value={key} onChange={(e) => setKey(e.target.value)} />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Model" hint="Claude Opus 5.5 is the default.">
+                <Input list="ai-models" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+                <datalist id="ai-models">{data.suggested_models.map((m: string) => <option key={m} value={m} />)}</datalist>
+              </Field>
+              <Field label="Effort" hint="Higher effort is more thorough, slower and costs more.">
+                <Select value={form.effort} onChange={(v) => setForm({ ...form, effort: v })} options={data.efforts.map((e: string) => ({ value: e, label: titleCase(e) }))} />
+              </Field>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button loading={save.isPending} onClick={() => save.mutate({})}>Save</Button>
+              {data.key_source === "settings" && <Button variant="ghost" onClick={() => { if (confirm("Remove the stored API key?")) save.mutate({ clear_key: true }); }}><Trash2 /> Remove stored key</Button>}
+            </div>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="What is sent" />
+          <CardBody className="space-y-3 text-sm text-muted-foreground">
+            <p><span className="font-medium text-foreground">Policy assistant:</span> the document's text, its linked controls, your instruction and the organisation profile (name, industry, description, scope).</p>
+            <p><span className="font-medium text-foreground">Questionnaires:</span> the questions, the text of approved policies and approved knowledge-base answers. Draft policies are never sent.</p>
+            <p>People, users, risks, incidents, evidence files and credentials are never sent. Answers cite their sources, and quotes that can't be found in a source are discarded. A person approves every answer before export.</p>
+          </CardBody>
+        </Card>
+      </div>
+      <Card className="mt-5">
+        <CardHeader title="Usage" description={`${data.usage.calls} call(s) · ${data.usage.input_tokens.toLocaleString()} input and ${data.usage.output_tokens.toLocaleString()} output tokens in total`} />
+        <DataTable rows={data.usage.rows} rowKey={(r: any) => r.id} empty="No AI calls yet." columns={[
+          { key: "w", header: "When", cell: (r: any) => fmtDate(r.at, true) },
+          { key: "u", header: "Who", cell: (r: any) => r.user },
+          { key: "f", header: "Feature", cell: (r: any) => FEATURE_LABEL[r.feature] ?? r.feature },
+          { key: "m", header: "Model", cell: (r: any) => <span className="font-mono text-xs">{r.model}</span> },
+          { key: "t", header: "Tokens in / out", cell: (r: any) => <span className="tabular-nums">{(r.input_tokens + r.cache_read_tokens).toLocaleString()} / {r.output_tokens.toLocaleString()}</span> },
+          { key: "r", header: "Result", cell: (r: any) => r.ok ? <Badge tone="good">OK</Badge> : <Badge tone="critical">{r.error ?? "Failed"}</Badge> },
+        ]} />
+      </Card>
     </div>
   );
 }

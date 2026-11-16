@@ -20,3 +20,5 @@ from keystone.onboarding.models import OnboardingProfile  # noqa: F401
 from keystone.people.models import DeviceAttestation, Invitation, Person, TrainingCompletion  # noqa: F401
 from keystone.trust.models import AccessRequest, TrustDocument, TrustFaq, TrustSettings, TrustSubprocessor  # noqa: F401
 from keystone.integrations.models import CheckResult, Integration  # noqa: F401
+from keystone.ai.models import AiSettings, AiUsage  # noqa: F401
+from keystone.answers.models import KnowledgeEntry, QuestionnaireItem, SecurityQuestionnaire  # noqa: F401
