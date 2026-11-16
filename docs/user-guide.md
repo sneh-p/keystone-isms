@@ -233,6 +233,15 @@ sets the next review date and, if acknowledgement is required, asks every active
 acknowledge it. A new version needs new acknowledgements. Employees acknowledge policies in
 their portal.
 
+**Electronic signatures.** Approving and acknowledging are signed: you type your full name as Keystone knows it.
+Keystone records the name, the time, and (for acknowledgements) your IP address and browser, together with a SHA-256
+fingerprint of the exact version text and file. If an approved version's stored text ever stops matching its
+fingerprint, it can't be signed any more.
+
+**PDF**: History → **PDF** downloads any version with its approval signature and fingerprint on every page footer;
+drafts carry a DRAFT mark. People who can edit policies can also download **PDF + signatures**, which adds the
+acknowledgement register (who signed, when, and whether each signature matches the version's fingerprint).
+
 **AI assist** (when AI is on): describe the change you want, for example "add a section on
 privileged access". Claude proposes a revision, shown as a diff with points to check. Accepting it
 puts the text in a draft version; it still goes through review and approval.

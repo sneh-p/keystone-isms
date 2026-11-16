@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { SignatureInput, signatureOk } from "@/components/Signature";
 import { Link, useNavigate, useParams } from "react-router";
 import { BookOpen, Check, CheckCircle2, ChevronLeft, Laptop, LogOut, ScrollText, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -44,7 +45,8 @@ export default function Portal() {
   const { data } = useApi<any>("/portal");
   const [read, setRead] = useState<any>(null);
   const [dev, setDev] = useState<any>(null);
-  const ack = useAction((vid: number) => api(`/policies/versions/${vid}/acknowledge`, { method: "POST" }), { success: "Thanks, recorded.", invalidate: ["/portal"] });
+  const [sig, setSig] = useState("");
+  const ack = useAction((vid: number) => api(`/policies/versions/${vid}/acknowledge`, { body: { signed_name: sig } }), { success: "Thanks, your signature is recorded.", invalidate: ["/portal"], onSuccess: () => { setRead(null); setSig(""); } });
   const attest = useAction(async () => {
     const fd = new FormData();
     fd.append("device_name", dev.device_name); fd.append("os", dev.os); fd.append("checks", JSON.stringify(dev.checks));
@@ -109,7 +111,8 @@ export default function Portal() {
       </Card>
 
       <Dialog open={!!read} onOpenChange={(o) => !o && setRead(null)} wide title={read ? `${read.title} v${read.version_label}` : ""}
-        footer={<Button onClick={() => { ack.mutate(read.id); setRead(null); }}><Check /> I have read and understood this policy</Button>}>
+        footer={<div className="flex w-full flex-wrap items-end justify-end gap-2"><SignatureInput value={sig} onChange={setSig} expected={me?.display_name} />
+          <Button disabled={!signatureOk(sig, me?.display_name)} loading={ack.isPending} onClick={() => ack.mutate(read.id)}><Check /> I have read and understood this policy</Button></div>}>
         {read?.body && <Markdown>{read.body}</Markdown>}
         {read?.attachment_id && <a href={downloadUrl(`/portal/policies/${read.id}/document`)} className="text-sm text-primary underline">Download document</a>}
       </Dialog>

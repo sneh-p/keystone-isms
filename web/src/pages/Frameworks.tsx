@@ -13,7 +13,7 @@ import { DataTable } from "@/components/ui/table";
 import { Dialog } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-const LICENCE: Record<string, string> = { public_domain: "Full text", proprietary: "IDs + summaries", cc_by_nc_nd: "IDs + titles" };
+const LICENCE: Record<string, string> = { public_domain: "Full text", proprietary: "IDs + summaries", cc_by_nc_nd: "IDs + titles", eu_law: "EU law · summaries", crown_copyright: "Summaries", cc_by: "Summaries" };
 
 export function Frameworks() {
   const { can } = useAuth();
@@ -27,19 +27,19 @@ export function Frameworks() {
         actions={can("framework.write") && <Button variant="outline" loading={seed.isPending} onClick={() => seed.mutate(undefined)}>{data?.length ? "Re-apply bundled content" : "Load frameworks"}</Button>} />
       {!data?.length ? (
         <Empty icon={BookOpen} title="No frameworks loaded yet" action={can("framework.write") && <Button onClick={() => seed.mutate(undefined)} loading={seed.isPending}>Load ISO 27001, NIST CSF, SOC 2 and CIS</Button>}>
-          Loads four frameworks, 107 common controls and the crosswalk between them.
+          Loads twelve frameworks, 128 common controls and the crosswalk between them.
         </Empty>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {data.map((f) => (
-            <Card key={f.code} className={f.enabled ? "" : "opacity-60"}>
+          {[...data].sort((a, b) => Number(b.enabled) - Number(a.enabled)).map((f) => (
+            <Card key={f.code} className={f.enabled ? "" : "border-dashed bg-muted/30"}>
               <CardBody>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <Link to={`/frameworks/${f.code}`} className="text-lg font-semibold hover:text-primary">{f.name}</Link>
                     <div className="mt-0.5 text-sm text-muted-foreground">{f.publisher} · version {f.version}</div>
                   </div>
-                  <Badge tone="outline">{LICENCE[f.license] ?? f.license}</Badge>
+                  <span className="flex flex-wrap justify-end gap-1">{!f.enabled && <Badge tone="neutral">Off</Badge>}<Badge tone="outline">{LICENCE[f.license] ?? f.license}</Badge></span>
                 </div>
                 <div className="mt-5 flex items-end justify-between">
                   <div>

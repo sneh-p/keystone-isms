@@ -169,6 +169,16 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
 - **Continuity tests produce evidence.** A recorded test is compared with each process's RTO and RPO, can't be marked
   passed if an objective was missed, and files evidence on KC-ORG-29/30, so "tested within the year" is visible on the
   controls without a separate upload.
+- **Policy e-signatures are simple electronic signatures, bound to content.** A typed name (checked against the
+  account's name) plus time, IP and browser, and the SHA-256 of `code, version, text, attached file hash`. This is
+  what most ISMS evidence needs (who accepted which exact text, when); it is not a qualified or advanced electronic
+  signature under eIDAS. The fingerprint is stored at approval and checked again at each acknowledgement, so text
+  changed directly in the database can't collect new signatures, and the PDF prints the fingerprint so a paper copy
+  can be matched to its version. Versions approved before round 3 have no stored fingerprint; their PDF shows the
+  current one.
+- **PDFs with ReportLab.** ReportLab (BSD, pure-Python wheel) renders the PDF; its Paragraph markup is applied only
+  after escaping, so policy text can't add links, images or fonts. Markdown is rendered as headings, lists and
+  paragraphs, enough for policies; tables and code blocks print as text.
 - **Connector client decoding bug (found 2026-11-16).** The shared client rebuilt responses from already-decompressed
   bytes but kept `Content-Encoding`, so any real API that gzips its responses failed with `DecodingError`. Mocked
   connector tests never sent compressed responses; a regression test now does. This affected every attack surface

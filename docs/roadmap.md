@@ -18,7 +18,7 @@ access, logins, uploads or outbound connections follow the secure coding standar
 | 10 | Frameworks: NIS2, DORA, GDPR, ISO 27701, ISO 42001, PCI DSS, Cyber Essentials, Essential Eight | Done |
 | 11 | Privacy: records of processing, DPIAs, data subject requests, breach log | Done |
 | 12 | Business continuity: BIA, recovery objectives, continuity tests | Done |
-| 13 | Policy e-signature and versioned PDF export | Planned |
+| 13 | Policy e-signature and versioned PDF export | Done |
 | 14 | SCIM provisioning; HR system connectors; Okta sign-in | Planned |
 | 15 | Access review campaigns | Planned |
 | 16 | Slack and Teams notifications | Planned |

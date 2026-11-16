@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from pydantic import Field
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,7 @@ from .common import In
 
 router = APIRouter(prefix="/policies", tags=["policies"])
 DOC = ("id", "code", "title", "doc_type", "owner_id", "status", "review_interval_months", "next_review_date", "requires_acknowledgement", "current_version_id")
-VER = ("id", "document_id", "version_label", "body", "attachment_id", "change_summary", "status", "author_id", "submitted_at", "approved_by_id", "approved_at", "approval_note")
+VER = ("id", "document_id", "version_label", "body", "attachment_id", "change_summary", "status", "author_id", "submitted_at", "approved_by_id", "approved_at", "approval_note", "approval_signed_name", "content_sha256")
 
 
 def doc_out(db, d: PolicyDocument, detail=False) -> dict:
@@ -91,9 +91,14 @@ class NoteIn(In):
     note: str | None = None
 
 
+class ApproveIn(In):
+    note: str | None = Field(default=None, max_length=4000)
+    signed_name: str = Field(min_length=1, max_length=200)  # e-signature: the approver types their full name
+
+
 @router.post("/versions/{vid}/approve")
-def approve(vid: int, body: NoteIn, user=Depends(perm("policy.approve")), db: Session = Depends(get_db)):
-    return ser(pol.approve_version(db, user, vid, body.note), VER)
+def approve(vid: int, body: ApproveIn, user=Depends(perm("policy.approve")), db: Session = Depends(get_db)):
+    return ser(pol.approve_version(db, user, vid, body.note, body.signed_name), VER)
 
 
 @router.post("/versions/{vid}/return")
@@ -101,10 +106,26 @@ def return_(vid: int, body: NoteIn, user=Depends(perm("policy.approve")), db: Se
     return ser(pol.return_version(db, user, vid, body.note or ""), VER)
 
 
+class SignIn(In):
+    signed_name: str = Field(min_length=1, max_length=200)  # e-signature: the person types their full name
+
+
 @router.post("/versions/{vid}/acknowledge")
-def acknowledge(vid: int, user=Depends(perm("policy.acknowledge")), db: Session = Depends(get_db)):
-    a = pol.acknowledge(db, user, vid)
-    return ser(a, ("id", "version_id", "acknowledged_at"))
+def acknowledge(vid: int, body: SignIn, request: Request, user=Depends(perm("policy.acknowledge")), db: Session = Depends(get_db)):
+    a = pol.acknowledge(db, user, vid, body.signed_name, request.client.host if request.client else None, request.headers.get("user-agent"))
+    return ser(a, ("id", "version_id", "acknowledged_at", "signed_name", "content_sha256"))
+
+
+@router.get("/versions/{vid}/pdf")
+def version_pdf(vid: int, signatures: bool = False, user=Depends(perm("read")), db: Session = Depends(get_db)):
+    """The version as a PDF with its fingerprint and approval; signatures=true adds the acknowledgement register
+    (policy.write only, because it lists people)."""
+    from fastapi.responses import Response
+
+    from keystone.policies.pdf import version_pdf as render
+
+    data, filename = render(db, user, vid, with_signatures=signatures)
+    return Response(data, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "no-store"})
 
 
 @router.post("/{did}/review")

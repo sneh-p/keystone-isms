@@ -26,6 +26,7 @@ dependencies = [
   "joserfc>=1.8.0",  # Authlib's JOSE backend; versions before 1.8.0 have advisories GHSA-9pg5-8c7x-5hfx, GHSA-jpxq-7h8p-2q76
   "psycopg[binary]>=3.2,<4",  # PostgreSQL driver for KEYSTONE_DB_URL=postgresql+psycopg://… (wheels only)
   "dnspython>=2.7,<3",  # External attack surface: TXT ownership checks, SPF/DMARC/CAA, CNAME (pure-Python wheel)
+  "reportlab>=4.2,<6",  # Versioned policy PDFs (BSD, pure-Python wheel)
 ]
 
 [project.optional-dependencies]

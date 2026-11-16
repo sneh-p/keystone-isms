@@ -18,6 +18,7 @@ All screenshots show the fictional demo organisation, Alpine Ski House.
 - [Quick start](#quick-start)
 - [Attack surface management](#attack-surface-management)
 - [Privacy and business continuity](#privacy-and-business-continuity)
+- [Policy signatures and PDFs](#policy-signatures-and-pdfs)
 - [Ticketing](#ticketing)
 - [Integrations](#integrations)
 - [Security model](#security-model)
@@ -154,6 +155,12 @@ Data a tool doesn't report is "no data", never compliant; failed or partial runs
 deadlines and automatic removal of requesters' details after closing, and a breach log built on incidents.
 **Business continuity**: business impact analysis with RTO/RPO/MTPD, continuity plans, and tests whose results are
 checked against the objectives and filed as evidence.
+
+## Policy signatures and PDFs
+
+Policy approvals and staff acknowledgements are **electronic signatures**: a typed full name, time, IP and browser,
+bound to a SHA-256 fingerprint of the exact version. Every version exports as a **versioned PDF** with its approval,
+version history and fingerprint, optionally with the acknowledgement register.
 
 ## Ticketing
 

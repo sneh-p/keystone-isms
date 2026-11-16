@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { CheckCircle2, Download, FilePlus2, Plus, ScrollText, Send, Sparkles, Stamp, Undo2 } from "lucide-react";
 import { api, downloadUrl, upload } from "@/lib/api";
+import { SignatureInput, signatureOk } from "@/components/Signature";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { fmtDate, titleCase } from "@/lib/utils";
@@ -23,9 +24,11 @@ import { Comments } from "@/components/Comments";
 const TYPES = ["policy", "standard", "procedure", "guideline", "plan"];
 
 export function PendingAcknowledgements() {
+  const { me } = useAuth();
   const { data } = useApi<any[]>("/policies/pending");
-  const ack = useAction((vid: number) => api(`/policies/versions/${vid}/acknowledge`, { method: "POST" }), { success: "Thank you, acknowledgement recorded.", invalidate: ["/policies", "/dashboard"] });
   const [open, setOpen] = useState<any>(null);
+  const [sig, setSig] = useState("");
+  const ack = useAction((vid: number) => api(`/policies/versions/${vid}/acknowledge`, { body: { signed_name: sig } }), { success: "Thank you, your signature is recorded.", invalidate: ["/policies", "/dashboard"], onSuccess: () => { setOpen(null); setSig(""); } });
   if (!data?.length) return null;
   return (
     <Card className="mb-6 border-primary/30 bg-accent/40">
@@ -35,13 +38,14 @@ export function PendingAcknowledgements() {
           {data.map((v) => (
             <div key={v.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-card px-3 py-2 text-sm">
               <span><span className="font-mono text-xs text-muted-foreground">{v.code}</span> {v.title} <span className="text-muted-foreground">v{v.version_label}</span></span>
-              <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => setOpen(v)}>Read</Button><Button size="sm" onClick={() => ack.mutate(v.id)}><CheckCircle2 /> I have read it</Button></div>
+              <div className="flex gap-2"><Button size="sm" onClick={() => setOpen(v)}>Read and sign</Button></div>
             </div>
           ))}
         </div>
       </CardBody>
       <Dialog open={!!open} onOpenChange={(o) => !o && setOpen(null)} wide title={open ? `${open.code} ${open.title} v${open.version_label}` : ""}
-        footer={<Button onClick={() => { ack.mutate(open.id); setOpen(null); }}><CheckCircle2 /> I have read and understood this document</Button>}>
+        footer={<div className="flex w-full flex-wrap items-end justify-end gap-2"><SignatureInput value={sig} onChange={setSig} expected={me?.display_name} />
+          <Button disabled={!signatureOk(sig, me?.display_name)} loading={ack.isPending} onClick={() => ack.mutate(open.id)}><CheckCircle2 /> I have read and understood this document</Button></div>}>
         {open?.body && <Markdown>{open.body}</Markdown>}
         {open?.attachment_id && <a href={downloadUrl(`/attachments/${open.attachment_id}`)}><Button variant="outline"><Download /> Download document</Button></a>}
       </Dialog>
@@ -115,7 +119,8 @@ function DocumentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   const start = useAction(() => api(`/policies/${id}/versions`, { body: { change_summary: summary || null, major } }), { success: "Draft version started.", invalidate: inv });
   const saveDraft = useAction(async () => { const fd = new FormData(); fd.append("body", body); fd.append("change_summary", summary); if (file) fd.append("file", file); return upload(`/policies/versions/${ov.id}`, fd, "PATCH"); }, { success: "Draft saved.", invalidate: inv });
   const submit = useAction(async () => { await saveDraft.mutateAsync(undefined); return api(`/policies/versions/${ov.id}/submit`, { method: "POST" }); }, { success: "Submitted for approval.", invalidate: inv });
-  const approve = useAction(() => api(`/policies/versions/${ov.id}/approve`, { body: { note: note || null } }), { success: "Version approved and published.", invalidate: inv });
+  const [sig, setSig] = useState("");
+  const approve = useAction(() => api(`/policies/versions/${ov.id}/approve`, { body: { note: note || null, signed_name: sig } }), { success: "Version approved, signed and published.", invalidate: inv, onSuccess: () => setSig("") });
   const ret = useAction(() => api(`/policies/versions/${ov.id}/return`, { body: { note } }), { success: "Returned to author.", invalidate: inv });
   const review = useAction(() => api(`/policies/${id}/review`, { method: "POST" }), { success: "Periodic review recorded.", invalidate: inv });
   const retire = useAction(() => api(`/policies/${id}/retire`, { method: "POST" }), { success: "Document retired.", invalidate: inv });
@@ -161,7 +166,8 @@ function DocumentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
                   {can("policy.approve") && (ov.author_id === me?.id ? <p className="text-sm text-muted-foreground">You wrote this version, so someone else must approve it.</p> : (
                     <div className="flex flex-wrap items-end gap-2">
                       <Field label="Note" className="min-w-64 flex-1"><Input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
-                      <Button loading={approve.isPending} onClick={() => approve.mutate(undefined)}><Stamp /> Approve and publish</Button>
+                      <SignatureInput value={sig} onChange={setSig} expected={me?.display_name} />
+                      <Button disabled={!signatureOk(sig, me?.display_name)} loading={approve.isPending} onClick={() => approve.mutate(undefined)}><Stamp /> Approve, sign and publish</Button>
                       <Button variant="ghost" onClick={() => ret.mutate(undefined)}><Undo2 /> Return</Button>
                     </div>
                   ))}
@@ -174,8 +180,12 @@ function DocumentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
               { key: "v", header: "Version", cell: (v: any) => `v${v.version_label}` },
               { key: "s", header: "Status", cell: (v: any) => <StatusBadge status={v.status} /> },
               { key: "a", header: "Author", cell: (v: any) => name(v.author_id) },
-              { key: "ap", header: "Approved", cell: (v: any) => (v.approved_at ? `${fmtDate(v.approved_at)} · ${name(v.approved_by_id)}` : "—") },
+              { key: "ap", header: "Approved", cell: (v: any) => (v.approved_at ? <div>{fmtDate(v.approved_at)} · {name(v.approved_by_id)}{v.approval_signed_name && <div className="text-xs text-muted-foreground">Signed “{v.approval_signed_name}”</div>}</div> : "—") },
               { key: "c", header: "Changes", cell: (v: any) => v.change_summary ?? "" },
+              { key: "pdf", header: "", cell: (v: any) => <span className="flex gap-1">
+                <a href={downloadUrl(`/policies/versions/${v.id}/pdf`)}><Button size="sm" variant="ghost"><Download /> PDF</Button></a>
+                {can("policy.write") && v.status !== "draft" && <a href={downloadUrl(`/policies/versions/${v.id}/pdf?signatures=true`)}><Button size="sm" variant="ghost" title="Includes the acknowledgement register">PDF + signatures</Button></a>}
+              </span> },
             ]} />
           ) },
           { value: "ack", label: "Acknowledgement", content: (

@@ -59,6 +59,9 @@ class PolicyVersion(Audited, TimestampMixin, Base):
     approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime)
     approval_note: Mapped[str | None] = mapped_column(Text)
+    # E-signature of the approval: the approver's typed name, bound to a SHA-256 of the exact approved content.
+    approval_signed_name: Mapped[str | None] = mapped_column(String(200))
+    content_sha256: Mapped[str | None] = mapped_column(String(64))
 
     document: Mapped[PolicyDocument] = relationship(back_populates="versions", foreign_keys=[document_id])
 
@@ -72,3 +75,8 @@ class PolicyAcknowledgement(Audited, TimestampMixin, Base):
     version_id: Mapped[int] = mapped_column(ForeignKey("policy_versions.id", ondelete="CASCADE"), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     acknowledged_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    # E-signature: typed name, the content fingerprint signed, and where it was signed from.
+    signed_name: Mapped[str | None] = mapped_column(String(200))
+    content_sha256: Mapped[str | None] = mapped_column(String(64))
+    ip: Mapped[str | None] = mapped_column(String(64))
+    user_agent: Mapped[str | None] = mapped_column(String(300))

@@ -115,17 +115,41 @@ def submit_version(session: Session, actor, version_id: int) -> PolicyVersion:
     return v
 
 
-def approve_version(session: Session, actor, version_id: int, note: str | None = None) -> PolicyVersion:
+def content_hash(session: Session, v: PolicyVersion) -> str:
+    """SHA-256 fingerprint of exactly what a version says: its text and the hash of its attached file. Printed on the
+    PDF and stored with every signature, so a signed copy can be matched to the version it was signed for."""
+    import hashlib
+
+    from keystone.core.attachments import Attachment
+
+    att = session.get(Attachment, v.attachment_id) if v.attachment_id else None
+    payload = f"keystone-policy-v1\n{v.document.code}\n{v.version_label}\n{v.body or ''}\n{att.sha256 if att else ''}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _signature(actor, signed_name: str | None) -> str | None:
+    """A typed signature must be the signer's own name as Keystone knows it (case and spacing ignored)."""
+    if signed_name is None:
+        return None
+    typed = " ".join(signed_name.split())
+    if not typed or typed.casefold() != " ".join((actor.display_name or "").split()).casefold():
+        raise ValueError(f"Type your full name exactly as it appears in Keystone ({actor.display_name}) to sign.")
+    return typed[:200]
+
+
+def approve_version(session: Session, actor, version_id: int, note: str | None = None, signed_name: str | None = None) -> PolicyVersion:
     authorize(session, actor, "policy.approve")
     v = get_or_404(session, PolicyVersion, version_id)
     if v.author_id == actor.id:
         raise ValueError("Segregation of duties: the author cannot approve their own version.")
+    signature = _signature(actor, signed_name)
     VERSION_FLOW.apply(v, "approved", actor)
     doc = v.document
     for other in doc.versions:
         if other.id != v.id and other.status == "approved":
             other.status = "superseded"
     v.approved_by_id, v.approved_at, v.approval_note = actor.id, utcnow(), note
+    v.approval_signed_name, v.content_sha256 = signature, content_hash(session, v)
     doc.current_version_id, doc.status = v.id, "approved"
     doc.next_review_date = add_months(today(), doc.review_interval_months)
     session.flush()
@@ -160,7 +184,7 @@ def retire(session: Session, actor, document_id: int) -> PolicyDocument:
     return doc
 
 
-def acknowledge(session: Session, actor, version_id: int) -> PolicyAcknowledgement:
+def acknowledge(session: Session, actor, version_id: int, signed_name: str | None = None, ip: str | None = None, user_agent: str | None = None) -> PolicyAcknowledgement:
     authorize(session, actor, "policy.acknowledge")
     v = get_or_404(session, PolicyVersion, version_id)
     doc = v.document
@@ -169,7 +193,11 @@ def acknowledge(session: Session, actor, version_id: int) -> PolicyAcknowledgeme
     existing = session.scalar(select(PolicyAcknowledgement).where(PolicyAcknowledgement.version_id == v.id, PolicyAcknowledgement.user_id == actor.id))
     if existing:
         return existing
-    ack = PolicyAcknowledgement(version_id=v.id, user_id=actor.id, acknowledged_at=utcnow())
+    digest = content_hash(session, v)
+    if v.content_sha256 and digest != v.content_sha256:  # the stored text no longer matches what was approved
+        raise ValueError("This version has changed since it was approved; it can't be signed. Ask the policy owner.")
+    ack = PolicyAcknowledgement(version_id=v.id, user_id=actor.id, acknowledged_at=utcnow(), signed_name=_signature(actor, signed_name),
+                                content_sha256=digest, ip=(ip or "")[:64] or None, user_agent=(user_agent or "")[:300] or None)
     session.add(ack)
     session.flush()
     return ack

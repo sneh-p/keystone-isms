@@ -11,7 +11,11 @@ from tests.e2e.conftest import ROOT
 STAFF_ROUTES = ["/", "/frameworks", "/controls", "/soa", "/evidence", "/risks", "/tasks", "/people", "/trust-center", "/integrations",
                 "/security-questionnaires", "/assets", "/vendors", "/questionnaires", "/assessments", "/exposure", "/policies", "/incidents",
                 "/nonconformities", "/audits", "/reviews", "/reports", "/settings/organisation", "/settings/users", "/settings/audit-log",
-                "/settings/account", "/settings/ai"]
+                "/settings/account", "/settings/ai",
+                # round 3 screens
+                "/attack-surface", "/attack-surface?tab=vulnerabilities", "/attack-surface?tab=external", "/privacy", "/privacy?tab=dpias",
+                "/privacy?tab=requests", "/privacy?tab=breaches", "/continuity", "/continuity?tab=plans", "/continuity?tab=tests", "/settings/system",
+                "/calendar", "/workload"]
 
 
 def test_every_screen_renders(demo_server, open_page):
@@ -95,7 +99,10 @@ def test_employee_invite_portal_and_isolation(demo_server, open_page):
     e.get_by_role("button", name="Create my account").click()
     e.wait_for_url("**/portal")
     e.get_by_role("button", name="Read and accept").first.click()
-    e.get_by_role("button", name="I have read and understood this policy").click()
+    accept = e.get_by_role("button", name="I have read and understood this policy")
+    assert accept.is_disabled()  # an e-signature is needed first
+    e.get_by_label("Sign by typing your full name", exact=False).fill("Jo Rivera")
+    accept.click()
     e.wait_for_timeout(400)
     module = yaml.safe_load((ROOT / "content" / "training" / "02-phishing.yaml").read_text(encoding="utf-8"))
     e.get_by_role("link", name=module["title"]).click()
