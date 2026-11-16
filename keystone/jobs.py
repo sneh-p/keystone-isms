@@ -44,6 +44,15 @@ def refresh_notifications() -> None:
         ntf.send_digests(s)
 
 
+@register("vuln-intel", minutes=1440)
+def refresh_vuln_intel() -> None:
+    """Download CISA KEV and the EPSS daily file, then re-prioritise open vulnerabilities (and move fix-by dates)."""
+    from keystone.asm import vulnintel
+
+    with db.session_scope() as s:
+        vulnintel.refresh(s)
+
+
 @register("backup", minutes=1440)
 def nightly_backup() -> None:
     """Back up the database and stored files, test-restore the result into a scratch database, then prune old

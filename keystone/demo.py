@@ -200,7 +200,13 @@ def _seed_attack_surface(session: Session, admin) -> None:
     vulns = [VulnObs("vuln-web", "openssl-2026-01", "OpenSSL remote code execution", "critical", cve="CVE-2026-0001", cvss=9.8, exploitable=True, first_seen=(now - timedelta(days=12)).date()),
              VulnObs("vuln-file", "smb-signing", "SMB signing not required", "medium", first_seen=(now - timedelta(days=90)).date()),
              VulnObs("vuln-file", "ms-2026-10", "Windows cumulative update missing (October 2026)", "high", cve="CVE-2026-2002", cvss=8.1, first_seen=(now - timedelta(days=41)).date()),
-             VulnObs("vuln-book", "tls10", "TLS 1.0 enabled", "medium", first_seen=(now - timedelta(days=5)).date())]
+             VulnObs("vuln-book", "tls10", "TLS 1.0 enabled", "medium", first_seen=(now - timedelta(days=5)).date()),
+             VulnObs("vuln-book", "log4j-2021", "Apache Log4j2 remote code execution (Log4Shell)", "critical", cve="CVE-2021-44228", cvss=10.0, exploitable=True, first_seen=(now - timedelta(days=3)).date())]
+    # A snapshot of the two public feeds for the demo (real, public entries), so priorities show without a download.
+    from keystone.asm.models import EpssScore, KevEntry
+
+    session.add(KevEntry(cve="CVE-2021-44228", vendor="Apache", product="Log4j2", name="Apache Log4j2 Remote Code Execution Vulnerability", date_added=date(2021, 12, 10), due_date=date(2021, 12, 24), ransomware=True))
+    session.add(EpssScore(cve="CVE-2026-0001", score=0.31, percentile=0.97, score_date=now.date()))
     ingest(session, None, "Demo data", "demo", Inventory(devices=scan, vulns=vulns), recompute_after=False)
     ids = [IdentityObs(f"{u}@alpineskihouse.example", n, {"mfa_registered": mfa, "is_admin": adm, "account_enabled": True, "is_guest": False, "last_sign_in_days": days})
            for u, n, mfa, adm, days in (("mia.isms", "Mia Novak", True, True, 0), ("raj.risk", "Raj Patel", True, False, 1), ("lena.ctl", "Lena Fischer", True, True, 0),

@@ -341,6 +341,28 @@ server address changes; redirects are refused; responses are size-capped. **Test
 source, saves nothing, and lists the field names the API returned, so a field mapping can be confirmed against your
 tenant. Devices without an API can be imported from CSV (Attack surface → Import CSV).
 
+### Vulnerability priorities and fix-by dates
+
+**Attack surface → Vulnerabilities** lists open vulnerabilities in the order to fix them:
+
+| Priority | Rule |
+|---|---|
+| P1 Known exploited | A CVE on CISA's [Known Exploited Vulnerabilities](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) catalogue |
+| P2 Likely to be exploited | FIRST [EPSS](https://www.first.org/epss/) probability at or above the threshold (default 10 %), or the scanner reports a public exploit for a critical or high one |
+| P3 | Critical or high |
+| P4 | Medium or low |
+
+Each gets a **fix-by date**: first seen plus the deadline for its severity (defaults: critical 15, high 30, medium 90,
+low 180 days). Known-exploited ones get the shorter KEV deadline (default 14 days), counted from when they were first
+seen or added to the catalogue, whichever is later. The dashboard counts known-exploited and overdue vulnerabilities.
+**Change** (needs the integration-management permission) sets the deadlines and threshold and can turn either feed off.
+
+Both feeds are public and need no account. Once a day (and on **Update feeds now**) Keystone downloads the whole KEV
+catalogue from `www.cisa.gov` and the whole EPSS daily file from `epss.empiricalsecurity.com`, then keeps only the
+scores for CVEs it has seen. Because whole files are downloaded, neither site learns which vulnerabilities you have.
+Allow those two hosts through your egress firewall. If a download fails, the previous data is kept, the error is
+shown on the page, and the `vuln-intel` job shows as failed under System health.
+
 ## AI (optional)
 
 Keystone works fully without AI. To turn on the policy assistant and questionnaire drafting,

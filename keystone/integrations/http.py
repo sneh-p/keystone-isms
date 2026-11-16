@@ -130,7 +130,10 @@ class Api:
                         if size > MAX_BYTES:
                             raise ConnectorError(f"Response from {host} was too large.")
                         chunks.append(chunk)
-                    resp = httpx.Response(r.status_code, headers=r.headers, content=b"".join(chunks), request=r.request)
+                    # iter_bytes() has already undone any Content-Encoding: drop those headers so the rebuilt response
+                    # isn't decompressed a second time (real APIs gzip their responses; mocks usually don't).
+                    plain = [(k, v) for k, v in r.headers.multi_items() if k.lower() not in ("content-encoding", "content-length")]
+                    resp = httpx.Response(r.status_code, headers=plain, content=b"".join(chunks), request=r.request)
             except httpx.TimeoutException:
                 raise ConnectorError(f"{host} didn't answer in time.") from None
             except httpx.HTTPError as e:

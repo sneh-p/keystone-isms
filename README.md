@@ -130,7 +130,10 @@ nightly and test-restores each backup; copy the backups off the host and keep th
    their targets*. Adjust scope, severity and linked controls, or write your own.
 3. **Keystone matches devices across tools** (serial number, Entra device ID, then host name) and works out coverage,
    so a device the RMM manages but no EDR agent reports becomes a finding.
-4. **Findings** open and close by themselves. New critical and high findings notify the device or account owner (or
+4. **Vulnerabilities are put in fix order**: known exploited (CISA KEV) first, then likely to be exploited (FIRST
+   EPSS), then by severity, each with a fix-by date from deadlines you set. Both feeds are downloaded whole, so no one
+   learns which vulnerabilities you have.
+5. **Findings** open and close by themselves. New critical and high findings notify the device or account owner (or
    the ISMS managers when nobody owns it); critical ones are also emailed. A baseline that everything meets files
    evidence on its controls. **Exceptions** need risk-acceptance rights, a reason and an end date within a year, and
    can't be approved for your own device.

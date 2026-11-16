@@ -132,6 +132,17 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   names they contain. The encryption key is left out on purpose (a backup plus its key decrypts every stored
   credential). Limit: tables are held in memory during backup and restore (attachments are streamed), which is fine
   for an ISMS's size but not for gigabytes of rows.
+- **Vulnerability prioritisation uses whole public files.** KEV is a 2 MB JSON catalogue; EPSS publishes a ~3 MB
+  gzip'd CSV of every CVE daily. Downloading both whole (instead of querying the EPSS API per CVE) means no third party
+  learns the organisation's vulnerabilities, at the cost of a few MB a day. The EPSS file is decompressed with a 200 MB
+  cap and only scores for CVEs Keystone has seen are stored. Priority and fix-by are stored on each vulnerability and
+  recomputed after each import, feed refresh or policy change, so lists and the dashboard don't recompute them per
+  request. The rules (P1 KEV, P2 EPSS ≥ threshold or exploit on critical/high, P3 critical/high, P4 rest) are
+  deliberately simple and shown in the app; they are a starting point, not SSVC.
+- **Connector client decoding bug (found 2026-11-16).** The shared client rebuilt responses from already-decompressed
+  bytes but kept `Content-Encoding`, so any real API that gzips its responses failed with `DecodingError`. Mocked
+  connector tests never sent compressed responses; a regression test now does. This affected every attack surface
+  connector against live tenants, which is a reason those connectors still need validating with real read-only keys.
 - **Scheduled jobs report their outcome.** An APScheduler listener records each run in `job_status`; two failures in
   a row, a failed or incomplete backup, or no verified backup in 26 hours raise an administrator notification (and an
   email when SMTP is set up), once per problem per day. Only the exception type is stored and shown.

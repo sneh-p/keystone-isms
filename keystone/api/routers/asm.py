@@ -1,13 +1,16 @@
-"""Attack surface management: overview, devices, identities, settings, findings, baselines, exceptions."""
+"""Attack surface management: overview, devices, identities, settings, findings, baselines, exceptions, vulnerability
+priorities."""
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import Field
 from sqlalchemy.orm import Session
 
 from keystone.asm import baselines as bl
 from keystone.asm import service as asm
+from keystone.asm import vulnintel as vi
+from keystone.integrations.http import ConnectorError
 
 from ..deps import get_db, perm
 from ..serialize import ser
@@ -107,3 +110,41 @@ def exception(fid: int, body: ExceptionIn, user=Depends(perm("risk.accept")), db
 def revoke(fid: int, user=Depends(perm("risk.accept")), db: Session = Depends(get_db)):
     bl.revoke_exception(db, user, fid)
     return {"ok": True}
+
+
+# ---- vulnerability prioritisation (CISA KEV, EPSS, fix-by deadlines) ---------------------------------------------
+
+@router.get("/vulnerabilities")
+def vulnerabilities(priority: str | None = Query(None, pattern="^P[1-4]$"), overdue: bool = False, kev: bool = False, device_id: int | None = None,
+                    user=Depends(perm("read")), db: Session = Depends(get_db)):
+    return {"items": vi.vulnerabilities(db, user, priority=priority, overdue=overdue, kev_only=kev, device_id=device_id), "summary": vi.summary(db)}
+
+
+@router.get("/vuln-policy")
+def vuln_policy(user=Depends(perm("read")), db: Session = Depends(get_db)):
+    return vi.policy_view(vi.policy(db))
+
+
+class VulnPolicyIn(In):
+    kev_enabled: bool | None = None
+    epss_enabled: bool | None = None
+    epss_threshold: float | None = Field(default=None, gt=0, le=1)
+    sla_critical: int | None = Field(default=None, ge=1, le=730)
+    sla_high: int | None = Field(default=None, ge=1, le=730)
+    sla_medium: int | None = Field(default=None, ge=1, le=730)
+    sla_low: int | None = Field(default=None, ge=1, le=730)
+    sla_kev: int | None = Field(default=None, ge=1, le=730)
+
+
+@router.put("/vuln-policy")
+def update_vuln_policy(body: VulnPolicyIn, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
+    return vi.policy_view(vi.update_policy(db, user, **body.model_dump(exclude_unset=True)))
+
+
+@router.post("/vuln-intel/refresh")
+def refresh_vuln_intel(user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
+    try:
+        return vi.refresh(db, user)
+    except ConnectorError as e:
+        db.commit()  # keep what did refresh and the recorded error
+        raise HTTPException(502, str(e)) from None

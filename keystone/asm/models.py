@@ -86,6 +86,11 @@ class AsmVulnerability(Base):
     first_seen: Mapped[date | None] = mapped_column(Date)
     last_seen: Mapped[date | None] = mapped_column(Date)
     state: Mapped[str] = mapped_column(String(10), nullable=False, default="open")  # open | fixed
+    # Prioritisation (keystone/asm/vulnintel.py), recomputed after each import, feed refresh or policy change.
+    kev: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)  # a CVE on CISA's KEV catalogue
+    epss: Mapped[float | None] = mapped_column(Float)  # highest EPSS probability among its CVEs
+    priority: Mapped[str | None] = mapped_column(String(2))  # P1 (known exploited) .. P4
+    fix_by: Mapped[date | None] = mapped_column(Date)
 
 
 class AsmSetting(Base):
@@ -143,3 +148,49 @@ class AsmFinding(Audited, TimestampMixin, Base):
     exception_reason: Mapped[str | None] = mapped_column(Text)
     exception_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     exception_until: Mapped[date | None] = mapped_column(Date)
+
+
+class KevEntry(Base):
+    """CISA Known Exploited Vulnerabilities catalogue (public feed, replaced on each refresh)."""
+
+    __tablename__ = "threat_kev"
+
+    cve: Mapped[str] = mapped_column(String(30), primary_key=True)
+    vendor: Mapped[str | None] = mapped_column(String(200))
+    product: Mapped[str | None] = mapped_column(String(200))
+    name: Mapped[str | None] = mapped_column(String(500))
+    date_added: Mapped[date | None] = mapped_column(Date)
+    due_date: Mapped[date | None] = mapped_column(Date)
+    ransomware: Mapped[bool | None] = mapped_column(Boolean)
+
+
+class EpssScore(Base):
+    """FIRST EPSS probability for the CVEs Keystone has seen (taken from the full daily file, so nothing is sent)."""
+
+    __tablename__ = "threat_epss"
+
+    cve: Mapped[str] = mapped_column(String(30), primary_key=True)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    percentile: Mapped[float | None] = mapped_column(Float)
+    score_date: Mapped[date | None] = mapped_column(Date)
+
+
+class VulnPolicy(Audited, TimestampMixin, Base):
+    """Single row: which public feeds to use, the EPSS threshold and the fix-by deadlines per severity."""
+
+    __tablename__ = "vuln_policy"
+    REF_PREFIX = "VULNPOL"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kev_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    epss_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    epss_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=0.1)
+    sla_critical: Mapped[int] = mapped_column(Integer, nullable=False, default=15)
+    sla_high: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    sla_medium: Mapped[int] = mapped_column(Integer, nullable=False, default=90)
+    sla_low: Mapped[int] = mapped_column(Integer, nullable=False, default=180)
+    sla_kev: Mapped[int] = mapped_column(Integer, nullable=False, default=14)
+    kev_refreshed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    epss_refreshed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    epss_score_date: Mapped[date | None] = mapped_column(Date)
+    last_error: Mapped[str | None] = mapped_column(String(500))

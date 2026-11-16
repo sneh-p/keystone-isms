@@ -11,7 +11,7 @@ access, logins, uploads or outbound connections follow the secure coding standar
 | 3 | Health endpoint and alerts when jobs fail | Done |
 | 4 | PostgreSQL support verified against a real server | Done (PostgreSQL 18, full suite) |
 | 5 | gitleaks installed; React Router 7; Python type-checking gate | Done; gitleaks reports 6 fake test passwords in earlier commits (see below) |
-| 6 | Vulnerability prioritisation: CISA KEV, EPSS, fix-by deadlines per severity | Planned |
+| 6 | Vulnerability prioritisation: CISA KEV, EPSS, fix-by deadlines per severity | Done (also fixed a connector client decoding bug) |
 | 7 | External attack surface (passive: certificate transparency, DNS, TLS/HTTP; verified domains only) | Planned |
 | 8 | Cloud posture: AWS Security Hub, Microsoft Defender for Cloud, Google Security Command Center | Planned |
 | 9 | Ticketing: Jira, ServiceNow, ConnectWise PSA, Autotask | Planned |

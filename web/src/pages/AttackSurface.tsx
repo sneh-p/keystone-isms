@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Crosshair, Plus, RefreshCw, ShieldOff } from "lucide-react";
+import { Crosshair, Flame, Plus, RefreshCw, ShieldOff } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi, usePeople, useUrlFilter } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -49,6 +49,7 @@ export default function AttackSurface() {
         { value: "overview", label: "Overview", content: <Overview data={data} /> },
         { value: "findings", label: `Findings (${data.findings_total})`, content: <Findings /> },
         { value: "devices", label: `Devices (${data.devices})`, content: <Devices /> },
+        { value: "vulnerabilities", label: "Vulnerabilities", content: <Vulnerabilities /> },
         { value: "identities", label: `Identities (${data.identities})`, content: <Identities /> },
         { value: "settings", label: "Configuration", content: <Settings /> },
         { value: "baselines", label: "Baselines", content: <Baselines /> },
@@ -323,3 +324,88 @@ function strip(b: any) {
   return { ...rest, value: rest.value === "" ? null : rest.value };
 }
 
+
+const PRIORITY_TONE: Record<string, "critical" | "serious" | "warning" | "outline"> = { P1: "critical", P2: "serious", P3: "warning", P4: "outline" };
+
+/** Open vulnerabilities in fix order: known exploited (CISA KEV) first, then likely to be exploited (EPSS), then severity. */
+function Vulnerabilities() {
+  const { can } = useAuth();
+  const { name } = usePeople();
+  const [priority, setPriority] = useUrlFilter("priority");
+  const [kev, setKev] = useUrlFilter("kev");
+  const [overdue, setOverdue] = useUrlFilter("overdue");
+  const q = new URLSearchParams({ ...(priority ? { priority } : {}), ...(kev ? { kev: "true" } : {}), ...(overdue ? { overdue: "true" } : {}) });
+  const { data } = useApi<any>(`/asm/vulnerabilities?${q}`);
+  const pol = useApi<any>("/asm/vuln-policy");
+  const [edit, setEdit] = useState<any>(null);
+  const refresh = useAction(() => api<any>("/asm/vuln-intel/refresh", { method: "POST" }), { success: (r: any) => `Feeds updated: ${r.kev ?? 0} KEV entries, ${r.epss ?? 0} EPSS scores; ${r.prioritised} vulnerabilities re-prioritised.`, invalidate: ["/asm", "/dashboard"] });
+  const save = useAction(() => api("/asm/vuln-policy", { method: "PUT", body: edit }), { success: "Prioritisation settings saved.", invalidate: ["/asm", "/dashboard"], onSuccess: () => setEdit(null) });
+  if (!data || !pol.data) return <Skeleton className="h-64" />;
+  const s = data.summary;
+  const p = pol.data;
+  const labels: Record<string, string> = p.priority_labels;
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Known exploited (CISA KEV)" value={s.known_exploited} tone={s.known_exploited ? "critical" : "good"} icon={Flame} />
+        <Stat label="Past fix-by date" value={s.overdue} tone={s.overdue ? "warning" : "good"} />
+        <Stat label="Likely to be exploited (P2)" value={s.by_priority.P2} hint={`EPSS ≥ ${Math.round(p.epss_threshold * 100)}% or a public exploit`} />
+        <Stat label="Other open" value={s.by_priority.P3 + s.by_priority.P4} hint="Critical/high, then medium/low" />
+      </div>
+      <DataTable rows={data.items} rowKey={(v: any) => v.id} search={(v: any) => `${v.device} ${v.cve ?? ""} ${v.title}`}
+        empty="No open vulnerabilities match. Connect a vulnerability scanner or EDR under Integrations to see them here."
+        toolbar={<>
+          <div className="w-52"><Select value={priority} onChange={setPriority} allowEmpty emptyLabel="Any priority" placeholder="Priority" ariaLabel="Priority" options={["P1", "P2", "P3", "P4"].map((k) => ({ value: k, label: `${k}: ${labels[k]}` }))} /></div>
+          <Switch checked={!!kev} onChange={(v) => setKev(v ? "1" : null)} label="Known exploited only" />
+          <Switch checked={!!overdue} onChange={(v) => setOverdue(v ? "1" : null)} label="Past fix-by date" />
+        </>}
+        columns={[
+          { key: "p", header: "Priority", sort: (v: any) => v.priority, className: "w-40", cell: (v: any) => (
+            <div className="space-y-1"><Badge tone={PRIORITY_TONE[v.priority] ?? "outline"} title={labels[v.priority]}>{v.priority} · {labels[v.priority]}</Badge>
+              {v.ransomware && <div className="text-xs text-critical">Used by ransomware</div>}</div>) },
+          { key: "v", header: "Vulnerability", sort: (v: any) => v.title, cell: (v: any) => (
+            <div><div className="font-medium">{v.title}</div><div className="text-xs text-muted-foreground">{v.cve ?? "No CVE"}{v.cvss != null ? ` · CVSS ${v.cvss}` : ""}{v.epss != null ? ` · EPSS ${(v.epss * 100).toFixed(v.epss < 0.01 ? 2 : 0)}%` : ""}{v.exploitable ? " · public exploit" : ""}</div></div>) },
+          { key: "s", header: "Severity", cell: (v: any) => <Sev s={v.severity} />, sort: (v: any) => ["critical", "high", "medium", "low"].indexOf(v.severity) },
+          { key: "d", header: "Device", sort: (v: any) => v.device, cell: (v: any) => (
+            <div><Link to={`/attack-surface?tab=devices&device=${v.device_id}`} className="font-medium hover:underline">{v.device}</Link>
+              <div className="text-xs text-muted-foreground">{v.owner_user_id ? name(v.owner_user_id) : "No owner"}</div></div>) },
+          { key: "f", header: "Fix by", sort: (v: any) => v.fix_by, cell: (v: any) => (
+            <div className={v.overdue ? "font-medium text-critical" : undefined}>{fmtDate(v.fix_by)}
+              <div className="text-xs font-normal text-muted-foreground">{v.days_left == null ? "" : v.overdue ? `${-v.days_left} day(s) late` : `${v.days_left} day(s) left`}</div></div>) },
+        ]} />
+      <Card>
+        <CardHeader title="How priorities and deadlines are set"
+          description="CISA's Known Exploited Vulnerabilities catalogue and FIRST's EPSS scores are downloaded once a day as whole files, so no outside service learns which vulnerabilities you have."
+          action={can("integration.manage") && <div className="flex gap-2">
+            <Button size="sm" variant="outline" loading={refresh.isPending} onClick={() => refresh.mutate(undefined)}><RefreshCw /> Update feeds now</Button>
+            <Button size="sm" variant="outline" onClick={() => setEdit({ kev_enabled: p.kev_enabled, epss_enabled: p.epss_enabled, epss_threshold: p.epss_threshold, sla_critical: p.sla_critical, sla_high: p.sla_high, sla_medium: p.sla_medium, sla_low: p.sla_low, sla_kev: p.sla_kev })}>Change</Button>
+          </div>} />
+        <CardBody className="grid gap-5 md:grid-cols-2">
+          <ul className="space-y-1 text-sm">
+            {["P1", "P2", "P3", "P4"].map((k) => <li key={k}><Badge tone={PRIORITY_TONE[k]}>{k}</Badge> {labels[k]}{k === "P1" ? ": the CVE is on the KEV catalogue" : k === "P2" ? `: EPSS at or above ${Math.round(p.epss_threshold * 100)}%, or a public exploit for a critical/high one` : ""}</li>)}
+          </ul>
+          <KeyValue items={[
+            ["Fix within", `critical ${p.sla_critical} · high ${p.sla_high} · medium ${p.sla_medium} · low ${p.sla_low} days`],
+            ["Known exploited", `${p.sla_kev} days from first seen or KEV listing (if shorter)`],
+            ["CISA KEV", p.kev_enabled ? (p.kev_refreshed_at ? `Updated ${fmtDate(p.kev_refreshed_at, true)}` : "Not downloaded yet") : "Off"],
+            ["EPSS", p.epss_enabled ? (p.epss_score_date ? `Scores of ${fmtDate(p.epss_score_date)}` : "Not downloaded yet") : "Off"],
+          ]} />
+          {p.last_error && <p role="alert" className="text-sm text-critical md:col-span-2">Last update failed: {p.last_error}</p>}
+        </CardBody>
+      </Card>
+      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)} title="Vulnerability prioritisation" description="Deadlines count from the day a tool first reported the vulnerability."
+        footer={<Button loading={save.isPending} onClick={() => save.mutate(undefined)}>Save</Button>}>
+        {edit && <div className="space-y-4">
+          <Switch checked={edit.kev_enabled} onChange={(v) => setEdit({ ...edit, kev_enabled: v })} label="Use CISA Known Exploited Vulnerabilities (www.cisa.gov)" />
+          <Switch checked={edit.epss_enabled} onChange={(v) => setEdit({ ...edit, epss_enabled: v })} label="Use FIRST EPSS scores (epss.empiricalsecurity.com)" />
+          <Field label="EPSS threshold for P2 (%)" hint="Probability of exploitation in the next 30 days."><Input type="number" min={1} max={100} value={Math.round(edit.epss_threshold * 100)} onChange={(e) => setEdit({ ...edit, epss_threshold: Math.min(100, Math.max(1, Number(e.target.value) || 10)) / 100 })} /></Field>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {([["sla_critical", "Critical"], ["sla_high", "High"], ["sla_medium", "Medium"], ["sla_low", "Low"], ["sla_kev", "Known exploited"]] as const).map(([k, l]) => (
+              <Field key={k} label={`${l} (days)`}><Input type="number" min={1} max={730} value={edit[k]} onChange={(e) => setEdit({ ...edit, [k]: Math.min(730, Math.max(1, Number(e.target.value) || 1)) })} /></Field>
+            ))}
+          </div>
+        </div>}
+      </Dialog>
+    </div>
+  );
+}

@@ -66,6 +66,11 @@ def overview(session: Session, on: date | None = None) -> dict:
 
     asm_open = session.scalar(select(func.count(AsmFinding.id)).join(Baseline, Baseline.id == AsmFinding.baseline_id).where(AsmFinding.status == "open", Baseline.severity.in_(("critical", "high")))) or 0
     add(asm_open, "critical or high attack surface finding(s)", "/attack-surface")
+    from keystone.asm.vulnintel import summary as vuln_summary
+
+    vs = vuln_summary(session, on)
+    add(vs["known_exploited"], "known-exploited vulnerability(ies) open (CISA KEV)", "/attack-surface?tab=vulnerabilities&kev=1")
+    add(vs["overdue"], "vulnerability(ies) past their fix-by date", "/attack-surface?tab=vulnerabilities&overdue=1")
     return {
         "open_risks": len(open_risks),
         "risk_levels": levels,

@@ -159,6 +159,9 @@ def ingest(session: Session, integration_id: int | None, source_label: str, sour
                 if key not in seen_keys:
                     session.delete(srow)
     session.flush()
+    from .vulnintel import prioritise
+
+    prioritise(session)
     if recompute_after:
         recompute(session)
     return {"devices": len(inv.devices), "new_devices": created, "retired_records": retired_records, "vulnerabilities": vulns_open,
