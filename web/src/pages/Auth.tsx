@@ -1,10 +1,10 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { safeRedirectPath } from "@/lib/safe-url";
-import { api } from "@/lib/api";
+import { api, fragmentParam } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 
@@ -65,10 +65,46 @@ export function Login() {
         <Field label="Password">
           <Input type="password" autoComplete="current-password" value={p} onChange={(e) => setP(e.target.value)} />
         </Field>
-        {err && <p className="rounded-md bg-critical/10 px-3 py-2 text-sm text-critical" role="alert">{err}</p>}
+        {err && <p className="rounded-md bg-critical/10 px-3 py-2 text-sm text-[#a32020] dark:text-critical" role="alert">{err}</p>}
         <Button type="submit" className="w-full" loading={busy}>Sign in</Button>
       </form>
+      <SsoButtons />
     </AuthLayout>
+  );
+}
+
+const SSO_LABEL: Record<string, string> = { entra: "Microsoft", google: "Google" };
+const SSO_ERROR: Record<string, string> = {
+  no_account: "There is no Keystone account for that sign-in. Ask an administrator to add you.",
+  wrong_tenant: "That account belongs to a different organisation.",
+  invalid_token: "The sign-in couldn't be verified. Please try again.",
+  invalid_request: "The sign-in expired or was started in another browser. Please try again.",
+  provider_error: "The sign-in was cancelled or the provider returned an error.",
+  not_configured: "This sign-in option isn't available.",
+};
+
+/** "Sign in with Microsoft / Google": a top-level navigation to the API, which redirects to the provider. */
+function SsoButtons() {
+  const [status, setStatus] = useState<string[]>([]);
+  const [error] = useState(() => fragmentParam("sso_error"));
+  useEffect(() => {
+    api<{ sso: string[] }>("/auth/status").then((r) => setStatus(r.sso ?? []), () => setStatus([]));
+    if (fragmentParam("sso_error")) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+  return (
+    <>
+      {error && <p className="mt-4 rounded-md bg-critical/10 px-3 py-2 text-sm text-[#a32020] dark:text-critical" role="alert">{SSO_ERROR[error] ?? SSO_ERROR.invalid_request}</p>}
+      {status.length > 0 && (
+        <div className="mt-6 space-y-2">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" /></div>
+          {status.map((k) => (
+            <a key={k} href={`/api/auth/oidc/${k}/start`} className="flex h-10 w-full items-center justify-center gap-2 rounded-md border bg-card text-sm font-medium shadow-sm hover:bg-muted">
+              Sign in with {SSO_LABEL[k] ?? k}
+            </a>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

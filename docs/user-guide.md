@@ -30,6 +30,14 @@ per record; owners by username or email; dates as YYYY-MM-DD; yes/no for flags),
 every row with the same rules as the forms and lists the problems by row number. Nothing is saved until every row is
 valid and you confirm; the import is all or nothing, up to 1,000 rows at a time.
 
+## Notifications
+
+The bell at the top of every page (and of the employee portal) lists what needs you: tasks and
+reviews due within two weeks, approvals waiting, policies to accept, failed integrations, and
+vendor questionnaires that came back. Choosing an item opens it and marks it read. If an
+administrator has set up email, you also get a daily digest of unread items; turn it off under
+**My account**.
+
 ## Getting started (ISMS manager)
 
 1. **Onboarding wizard**: after the first sign-in, describe the company (size, where systems are
@@ -122,6 +130,12 @@ the knowledge base so the next questionnaire is faster.
 
 ## Third parties
 
+**Vendor portal.** In a vendor questionnaire, **Create vendor link** and send the link to your
+contact. They answer the questions and upload supporting documents (PDF, PNG, JPG, DOCX or XLSX,
+up to 10 MB each, 20 files) themselves; every file is virus-scanned. Links don't expire unless
+you set a date, and you can revoke one at any time (creating a new link replaces the old one).
+Once the vendor submits, the questionnaire is read-only for them and its owner is notified.
+
 - **Vendors**: the tier comes from data sensitivity, operational criticality, access level and
   personal data (rules in `config/tprm.yaml`). Overriding the tier needs a reason.
 - **Questionnaires**: send the baseline template, enter answers as they arrive, then review.
@@ -167,6 +181,13 @@ incident can't be closed without a root cause and lessons learned, or while a re
 notification is outstanding. False positives can be closed from triage.
 
 ## Nonconformities, audits and management review
+
+**Working with auditors.** Give an external auditor an account with the Auditor role and an
+expiry date. In an audit, the auditor adds **evidence requests**; people who manage evidence
+answer by linking evidence and a note, and the auditor accepts or reopens each request. The
+**Audit pack (ZIP)** holds the Statement of Applicability, approved policies, current evidence for
+the audit's controls and everything linked to requests, with a manifest of SHA-256 hashes. PDFs,
+images and text files open in Keystone's viewer (the eye icon); other files download.
 
 - **Nonconformities**: record containment and the root cause, add corrective actions, and
   complete them. Someone other than the action owner checks that each action was effective. An

@@ -15,6 +15,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
 import { clean, DateInput, EnumSelect, OwnerSelect } from "@/components/forms";
 import { DigestPreference } from "@/components/NotificationBell";
+import { CopyButton } from "@/components/CopyButton";
 
 export function Organisation() {
   const { can } = useAuth();
@@ -111,15 +112,15 @@ export function Users() {
     <div className="animate-fade-in">
       <PageHeader icon={UserCog} title="Users" description="Accounts and roles. Accounts are never deleted, so the audit trail stays intact." actions={<Button onClick={() => setNu({ username: "", display_name: "", email: "", role: "viewer", password: "" })}><Plus /> Add user</Button>} />
       <DataTable rows={data} rowKey={(u: any) => u.id} search={(u: any) => `${u.username} ${u.display_name}`} columns={[
-        { key: "n", header: "User", cell: (u: any) => <div><div className="font-medium">{u.display_name}</div><div className="text-xs text-muted-foreground">{u.username}{u.email ? ` · ${u.email}` : ""}</div></div>, sort: (u: any) => u.display_name },
+        { key: "n", header: "User", cell: (u: any) => <div><div className="font-medium">{u.display_name}</div><div className="text-xs text-muted-foreground">{u.username}{u.email ? ` · ${u.email}` : ""}</div>{(u.sso_linked || u.sso_only) && <Badge tone="outline" className="mt-1">{u.sso_linked ? "SSO linked" : "SSO only · not activated yet"}</Badge>}</div>, sort: (u: any) => u.display_name },
         { key: "r", header: "Role", cell: (u: any) => u.id === me?.id ? <Badge tone="primary">{label.get(u.role) as string}</Badge> : <div className="w-44"><Select ariaLabel={`Role for ${u.display_name}`} value={u.role} onChange={(v) => (v === "auditor" && !u.expires_at ? setExp({ id: u.id, name: u.display_name, date: null, role: v }) : update.mutate({ id: u.id, body: { role: v } }))} options={ropts} /></div> },
         { key: "e", header: "Expires", cell: (u: any) => (u.expires_at ? (new Date(u.expires_at) <= new Date() ? <Badge tone="critical">Expired {fmtDate(u.expires_at)}</Badge> : <span className="whitespace-nowrap">{fmtDate(u.expires_at)}</span>) : <span className="text-muted-foreground">Never</span>), sort: (u: any) => u.expires_at ?? "9" },
         { key: "a", header: "Status", cell: (u: any) => (u.active ? (u.locked_until && new Date(u.locked_until) > new Date() ? <Badge tone="warning">Locked</Badge> : <Badge tone="good">Active</Badge>) : <Badge tone="outline">Disabled</Badge>) },
         { key: "l", header: "Last sign-in", cell: (u: any) => fmtDate(u.last_login_at, true) },
         { key: "x", header: "", cell: (u: any) => u.id !== me?.id && <div className="flex justify-end gap-1"><Button size="sm" variant="ghost" onClick={() => setEdit({ id: u.id, name: u.display_name, password: "" })}><KeyRound /> Reset</Button><Button size="sm" variant="ghost" onClick={() => setExp({ id: u.id, name: u.display_name, date: u.expires_at ? u.expires_at.slice(0, 10) : null, role: u.role })}>Expiry</Button><Button size="sm" variant="ghost" onClick={() => update.mutate({ id: u.id, body: { active: !u.active } })}>{u.active ? "Disable" : "Enable"}</Button></div> },
       ]} />
-      <Dialog open={!!nu} onOpenChange={(o) => !o && setNu(null)} title="Add user" footer={<Button loading={create.isPending} onClick={() => { const { expires_on, ...rest } = nu; create.mutate(clean({ ...rest, expires_at: expires_on ? `${expires_on}T00:00:00Z` : null })); }}>Create user</Button>}>
-        {nu && <div className="grid gap-3 sm:grid-cols-2"><Field label="Name"><Input value={nu.display_name} onChange={(e) => setNu({ ...nu, display_name: e.target.value })} /></Field><Field label="Username"><Input value={nu.username} onChange={(e) => setNu({ ...nu, username: e.target.value })} /></Field><Field label="Email"><Input value={nu.email} onChange={(e) => setNu({ ...nu, email: e.target.value })} /></Field><Field label="Role"><Select value={nu.role} onChange={(v) => setNu({ ...nu, role: v })} options={ropts} /></Field><Field label="Account expires" required={nu.role === "auditor"} hint={nu.role === "auditor" ? "Auditor accounts must expire. Access stops at the start of this day (UTC)." : "Optional. Access stops at the start of this day (UTC)."}><DateInput value={nu.expires_on ?? null} onChange={(v) => setNu({ ...nu, expires_on: v })} /></Field><Field label="Temporary password" className="sm:col-span-2" hint="12+ characters; they must change it at first sign-in."><Input type="password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} autoComplete="new-password" /></Field></div>}
+      <Dialog open={!!nu} onOpenChange={(o) => !o && setNu(null)} title="Add user" footer={<Button loading={create.isPending} onClick={() => { const { expires_on, ...rest } = nu; create.mutate(clean({ ...rest, password: rest.sso_only ? null : rest.password, sso_only: !!rest.sso_only, expires_at: expires_on ? `${expires_on}T00:00:00Z` : null })); }}>Create user</Button>}>
+        {nu && <div className="grid gap-3 sm:grid-cols-2"><Field label="Name"><Input value={nu.display_name} onChange={(e) => setNu({ ...nu, display_name: e.target.value })} /></Field><Field label="Username"><Input value={nu.username} onChange={(e) => setNu({ ...nu, username: e.target.value })} /></Field><Field label="Email"><Input value={nu.email} onChange={(e) => setNu({ ...nu, email: e.target.value })} /></Field><Field label="Role"><Select value={nu.role} onChange={(v) => setNu({ ...nu, role: v })} options={ropts} /></Field><Field label="Account expires" required={nu.role === "auditor"} hint={nu.role === "auditor" ? "Auditor accounts must expire. Access stops at the start of this day (UTC)." : "Optional. Access stops at the start of this day (UTC)."}><DateInput value={nu.expires_on ?? null} onChange={(v) => setNu({ ...nu, expires_on: v })} /></Field><label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={!!nu.sso_only} onChange={(e) => setNu({ ...nu, sso_only: e.target.checked })} /> Signs in with single sign-on only (no password)</label>{nu.sso_only ? <p className="text-xs text-muted-foreground sm:col-span-2">Enter the email they use with Microsoft or Google. Their first SSO sign-in activates the account.</p> : <Field label="Temporary password" className="sm:col-span-2" hint="12+ characters; they must change it at first sign-in. If they later sign in with SSO, this password stops working."><Input type="password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} autoComplete="new-password" /></Field>}</div>}
       </Dialog>
       <Dialog open={!!exp} onOpenChange={(o) => !o && setExp(null)} title={`Account expiry for ${exp?.name}`}
         footer={<>{exp?.role !== "auditor" && <Button variant="ghost" onClick={() => update.mutate({ id: exp.id, body: { expires_at: null } })}>Never expires</Button>}<Button disabled={!exp?.date} loading={update.isPending} onClick={() => update.mutate({ id: exp.id, body: { expires_at: `${exp.date}T00:00:00Z`, ...(exp.role ? { role: exp.role } : {}) } })}>Save</Button></>}>
@@ -315,5 +316,49 @@ export function EmailSettings() {
         </Card>
       </div>
     </div>
+  );
+}
+
+const SSO_NAMES: Record<string, string> = { entra: "Microsoft Entra ID", google: "Google" };
+
+export function SsoSettings() {
+  const { data } = useApi<any[]>("/settings/sso");
+  if (!data) return <Skeleton className="h-96" />;
+  return (
+    <div className="animate-fade-in">
+      <PageHeader icon={KeyRound} title="Single sign-on" description="Let people sign in with their Microsoft or Google work account." />
+      {!data[0]?.public_url_set && <p role="alert" className="mb-4 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">Set KEYSTONE_PUBLIC_URL on the server first: the provider redirects back to that address, and sign-in can't be turned on without it.</p>}
+      <div className="grid gap-5 lg:grid-cols-2">{data.map((p) => <SsoCard key={p.kind} p={p} />)}</div>
+      <Card className="mt-5"><CardHeader title="How accounts are matched" /><CardBody className="space-y-2 text-sm text-muted-foreground">
+        <p><span className="font-medium text-foreground">Accounts you create:</span> add the user (tick “single sign-on only” if they won't have a password) with the email they use at the provider. Their first SSO sign-in links and activates the account; after that Keystone recognises them by the provider's user ID, not their email.</p>
+        <p><span className="font-medium text-foreground">Approved domains (optional):</span> anyone from an approved domain can sign in and gets an account with a basic role automatically. Give them more access under Users.</p>
+        <p>Microsoft sign-in only accepts accounts from your tenant. Google sign-in requires a verified email, and approved domains must be Google Workspace domains.</p>
+      </CardBody></Card>
+    </div>
+  );
+}
+
+function SsoCard({ p }: { p: any }) {
+  const [f, setF] = useState(() => ({ enabled: p.enabled, client_id: p.client_id ?? "", tenant_id: p.tenant_id ?? "", domains: (p.allowed_domains ?? []).join(", "), jit_enabled: p.jit_enabled, jit_role: p.jit_role }));
+  const [secret, setSecret] = useState("");
+  const save = useAction(() => api(`/settings/sso/${p.kind}`, { method: "PUT", body: {
+    enabled: f.enabled, client_id: f.client_id || null, ...(p.kind === "entra" ? { tenant_id: f.tenant_id || null } : {}),
+    allowed_domains: f.domains.split(/[\s,]+/).filter(Boolean), jit_enabled: f.jit_enabled, jit_role: f.jit_role, ...(secret ? { client_secret: secret } : {}),
+  } }), { success: `${SSO_NAMES[p.kind]} sign-in saved.`, invalidate: ["/settings/sso"], onSuccess: () => setSecret("") });
+  return (
+    <Card>
+      <CardHeader title={SSO_NAMES[p.kind]} description={p.kind === "entra" ? "App registration in your Entra tenant (single tenant), web platform." : "OAuth client (web application) in your Google Cloud project."} />
+      <CardBody className="space-y-4">
+        <div><Switch checked={f.enabled} onChange={(v) => setF({ ...f, enabled: v })} label={f.enabled ? "Sign-in is on" : "Sign-in is off"} /></div>
+        {p.redirect_uri && <Field label="Redirect URI to register"><div className="flex items-center gap-2"><code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1.5 text-xs">{p.redirect_uri}</code><CopyButton text={p.redirect_uri} /></div></Field>}
+        {p.kind === "entra" && <Field label="Tenant ID" hint="Directory (tenant) ID, a GUID. Only accounts from this tenant can sign in."><Input value={f.tenant_id} onChange={(e) => setF({ ...f, tenant_id: e.target.value })} autoComplete="off" /></Field>}
+        <Field label="Client ID"><Input value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value })} autoComplete="off" /></Field>
+        <Field label="Client secret" hint={p.client_secret_set ? "Stored (encrypted, write-only). Leave empty to keep it." : "Not set."}><Input type="password" value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="new-password" placeholder={p.client_secret_set ? "•••••••• (set)" : ""} /></Field>
+        <Field label="Approved domains (optional)" hint="Comma-separated, for example alpineskihouse.com."><Input value={f.domains} onChange={(e) => setF({ ...f, domains: e.target.value })} /></Field>
+        <div><Switch checked={f.jit_enabled} onChange={(v) => setF({ ...f, jit_enabled: v })} label="Create accounts automatically for approved domains" /></div>
+        {f.jit_enabled && <Field label="Role for new accounts"><Select value={f.jit_role} onChange={(v) => setF({ ...f, jit_role: v })} options={[{ value: "employee", label: "Employee (portal only)" }, { value: "viewer", label: "Viewer (read-only)" }]} /></Field>}
+        <div><Button loading={save.isPending} onClick={() => save.mutate(undefined)}>Save</Button></div>
+      </CardBody>
+    </Card>
   );
 }

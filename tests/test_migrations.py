@@ -56,3 +56,26 @@ def test_unversioned_database_is_adopted(tmp_path):
         assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar() == head
     upgrade_to_head(url)  # and a second start is a no-op
     db.engine().dispose()
+
+
+def test_each_migration_runs_on_populated_data(tmp_path):
+    """Migrations must work on a live database, not only an empty one: rebuilding a table that others reference
+    fails in SQLite while foreign keys are enforced (what broke the first version of 0015)."""
+    from alembic import command
+    from alembic.script import ScriptDirectory
+
+    url = f"sqlite:///{tmp_path / 'live.db'}"
+    cfg = alembic_config(url)
+    revisions = [r.revision for r in reversed(list(ScriptDirectory.from_config(cfg).walk_revisions()))]
+    eng = create_engine(url)
+    for i, rev in enumerate(revisions):
+        command.upgrade(cfg, rev)
+        if i == 0:
+            with eng.begin() as conn:  # a user and rows that reference it, from the baseline onwards
+                conn.execute(text("INSERT INTO users (id, username, display_name, role, password_hash, active, must_change_password, failed_logins, created_at, updated_at) "
+                                  "VALUES (1, 'admin', 'Admin', 'admin', 'x', 1, 0, 0, '2026-01-01', '2026-01-01')"))
+                conn.execute(text("INSERT INTO assets (name, asset_type, classification, confidentiality, integrity, availability, contains_personal_data, status, owner_id, created_by_id, created_at, updated_at) "
+                                  "VALUES ('Laptop', 'hardware', 'internal', 3, 3, 3, 0, 'active', 1, 1, '2026-01-01', '2026-01-01')"))
+    with eng.connect() as conn:
+        assert conn.execute(text("PRAGMA foreign_key_check")).fetchall() == []
+        assert conn.execute(text("SELECT count(*) FROM users")).scalar() == 1

@@ -1,7 +1,18 @@
 # Security design notes: feature expansion (for AppSec sign-off)
 
-Each feature below is on the secure coding standard's escalation list (SC-AGT-006). Nothing here is built yet.
-Each note lists what changes, the controls planned, and the decisions that need a human answer (marked **Decide**).
+Each feature below is on the secure coding standard's escalation list (SC-AGT-006). Each note lists what changes,
+the controls, and the decisions that needed a human answer (marked **Decide**).
+
+## Decisions (human:sneh, 2026-11-16) and status
+
+| Feature | Decisions | Status |
+|---|---|---|
+| Notifications | In-app inbox and email; daily digest; custom SMTP relay | Built (commit "Notifications") |
+| Vendor portal | File types and sizes as proposed; virus scanner required; link expiry set manually, default never | Built with ClamAV, fail-closed |
+| Auditor workspace | Read-only auditor accounts that expire; in-app document viewer requested | Built (viewer: PDF, images, text) |
+| SSO | Entra ID and Google; admin pre-creates users who activate by signing in, or approved domains get a basic role automatically; Authlib approved | Built |
+
+"SSO required" (disabling password sign-in) was not decided and is not built.
 
 ## 1. Notifications and reminders
 

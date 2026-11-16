@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,14 +17,19 @@ router = APIRouter(tags=["admin"])
 USER_FIELDS = ("id", "username", "display_name", "email", "role", "active", "must_change_password", "last_login_at", "locked_until", "created_at", "expires_at")
 
 
+def user_out(u) -> dict:
+    return ser(u, USER_FIELDS, sso_linked=bool(u.sso_subject), sso_only=u.password_hash == auth.SSO_ONLY_MARKER)
+
+
 class UserIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     username: str
     display_name: str
-    password: str
+    password: str | None = None  # not needed for SSO-only accounts
     role: str = "viewer"
     email: str | None = None
     expires_at: datetime | None = None
+    sso_only: bool = False
 
 
 class UserPatch(BaseModel):
@@ -61,13 +66,13 @@ def roles(user=Depends(perm("read"))):
 
 @router.get("/users")
 def list_users(user=Depends(perm("users.manage")), db: Session = Depends(get_db)):
-    return [ser(u, USER_FIELDS) for u in auth.list_users(db)]
+    return [user_out(u) for u in auth.list_users(db)]
 
 
 @router.post("/users")
 def create_user(body: UserIn, user=Depends(perm("users.manage")), db: Session = Depends(get_db)):
-    u = auth.create_user(db, user, username=body.username, display_name=body.display_name, password=body.password, role=body.role, email=body.email, expires_at=_naive_utc(body.expires_at))
-    return ser(u, USER_FIELDS)
+    u = auth.create_user(db, user, username=body.username, display_name=body.display_name, password=body.password, role=body.role, email=body.email, expires_at=_naive_utc(body.expires_at), sso_only=body.sso_only)
+    return user_out(u)
 
 
 @router.patch("/users/{user_id}")
@@ -81,7 +86,7 @@ def update_user(user_id: int, body: UserPatch, user=Depends(perm("users.manage")
     # SC-AUTHN-003: sessions end when an account is disabled or its role changes.
     if body.active is False or target.role != old_role:
         sessions.destroy_all_for(db, target.id)
-    return ser(target, USER_FIELDS)
+    return user_out(target)
 
 
 @router.post("/users/{user_id}/reset-password")
@@ -106,3 +111,32 @@ def audit_log(limit: int = Query(200, ge=1, le=5000), entity_type: str | None = 
 def audit_verify(user=Depends(perm("audit_log.view")), db: Session = Depends(get_db)):
     ok, bad = verify_chain(db)
     return {"ok": ok, "first_bad_id": bad}
+
+
+# ---- single sign-on settings ---------------------------------------------------------------------------
+
+@router.get("/settings/sso")
+def sso_settings(user=Depends(perm("users.manage")), db: Session = Depends(get_db)):
+    from keystone.sso import service as sso
+    from keystone.sso.models import PROVIDERS
+
+    return [sso.view(sso.provider(db, k)) for k in PROVIDERS]
+
+
+class SsoIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool | None = None
+    client_id: str | None = Field(default=None, max_length=200)
+    client_secret: str | None = Field(default=None, max_length=1000)  # write-only
+    clear_secret: bool | None = None
+    tenant_id: str | None = Field(default=None, max_length=36)
+    allowed_domains: list[str] | None = Field(default=None, max_length=50)
+    jit_enabled: bool | None = None
+    jit_role: str | None = None
+
+
+@router.put("/settings/sso/{kind}")
+def update_sso(kind: str, body: SsoIn, user=Depends(perm("users.manage")), db: Session = Depends(get_db)):
+    from keystone.sso import service as sso
+
+    return sso.view(sso.update(db, user, kind, **body.model_dump(exclude_unset=True)))

@@ -78,6 +78,9 @@ plain HTTP for evaluation on a private network only.
 | `ANTHROPIC_API_KEY` | unset | Optional key for AI features, used when no key is stored under **Settings → AI** |
 | `KEYSTONE_PUBLIC_URL` | unset | Public address for links Keystone hands out, e.g. `https://isms.example.com`. When unset, links use the address the administrator's browser is on |
 | `KEYSTONE_API_DOCS` | unset | Set to `1` to serve the interactive API docs and OpenAPI schema (development only) |
+| `KEYSTONE_SMTP_PRIVATE_HOSTS` | unset | Comma-separated host names of internal SMTP relays Keystone may connect to. Without it, only relays with public addresses are allowed |
+| `KEYSTONE_CLAMD_SOCKET` | `/var/run/clamav/clamd.ctl` | ClamAV daemon socket used to scan vendor uploads |
+| `KEYSTONE_CLAMD_TCP` | unset | `host:port` of a ClamAV daemon (for example a ClamAV container), used instead of the socket |
 
 Don't put secrets in the repository. Pass database credentials through the environment.
 
@@ -89,7 +92,7 @@ Don't put secrets in the repository. Pass database credentials through the envir
 | `isms_manager` | Everything except managing users and AI settings: approve policies, tasks and questionnaire answers, accept risks, approve vendor assessments, verify corrective actions, run management reviews, manage the Trust Center and integrations |
 | `risk_owner` | Assets, risks, evidence, incidents, nonconformities |
 | `control_owner` | Control implementation, evidence, incidents, nonconformities |
-| `auditor` | Read everything (including the audit log) and record audit findings |
+| `auditor` | Read everything (including the audit log), record audit findings and run the evidence request list. Auditor accounts must have an expiry date |
 | `viewer` | Read, and acknowledge policies |
 | `employee` | Only the employee portal: their policies, training and device checklist. No ISMS records |
 
@@ -98,8 +101,56 @@ AI settings.
 
 Users created by an admin must change their password at first sign-in. Five wrong passwords
 lock an account for 15 minutes. An admin can reset a password (the user must then change it),
-change a role or disable an account. Accounts are never deleted, so the audit trail stays
-intact.
+change a role or disable an account. Changing a role or disabling an account signs the user out
+everywhere. Accounts are never deleted, so the audit trail stays intact.
+
+Any account can have an **expiry date** (**Users → Expiry**); auditor accounts must have one. After
+it passes, sign-in fails with the usual "Invalid username or password" and open sessions stop
+working at their next request.
+
+## Single sign-on (Microsoft Entra ID, Google)
+
+**Settings → Single sign-on.** `KEYSTONE_PUBLIC_URL` must be set: the provider sends people back
+to `<KEYSTONE_PUBLIC_URL>/api/auth/oidc/<entra|google>/callback`, shown on the page to copy.
+
+- **Entra ID:** register a single-tenant app (web platform) with that redirect URI and create a
+  client secret. Enter the directory (tenant) ID, client ID and secret. Only accounts from that
+  tenant can sign in (`common` and other multi-tenant endpoints are refused).
+- **Google:** create an OAuth client (web application) with that redirect URI. Only verified
+  email addresses are accepted.
+
+Accounts: create the user under **Users** with the email they use at the provider (tick "single
+sign-on only" if they shouldn't have a password). Their first SSO sign-in links the account; from
+then on Keystone recognises them by the provider's user ID only. If the account had a temporary
+password, it stops working. Optionally list **approved domains** and turn on automatic accounts:
+anyone from those domains who signs in gets an account with the Employee or Viewer role (never
+more). For Google, approved domains must be Google Workspace domains (checked with the `hd` claim).
+
+The client secret is encrypted and write-only. Each SSO sign-in and each refusal is in the audit log.
+
+## Email (notification digests)
+
+**Settings → Email.** Enter the SMTP relay (port 587 STARTTLS, 465 TLS, or 25/2525), sender and,
+if needed, user name and password, then **Send test message**. Keystone always encrypts the
+connection and checks the certificate. It connects only to relays with public addresses unless
+the relay's name is in `KEYSTONE_SMTP_PRIVATE_HOSTS`. The password is encrypted, write-only and
+tied to the host: changing the host removes it. Each user with an email address gets one digest
+a day (after the hour you choose, UTC) listing unread items from their inbox; they can turn it
+off under **My account**.
+
+## Virus scanning (vendor uploads)
+
+Files vendors upload through the vendor portal are scanned by ClamAV before they are stored. If
+the scanner can't be reached, vendor uploads are refused (the vendor is asked to try later) and
+the questionnaire shows "Virus scanner unavailable". On Debian/Ubuntu:
+
+```bash
+apt-get install clamav-daemon clamav-freshclam   # freshclam keeps the signatures current
+systemctl enable --now clamav-daemon
+```
+
+In Docker, run a ClamAV container and set `KEYSTONE_CLAMD_TCP=clamav:3310`. Allow at least
+1.5 GB of memory for the daemon.
 
 ## Audit log
 

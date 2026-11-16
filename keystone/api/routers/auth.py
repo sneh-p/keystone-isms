@@ -53,7 +53,57 @@ def _set_cookie(request: Request, response: Response, token: str) -> None:
 
 @router.get("/status")
 def status(db: Session = Depends(get_db)):
-    return {"needs_bootstrap": auth.needs_bootstrap(db), "session_timeout_minutes": get_settings().session_timeout_minutes}
+    from keystone.sso import service as sso
+
+    return {"needs_bootstrap": auth.needs_bootstrap(db), "session_timeout_minutes": get_settings().session_timeout_minutes, "sso": sso.enabled_providers(db)}
+
+
+# ---- single sign-on (OIDC); design and controls in keystone/sso/service.py ------------------------------
+
+OIDC_COOKIE = "ks_oidc"
+
+
+def _secure(request: Request) -> bool:
+    return request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+
+
+@router.get("/oidc/{kind}/start")
+def oidc_start(kind: str, request: Request, db: Session = Depends(get_db)):
+    from fastapi.responses import RedirectResponse
+
+    from keystone.sso import service as sso
+
+    try:
+        url, browser = sso.start(db, kind)
+    except (sso.SsoError, LookupError):
+        return RedirectResponse("/login#sso_error=not_configured", status_code=303)
+    r = RedirectResponse(url, status_code=303)
+    # Binds the login to this browser (login CSRF); Lax is sent on the provider's top-level redirect back.
+    r.set_cookie(OIDC_COOKIE, browser, httponly=True, samesite="lax", secure=_secure(request), path="/api/auth/oidc", max_age=600)
+    return r
+
+
+@router.get("/oidc/{kind}/callback")
+def oidc_callback(kind: str, request: Request, code: str | None = None, state: str | None = None, error: str | None = None, db: Session = Depends(get_db)):
+    from fastapi.responses import RedirectResponse
+
+    from keystone.core.audit import log_event
+    from keystone.sso import service as sso
+
+    try:
+        user = sso.finish(db, kind, code=code, state=state, browser=request.cookies.get(OIDC_COOKIE), error=error)
+    except (sso.SsoError, LookupError) as e:
+        code_ = e.code if isinstance(e, sso.SsoError) else "not_configured"
+        log_event(db, None, "login_failed", "User", None, f"SSO sign-in failed ({kind}): {code_}: {getattr(e, 'detail', '')}"[:500])
+        db.commit()  # keep the failed-login audit entry and the used state
+        r = RedirectResponse(f"/login#sso_error={code_}", status_code=303)
+        r.delete_cookie(OIDC_COOKIE, path="/api/auth/oidc")
+        return r
+    token, _ws = sessions.create(db, user.id, request.client.host if request.client else None, request.headers.get("user-agent"))
+    r = RedirectResponse("/", status_code=303)
+    _set_cookie(request, r, token)
+    r.delete_cookie(OIDC_COOKIE, path="/api/auth/oidc")
+    return r
 
 
 @router.post("/bootstrap")

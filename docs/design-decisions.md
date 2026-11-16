@@ -86,8 +86,20 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
 - **Integrations** are read-only and pull-based on an in-process scheduler (APScheduler). The
   Entra integration derives its checks from the imported collector snapshots, so the app still
   never connects to Microsoft Graph. Credentials are Fernet-encrypted and write-only.
-- **Email** is not sent: invitation and Trust Center links are shown to copy. An SMTP hook is
-  on the roadmap.
+- **Email** is used for the daily notification digest only (custom SMTP relay, TLS required, IP-pinned,
+  public relays unless the operator allowlists an internal one). Invitation and Trust Center links are still shown
+  to copy rather than emailed.
+- **Notifications** are derived: an hourly job turns the same rules as "My tasks" (within 14 days) into inbox items
+  per user, deduplicated by a hash of the item, and resolves items that no longer apply.
+- **Vendor portal links don't expire by default** (organisation decision, 2026-11-16). Mitigations: one link per
+  questionnaire (a new one revokes the old), revocation, optional expiry, read-only after submission, rate limits,
+  and all vendor actions audited.
+- **Document viewer** keeps SC-FILE-002 (files are always served as attachments): the browser fetches the bytes and
+  shows PDFs, images and text from a Blob whose type Keystone sets; other types download. Office files are not
+  previewed (that would need server-side conversion).
+- **SSO account matching**: by (issuer, subject) once linked; the first sign-in links a pre-created account by email
+  (Entra: single tenant only; Google: verified email). Automatic accounts only for approved domains, Employee or
+  Viewer role. Authlib 1.9.5 / joserfc 1.8.0; provider endpoints fixed in code, no discovery fetch.
 - **No device agent.** Device checks are self-attested by employees with an optional
   screenshot, and expire after a set period.
 - **Dashboard trends** come from a `metric_snapshots` table: one row per day (a scheduled job, idempotent per day),

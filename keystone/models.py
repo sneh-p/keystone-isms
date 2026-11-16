@@ -26,3 +26,4 @@ from keystone.reporting.models import MetricSnapshot
 from keystone.notifications.models import Notification, NotificationPrefs, SmtpSettings
 from keystone.audits.models import AuditRequest, AuditRequestComment
 from keystone.tprm.models import VendorPortalLink
+from keystone.sso.models import OidcLogin, SsoProvider

@@ -14,7 +14,7 @@ policies, portal, Trust Center).
 | Navigation and naming | N1–N4 | Done (commit "UX phase 2") |
 | Dashboard and registers | D1–D3, R1–R5 | Done (commit "UX phase 3"). Also: two-column KPI grid on phones (part of M1), keyboard-operable table rows |
 | Phones, Trust Center, speed | M1–M3, T1–T2, P1 | Done (commit "UX phase 4"): two-column KPIs, card lists below 640 px, full-screen dialogs; "Frameworks we align to" with per-framework aligned/certified/hidden; device checks name what failed; main bundle 428 KB → 80 KB, chart library loads with the FAIR tab |
-| Features | Notifications, vendor portal, auditor workspace, SSO | Design notes written (docs/feature-security-designs.md); waiting for AppSec sign-off (SC-AGT-006) |
+| Features | Notifications, vendor portal, auditor workspace, SSO | Done after AppSec sign-off (docs/feature-security-designs.md) |
 
 ## Summary
 

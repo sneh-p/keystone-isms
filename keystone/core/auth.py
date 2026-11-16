@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
-from sqlalchemy import Boolean, DateTime, Integer, String, func, select
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, func, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from .audit import log_event
@@ -24,6 +24,8 @@ class User(Audited, TimestampMixin, Base):
     __audit_redact__ = ("password_hash",)
     REF_PREFIX = "USR"
 
+    __table_args__ = (Index("uq_users_sso_identity", "sso_issuer", "sso_subject", unique=True),)
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -37,6 +39,9 @@ class User(Audited, TimestampMixin, Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Time-limited accounts (required for auditors): sign-in and every request are refused after this moment.
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Single sign-on binding: set at the first SSO sign-in; afterwards the account is found by these only.
+    sso_issuer: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    sso_subject: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     def __repr__(self) -> str:
         return f"<User {self.username} ({self.role})>"
@@ -79,6 +84,10 @@ def _normalise(username: str) -> str:
     return username.strip().lower()
 
 
+# Not an Argon2 hash, so password sign-in always fails (InvalidHashError) for accounts that use SSO only.
+SSO_ONLY_MARKER = "!sso-only"
+
+
 def expired(user: User, now: datetime | None = None) -> bool:
     return user.expires_at is not None and user.expires_at <= (now or utcnow())
 
@@ -90,7 +99,7 @@ def _check_expiry(role: str, expires_at: datetime | None, changing: bool) -> Non
         raise ValueError("The expiry must be in the future.")
 
 
-def create_user(session: Session, actor, *, username: str, display_name: str, password: str, role: Role | str = Role.VIEWER, email: str | None = None, must_change_password: bool = True, expires_at: datetime | None = None) -> User:
+def create_user(session: Session, actor, *, username: str, display_name: str, password: str | None, role: Role | str = Role.VIEWER, email: str | None = None, must_change_password: bool = True, expires_at: datetime | None = None, sso_only: bool = False) -> User:
     """Create an account. The very first account may be created without an actor (bootstrap) and is always admin."""
     bootstrap = session.scalar(select(func.count(User.id))) == 0
     if not bootstrap:
@@ -101,7 +110,15 @@ def create_user(session: Session, actor, *, username: str, display_name: str, pa
         raise ValueError("username is required")
     if session.scalar(select(User).where(User.username == username)):
         raise ValueError(f"user {username!r} already exists")
-    check_password_policy(password, username)
+    if sso_only:
+        if bootstrap:
+            raise ValueError("The first administrator needs a password.")
+        if not email:
+            raise ValueError("SSO-only accounts need the email address they sign in with.")
+        if session.scalar(select(User).where(func.lower(User.email) == email.strip().lower())):
+            raise ValueError("Another account already uses this email address.")
+    else:
+        check_password_policy(password or "", username)
     final_role = (Role.ADMIN if bootstrap else Role(role)).value
     _check_expiry(final_role, expires_at, changing=True)
     user = User(
@@ -110,8 +127,8 @@ def create_user(session: Session, actor, *, username: str, display_name: str, pa
         display_name=display_name.strip() or username,
         email=email,
         role=final_role,
-        password_hash=hash_password(password),
-        must_change_password=must_change_password and not bootstrap,
+        password_hash=SSO_ONLY_MARKER if sso_only else hash_password(password or ""),
+        must_change_password=False if sso_only else must_change_password and not bootstrap,
     )
     session.add(user)
     session.flush()

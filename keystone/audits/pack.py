@@ -17,7 +17,6 @@ import io
 import re
 import tempfile
 import zipfile
-from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -45,8 +44,9 @@ def _slug(text: str, n: int = 60) -> str:
 
 
 def _ext(att: Attachment) -> str:
-    ext = Path(att.filename).suffix.lower()
-    return ext if ext in ALLOWED_EXTENSIONS else ".bin"
+    name = att.filename or ""
+    ext = "." + name.rsplit(".", 1)[1].lower() if "." in name else ""
+    return ext if ext in ALLOWED_EXTENSIONS else ".bin"  # only an allowlisted suffix, never a path
 
 
 def build(session: Session, actor, audit_id: int) -> tuple[tempfile.SpooledTemporaryFile, str, int]:
