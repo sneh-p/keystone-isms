@@ -13,8 +13,12 @@ cd "$ROOT"
 PY="${PY:-$ROOT/.venv/bin/python}"
 RUFF="${RUFF:-$ROOT/.venv/bin/ruff}"
 PIP_AUDIT="${PIP_AUDIT:-$ROOT/.venv/bin/pip-audit}"
+MYPY="${MYPY:-$ROOT/.venv/bin/mypy}"
 SEMGREP="${SEMGREP:-$ROOT/.tools/semgrep/bin/semgrep}"
-GITLEAKS="${GITLEAKS:-gitleaks}"
+# gitleaks: a checksum-verified release in .tools/gitleaks if present (SC-DEP-006), else the one on PATH.
+if [[ -z "${GITLEAKS:-}" ]]; then
+  if [[ -x "$ROOT/.tools/gitleaks/gitleaks" ]]; then GITLEAKS="$ROOT/.tools/gitleaks/gitleaks"; else GITLEAKS=gitleaks; fi
+fi
 
 # BASE_REF: the branch this work will merge into. Defaults to origin/main, then main; on main itself with no
 # remote, HEAD (only uncommitted changes count as "new").
@@ -33,7 +37,9 @@ need() { # need <executable> <how to install>
 }
 
 gate_typecheck() {
-  # Python has no static type gate yet (see the standard's verification notes); the web app is strict TypeScript.
+  # Python: mypy with the settings in pyproject.toml ([tool.mypy]); the web app is strict TypeScript.
+  need "$MYPY" 'pip install -e ".[security]"' || return 1
+  "$MYPY" || return 1
   (cd web && npx --no-install tsc --noEmit -p .)
 }
 

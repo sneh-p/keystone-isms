@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertOctagon, Building2, CheckCircle2, Download, KeyRound, Plus, ShieldAlert, Sparkles, Stamp, Trash2, UserCog, Activity, Mail } from "lucide-react";
+import { AlertOctagon, Building2, CheckCircle2, Download, HardDriveDownload, HeartPulse, KeyRound, Plus, ShieldAlert, Sparkles, Stamp, Trash2, UserCog, Activity, Mail } from "lucide-react";
 import { api, downloadUrl } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -377,5 +377,70 @@ function SsoCard({ p }: { p: any }) {
         <div><Button loading={save.isPending} onClick={() => save.mutate(undefined)}>Save</Button></div>
       </CardBody>
     </Card>
+  );
+}
+
+function fmtBytes(n?: number | null): string {
+  if (n == null) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(i ? 1 : 0)} ${units[i]}`;
+}
+
+const BACKUP_TONE: Record<string, "good" | "warning" | "critical" | "neutral"> = { ok: "good", warning: "warning", failed: "critical", running: "neutral" };
+
+/** Administrators: scheduled jobs, backups, database and virus scanner, and a button to back up now. */
+export function SystemHealth() {
+  const { data } = useApi<any>("/system/health");
+  const run = useAction(() => api("/system/backups", { body: {} }), { success: "Backup started. It appears below when it finishes.", invalidate: ["/system/health"] });
+  if (!data) return <Skeleton className="h-96" />;
+  const ok = (good: boolean, yes: string, no: string) => <Badge tone={good ? "good" : "critical"}>{good ? <CheckCircle2 className="h-3 w-3" /> : <AlertOctagon className="h-3 w-3" />}{good ? yes : no}</Badge>;
+  return (
+    <div className="animate-fade-in space-y-5">
+      <PageHeader icon={HeartPulse} title="System health" description="Scheduled jobs, backups and the services Keystone depends on. Administrators are notified when something here stops working." />
+      {data.problems.length > 0 ? (
+        <div role="alert" className="rounded-lg border border-critical/30 bg-critical/5 p-4 text-sm">
+          <p className="font-medium">Needs attention</p>
+          <ul className="mt-1 list-disc pl-5">{data.problems.map((p: any) => <li key={p.key}>{p.title}</li>)}</ul>
+        </div>
+      ) : (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground"><CheckCircle2 className="h-4 w-4 text-good" /> Everything is working.</p>
+      )}
+      <div className="grid gap-5 lg:grid-cols-[22rem_1fr]">
+        <Card>
+          <CardHeader title="Services" />
+          <CardBody>
+            <KeyValue items={[
+              ["Database", <span key="db">{data.database === "postgresql" ? "PostgreSQL" : "SQLite"} <span className="text-muted-foreground">(schema {data.schema_revision ?? "unknown"})</span></span>],
+              ["Scheduler", ok(data.scheduler_running, "Running", "Not running")],
+              ["Virus scanner", ok(data.virus_scanner === "ok", "Reachable", "Unavailable: vendor uploads are refused")],
+              ["Email", <Badge key="m" tone={data.email === "configured" ? "good" : "outline"}>{data.email === "configured" ? "Configured" : "Not configured"}</Badge>],
+            ]} />
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="Backups" description="Each backup is test-restored into a scratch database before it counts as verified. Restoring is done on the server (python -m keystone.ops restore); see the admin guide."
+            action={<Button size="sm" loading={run.isPending} onClick={() => run.mutate(undefined)}><HardDriveDownload /> Back up now</Button>} />
+          <DataTable rows={data.backups} rowKey={(r: any) => r.id} empty="No backups yet. The first runs a day after Keystone starts, or use Back up now." columns={[
+            { key: "w", header: "Started", cell: (r: any) => fmtDate(r.started_at, true) },
+            { key: "s", header: "Result", cell: (r: any) => <span className="flex flex-wrap items-center gap-1"><Badge tone={BACKUP_TONE[r.status] ?? "neutral"}>{r.status === "ok" ? "OK" : titleCase(r.status)}</Badge>{r.verified && <Badge tone="good"><CheckCircle2 className="h-3 w-3" />Verified</Badge>}</span> },
+            { key: "z", header: "Size", cell: (r: any) => <span className="tabular-nums">{fmtBytes(r.size_bytes)}</span> },
+            { key: "c", header: "Contents", cell: (r: any) => r.rows == null ? "—" : <span className="tabular-nums">{r.rows.toLocaleString()} rows, {r.files} files</span> },
+            { key: "d", header: "Notes", cell: (r: any) => <span className="text-muted-foreground">{r.detail ?? r.filename ?? ""}</span> },
+          ]} />
+        </Card>
+      </div>
+      <Card>
+        <CardHeader title="Scheduled jobs" description="An administrator alert is raised after two failures in a row." />
+        <DataTable rows={data.jobs} rowKey={(r: any) => r.name} columns={[
+          { key: "n", header: "Job", cell: (r: any) => <span className="font-medium">{r.name}</span> },
+          { key: "e", header: "Runs every", cell: (r: any) => r.every_minutes >= 1440 ? `${r.every_minutes / 1440} day(s)` : r.every_minutes >= 60 ? `${r.every_minutes / 60} hour(s)` : `${r.every_minutes} minutes` },
+          { key: "l", header: "Last run", cell: (r: any) => r.last_finished ? fmtDate(r.last_finished, true) : "Not yet" },
+          { key: "o", header: "Result", cell: (r: any) => r.last_ok == null ? <Badge tone="outline">Not run</Badge> : r.last_ok ? <Badge tone="good">OK</Badge> : <Badge tone="critical">Failed{r.consecutive_failures > 1 ? ` ×${r.consecutive_failures}` : ""}{r.last_error ? `: ${r.last_error}` : ""}</Badge> },
+        ]} />
+      </Card>
+    </div>
   );
 }

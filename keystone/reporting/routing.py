@@ -52,7 +52,7 @@ def routed_items(session: Session, on: date | None = None) -> dict[int, list[dic
             s = unowned.setdefault(category, {"n": 0, "summary": summary, "page": summary_page})
             s["n"] += 1
 
-    def to_holders(permission: str, it: dict, exclude: set[int | None] = frozenset()) -> None:
+    def to_holders(permission: str, it: dict, exclude: frozenset[int | None] = frozenset()) -> None:
         for u in users:
             if has_permission(u, permission) and u.id not in exclude:
                 out[u.id].append(it)
@@ -81,7 +81,7 @@ def routed_items(session: Session, on: date | None = None) -> dict[int, list[dic
     for n in natt["overdue"]:
         to_owner(n.owner_id, item(f"Nonconformity {n.ref} {n.title} is past its target date", f"/nonconformities?open={n.id}", n.due_date), "nc_overdue", "overdue nonconformity(ies) without an owner", "/nonconformities")
     for a in natt["awaiting_verification"]:
-        to_holders("nc.verify", item(f"Check the effectiveness of a corrective action ({a.description[:80]})", f"/nonconformities?open={a.nonconformity_id}"), exclude={a.owner_id})
+        to_holders("nc.verify", item(f"Check the effectiveness of a corrective action ({a.description[:80]})", f"/nonconformities?open={a.nonconformity_id}"), exclude=frozenset({a.owner_id}))
 
     # Incidents
     iatt = inc.incident_attention(session)
@@ -103,7 +103,7 @@ def routed_items(session: Session, on: date | None = None) -> dict[int, list[dic
             to_owner(vendor.owner_id, item(texts.get(key, "Vendor {name} needs attention").format(name=vendor.name), f"/vendors?open={vendor.id}"),
                      f"vendor_{key}", "vendor item(s) needing attention on vendors without an owner", "/vendors")
     for a in session.scalars(select(VendorAssessment).where(VendorAssessment.status == "in_review")):
-        to_holders("vendor.approve", item(f"Approve the vendor assessment {a.title}", f"/assessments?open={a.id}"), exclude={a.created_by_id})
+        to_holders("vendor.approve", item(f"Approve the vendor assessment {a.title}", f"/assessments?open={a.id}"), exclude=frozenset({a.created_by_id}))
 
     # Policies
     patt = pol.policy_attention(session, on)
@@ -127,11 +127,11 @@ def routed_items(session: Session, on: date | None = None) -> dict[int, list[dic
     from keystone.answers.models import QuestionnaireItem, SecurityQuestionnaire
     from keystone.trust.models import AccessRequest
 
-    for r in session.scalars(select(AccessRequest).where(AccessRequest.status == "pending")):
-        to_holders("trust.manage", item(f"Trust Center access request from {r.name} ({r.company})", "/trust-center"))
+    for ar in session.scalars(select(AccessRequest).where(AccessRequest.status == "pending")):
+        to_holders("trust.manage", item(f"Trust Center access request from {ar.name} ({ar.company})", "/trust-center"))
     drafted: dict[int, int] = defaultdict(int)
-    for it in session.scalars(select(QuestionnaireItem).where(QuestionnaireItem.status == "drafted")):
-        drafted[it.questionnaire_id] += 1
+    for qi in session.scalars(select(QuestionnaireItem).where(QuestionnaireItem.status == "drafted")):
+        drafted[qi.questionnaire_id] += 1
     for qid, n in drafted.items():
         q = session.get(SecurityQuestionnaire, qid)
         if q is not None and q.status == "open":
@@ -139,9 +139,9 @@ def routed_items(session: Session, on: date | None = None) -> dict[int, list[dic
 
     # Auditor evidence requests: the owner of the requested control, else the ISMS managers
     reqs = session.execute(select(AuditRequest, Audit).join(Audit, Audit.id == AuditRequest.audit_id).where(AuditRequest.status == "open", Audit.status != "closed"))
-    for r, a in reqs:
-        c = owners.get(r.common_control_id) if r.common_control_id else None
-        it = item(f"The auditor asked for: {r.title} ({a.title})", f"/audits?open={a.id}", r.due_date)
+    for req, a in reqs:
+        c = owners.get(req.common_control_id) if req.common_control_id else None
+        it = item(f"The auditor asked for: {req.title} ({a.title})", f"/audits?open={a.id}", req.due_date)
         if c is not None and c.owner_id in active:
             out[c.owner_id].append(it)
         else:

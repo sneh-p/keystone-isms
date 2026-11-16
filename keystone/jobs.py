@@ -42,3 +42,27 @@ def refresh_notifications() -> None:
         ntf.refresh_all(s)
     with db.session_scope() as s:  # mail errors are caught inside and recorded in smtp_settings.last_error
         ntf.send_digests(s)
+
+
+@register("backup", minutes=1440)
+def nightly_backup() -> None:
+    """Back up the database and stored files, test-restore the result into a scratch database, then prune old
+    backups. Set KEYSTONE_BACKUP_DISABLE=1 when backups are taken another way (for example managed PostgreSQL)."""
+    import os
+
+    from keystone.ops.service import run_backup
+
+    if os.environ.get("KEYSTONE_BACKUP_DISABLE"):
+        return
+    run = run_backup(None)
+    if run.status == "failed":
+        raise RuntimeError("backup failed")  # recorded by the scheduler listener as a failed run
+
+
+@register("system-alerts", minutes=60)
+def system_alerts() -> None:
+    """Notify administrators about failing jobs and missing or unverified backups."""
+    from keystone.ops.health import alert
+
+    with db.session_scope() as s:
+        alert(s)

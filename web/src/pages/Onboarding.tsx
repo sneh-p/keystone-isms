@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { ArrowLeft, ArrowRight, Check, Cloud, Code2, Building, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";

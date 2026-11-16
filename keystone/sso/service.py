@@ -15,6 +15,8 @@ Security design (docs/feature-security-designs.md, approved):
 
 from __future__ import annotations
 
+from typing import Any
+
 import hashlib
 import re
 import secrets as pysecrets
@@ -28,7 +30,7 @@ from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from joserfc import jwt
 from joserfc.errors import JoseError
 from joserfc.jwk import KeySet
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from keystone.core import secrets
@@ -198,7 +200,7 @@ def start(session: Session, kind: str) -> tuple[str, str]:
         raise SsoError("not_configured", f"{kind} sign-in is off")
     ep = endpoints(p)
     state, nonce, verifier, browser = generate_token(43), generate_token(43), generate_token(64), pysecrets.token_urlsafe(32)
-    session.execute(OidcLogin.__table__.delete().where(OidcLogin.created_at < utcnow() - LOGIN_TTL))
+    session.execute(delete(OidcLogin).where(OidcLogin.created_at < utcnow() - LOGIN_TTL))
     session.add(OidcLogin(provider_kind=kind, state_hash=_h(state), browser_hash=_h(browser), nonce=nonce, code_verifier_enc=secrets.encrypt(verifier)))
     session.flush()
     params = {"client_id": p.client_id, "response_type": "code", "redirect_uri": redirect_uri(kind), "scope": "openid email profile",
@@ -207,7 +209,7 @@ def start(session: Session, kind: str) -> tuple[str, str]:
     return f"{ep['authorize']}?{urlencode(params)}", browser
 
 
-_jwks_cache: dict[str, tuple[float, dict]] = {}
+_jwks_cache: dict[str, tuple[float, Any]] = {}  # the provider's JWKS document, as returned
 
 
 def _jwks(url: str, refresh: bool = False) -> KeySet:
@@ -218,13 +220,15 @@ def _jwks(url: str, refresh: bool = False) -> KeySet:
         r = c.get(url)
     if r.status_code != 200:
         raise SsoError("provider_error", f"JWKS fetch failed ({r.status_code})")
-    data = r.json()
+    data: Any = r.json()
     _jwks_cache[url] = (time.monotonic(), data)
     return KeySet.import_key_set(data)
 
 
 def verify_id_token(id_token: str, p: SsoProvider, nonce: str) -> dict:
     ep = endpoints(p)
+    if not p.client_id:
+        raise SsoError("not_configured", "no client ID")
     try:
         try:
             token = jwt.decode(id_token, _jwks(ep["jwks"]), algorithms=ALGORITHMS)
@@ -273,7 +277,7 @@ def resolve_user(session: Session, p: SsoProvider, claims: dict) -> User:
             user.sso_issuer, user.sso_subject = iss, sub
             if user.must_change_password:  # the temporary password is no longer needed or valid
                 user.password_hash, user.must_change_password = SSO_ONLY_MARKER, False
-    if user is None and p.jit_enabled and _domain_ok(p, claims, email):
+    if user is None and email and p.jit_enabled and _domain_ok(p, claims, email):
         username = email
         if session.scalar(select(User).where(User.username == username)):
             raise SsoError("no_account", f"username {username} exists but is not linked")

@@ -104,7 +104,7 @@ def app_detail(app_id: int, user=Depends(perm("read")), db: Session = Depends(ge
 @router.get("/cross-tenant")
 def cross_tenant(user=Depends(perm("read")), db: Session = Depends(get_db)):
     maps = inventory.mappings(db)
-    names = {v.id: v.name for v in db.query(Vendor).all()}
+    names: dict[int | None, str] = {v.id: v.name for v in db.query(Vendor).all()}
     rows = []
     for oid, o in inventory.owner_orgs(db).items():
         m = maps.get(oid)

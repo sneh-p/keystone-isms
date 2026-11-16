@@ -134,7 +134,7 @@ def set_subprocessor(session: Session, actor, vendor_id: int, purpose: str | Non
             session.delete(sp)
         return None
     sp = sp or TrustSubprocessor(vendor_id=vendor_id)
-    sp.purpose, sp.location = purpose.strip(), (location or "").strip() or None
+    sp.purpose, sp.location = (purpose or "").strip(), (location or "").strip() or None
     session.add(sp)
     session.flush()
     return sp
@@ -168,7 +168,12 @@ def public_view(session: Session, slug: str) -> dict:
     if s.show_controls:
         view["controls"] = passing_controls(session)
     if s.show_policies:
-        view["policies"] = [{"code": d.code, "title": d.title, "approved": pol.current_version(session, d).approved_at.date().isoformat() if pol.current_version(session, d) else None} for d in pol.documents(session) if d.status == "approved"]
+        policies = []
+        for d in pol.documents(session):
+            if d.status == "approved":
+                cv = pol.current_version(session, d)
+                policies.append({"code": d.code, "title": d.title, "approved": cv.approved_at.date().isoformat() if cv and cv.approved_at else None})
+        view["policies"] = policies
     if s.show_subprocessors:
         view["subprocessors"] = [{"name": v.name, "purpose": sp.purpose, "location": sp.location} for sp, v in session.execute(select(TrustSubprocessor, Vendor).join(Vendor, Vendor.id == TrustSubprocessor.vendor_id).where(Vendor.status == "active").order_by(Vendor.name))]
     view["documents"] = [{"id": d.public_id, "title": d.title, "description": d.description, "kind": d.kind, "access": d.access} for d in session.scalars(select(TrustDocument).where(TrustDocument.published.is_(True)).order_by(TrustDocument.title))]
@@ -255,7 +260,7 @@ def nda_ok(s: TrustSettings, r: AccessRequest) -> bool:
     return not s.nda_required or (r.nda_accepted_at is not None and r.nda_version == s.nda_version)
 
 
-def accept_nda(session: Session, slug: str, token: str, signed_name: str, ip: str | None) -> AccessRequest:
+def accept_nda(session: Session, slug: str, token: str | None, signed_name: str, ip: str | None) -> AccessRequest:
     s = published_settings(session, slug)
     r = grant_for(session, slug, token)
     require_text(signed_name, "Your full name")
@@ -279,7 +284,9 @@ def download(session: Session, slug: str, public_id: str, token: str | None) -> 
         r.view_count += 1
         r.last_viewed_at = utcnow()
         who = r.email
-    att = session.get(Attachment, d.attachment_id)
+    att = session.get(Attachment, d.attachment_id) if d.attachment_id else None
+    if att is None:
+        raise TrustUnavailable("Document not found.")
     log_event(session, None, "trust_download", "TrustDocument", d.id, f"{d.title} downloaded by {who}")
     return att, read_attachment(att)
 

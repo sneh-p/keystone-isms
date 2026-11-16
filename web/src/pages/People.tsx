@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { Check, Link2, LogOut, Mail, Plus, Users as UsersIcon } from "lucide-react";
 import { CopyButton } from "@/components/CopyButton";
 import { absoluteLink, api } from "@/lib/api";

@@ -43,7 +43,7 @@ class OwnerOrg:
     names: set[str] = field(default_factory=set)
     domains: set[str] = field(default_factory=set)
     apps: list[TenantApp] = field(default_factory=list)
-    level_by_tenant: dict[int, str] = field(default_factory=dict)
+    level_by_tenant: dict[int, str | None] = field(default_factory=dict)
 
     @property
     def label(self) -> str:
@@ -53,6 +53,8 @@ class OwnerOrg:
 def owner_orgs(session: Session) -> dict[str, OwnerOrg]:
     out: dict[str, OwnerOrg] = {}
     for app in latest_apps(session, ("third_party",)):
+        if not app.owner_org_id:  # third-party apps always carry one; skip a malformed row rather than group under None
+            continue
         o = out.setdefault(app.owner_org_id, OwnerOrg(app.owner_org_id))
         o.names |= {n for n in (app.verified_publisher_name, app.publisher_name, app.display_name) if n}
         o.domains |= set(app.reply_url_domains or [])
@@ -80,5 +82,7 @@ def vendor_presence(session: Session, vendor_id: int) -> dict[str, str]:
     for oid, org in owner_orgs(session).items():
         if oid in confirmed:
             for tid, level in org.level_by_tenant.items():
-                out[names[tid]] = worst([out.get(names[tid]), level])
+                lv = worst([out.get(names[tid]), level])
+                if lv:
+                    out[names[tid]] = lv
     return out

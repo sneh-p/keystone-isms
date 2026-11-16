@@ -62,8 +62,9 @@ def get_org(user=Depends(perm("read")), db: Session = Depends(get_db)):
 @router.put("")
 def save_org(body: OrgIn, user=Depends(perm("org.write")), db: Session = Depends(get_db)):
     fields = body.model_dump(exclude_unset=True)
-    if org.get_org(db) and "name" not in fields:
-        fields["name"] = org.get_org(db).name
+    current = org.get_org(db)
+    if current and "name" not in fields:
+        fields["name"] = current.name
     return ser(org.save_org(db, user, **fields), ORG_OUT)
 
 

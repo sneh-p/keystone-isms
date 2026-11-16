@@ -12,7 +12,7 @@ export default defineConfig({
       output: {
         // Long-lived vendor chunks: app releases don't invalidate the cached libraries.
         manualChunks: {
-          react: ["react", "react-dom", "react-router-dom"],
+          react: ["react", "react-dom", "react-router"],
           ui: ["@radix-ui/react-checkbox", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-popover", "@radix-ui/react-progress", "@radix-ui/react-select", "@radix-ui/react-switch", "@radix-ui/react-tabs", "@radix-ui/react-tooltip", "cmdk", "sonner"],
           query: ["@tanstack/react-query"],
         },

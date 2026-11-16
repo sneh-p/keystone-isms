@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { AlertTriangle, ArrowRight, CheckCircle2, Gauge, Handshake, LayoutDashboard, ShieldCheck, Siren, Wrench } from "lucide-react";
 import { useApi } from "@/lib/hooks";
 import { fmtDate, daysUntil, cn } from "@/lib/utils";

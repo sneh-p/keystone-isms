@@ -30,3 +30,4 @@ from keystone.sso.models import OidcLogin, SsoProvider
 from keystone.collab.models import Comment, SavedView
 from keystone.sso.models import SsoPolicy
 from keystone.asm.models import AsmDevice, AsmFinding, AsmIdentity, AsmSetting, AsmSourceRecord, AsmVulnerability, Baseline
+from keystone.ops.models import BackupRun, JobStatus

@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import ipaddress
 import os
 import re
@@ -72,7 +74,7 @@ def _resolve(host: str) -> str:
         infos = socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)
     except (socket.gaierror, UnicodeError):
         raise ConnectorError(f"Cannot resolve {host}.") from None
-    addrs = [ipaddress.ip_address(i[4][0].split("%")[0]) for i in infos]
+    addrs = [ipaddress.ip_address(str(i[4][0]).split("%")[0]) for i in infos]
     if host in private_allowlist():
         ok = [a for a in addrs if not (a.is_loopback or a.is_link_local or a.is_multicast or a.is_unspecified)]
     else:
@@ -109,6 +111,7 @@ class Api:
             raise ConnectorError("Stopped: the source returned more pages than Keystone reads in one run.")
         host, path = self._check(url)
         h = {**self.headers, **(headers or {}), "Accept": (headers or {}).get("Accept", "application/json"), "User-Agent": "Keystone-ISMS"}
+        ext: dict[str, Any]
         for attempt in range(retries + 1):
             if TEST_TRANSPORT is not None:
                 client, target, ext = httpx.Client(transport=TEST_TRANSPORT, timeout=TIMEOUT, follow_redirects=False), url, {}

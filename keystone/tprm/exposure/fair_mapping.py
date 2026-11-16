@@ -5,6 +5,8 @@ Suggestions never change an assessment until a person accepts them. TEF is never
 
 from __future__ import annotations
 
+from typing import Any
+
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -94,7 +96,7 @@ def _clamp(x: float) -> float:
 def compute(assessment: VendorAssessment, ex: VendorExposure) -> list[dict]:
     """Suggested values for integration_depth, plm, slm and control_strength (never tef)."""
     cfg = load_config()
-    out = []
+    out: list[dict[str, Any]] = []
     out.append({"field": "integration_depth", "current": assessment.integration_depth, "suggested": ex.integration_depth, "rule_ids": [ex.depth_reason["rule_id"]], "reasons": [ex.depth_reason]})
     if ex.worst_level:
         lm = cfg["loss_magnitude"][ex.worst_level]

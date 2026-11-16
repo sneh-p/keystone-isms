@@ -193,7 +193,7 @@ def portal_document(session: Session, actor, version_id: int):
     authorize(session, actor, "portal")
     v = session.get(PolicyVersion, version_id)
     doc = v.document if v else None
-    if v is None or not v.attachment_id or doc.status != "approved" or doc.current_version_id != v.id or not doc.requires_acknowledgement:
+    if v is None or doc is None or not v.attachment_id or doc.status != "approved" or doc.current_version_id != v.id or not doc.requires_acknowledgement:
         raise NotFound("Not found")
     att = session.get(Attachment, v.attachment_id)
     if att is None:
@@ -205,10 +205,12 @@ def portal_document(session: Session, actor, version_id: int):
 def pending_for(session: Session, user: User) -> list[PolicyVersion]:
     """Current versions the user still has to acknowledge."""
     acked = set(session.scalars(select(PolicyAcknowledgement.version_id).where(PolicyAcknowledgement.user_id == user.id)))
-    out = []
+    out: list[PolicyVersion] = []
     for d in documents(session):
         if d.requires_acknowledgement and d.status == "approved" and d.current_version_id and d.current_version_id not in acked:
-            out.append(session.get(PolicyVersion, d.current_version_id))
+            v = session.get(PolicyVersion, d.current_version_id)
+            if v is not None:
+                out.append(v)
     return out
 
 

@@ -111,8 +111,9 @@ def save_risk(session: Session, actor, risk_id: int | None = None, *, asset_ids:
         r.controls = list(session.scalars(select(CommonControl).where(CommonControl.id.in_(control_ids))))
     if r.status == "identified" and r.inherent_likelihood:
         r.status = "assessed"
-    if r.review_date is None and current_level(r):
-        r.review_date = today() + timedelta(days=load_matrix().review_days[current_level(r)])
+    level = current_level(r)
+    if r.review_date is None and level:
+        r.review_date = today() + timedelta(days=load_matrix().review_days[level])
     session.add(r)
     session.flush()
     return r
@@ -237,7 +238,7 @@ def heat_map(risks: list[Risk], kind: str = "inherent") -> list[list[int]]:
 def needs_attention(risks: list[Risk], on: date | None = None) -> dict[str, list[Risk]]:
     on = on or today()
     m = load_matrix()
-    out = {"review_overdue": [], "above_appetite_untreated": [], "acceptance_expired": [], "actions_overdue": []}
+    out: dict[str, list] = {"review_overdue": [], "above_appetite_untreated": [], "acceptance_expired": [], "actions_overdue": []}
     for r in risks:
         if r.status == "closed":
             continue

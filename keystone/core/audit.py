@@ -102,8 +102,9 @@ def _write(conn: Connection, actor, action: str, entity_type: str, entity_id: in
         "summary": summary[:2000],
         "changes": _jsonable(changes) if changes else None,
     }
-    row["prev_hash"] = prev or GENESIS
-    row["hash"] = _entry_hash(row["prev_hash"], _hashed_fields(row))
+    prev_hash = prev or GENESIS
+    row["prev_hash"] = prev_hash
+    row["hash"] = _entry_hash(prev_hash, _hashed_fields(row))
     conn.execute(insert(AuditLog).values(**row))
     if session is not None:
         session.info["_audit_prev"] = row["hash"]
@@ -168,15 +169,15 @@ def _audit_changes(session: Session, _ctx):
     conn = session.connection()
     for obj in list(session.new):
         if isinstance(obj, Audited):
-            _write(conn, actor, "create", type(obj).__name__, obj.id, f"Created {type(obj).__name__} {_label(obj)}".strip(), _snapshot(obj), session)
+            _write(conn, actor, "create", type(obj).__name__, getattr(obj, "id", None), f"Created {type(obj).__name__} {_label(obj)}".strip(), _snapshot(obj), session)
     for obj in list(session.dirty):
         if isinstance(obj, Audited) and session.is_modified(obj, include_collections=False):
             changes = _diff(obj)
             if changes:
-                _write(conn, actor, "update", type(obj).__name__, obj.id, f"Updated {type(obj).__name__} {_label(obj)}".strip(), changes, session)
+                _write(conn, actor, "update", type(obj).__name__, getattr(obj, "id", None), f"Updated {type(obj).__name__} {_label(obj)}".strip(), changes, session)
     for obj in list(session.deleted):
         if isinstance(obj, Audited):
-            _write(conn, actor, "delete", type(obj).__name__, obj.id, f"Deleted {type(obj).__name__} {_label(obj)}".strip(), _snapshot(obj), session)
+            _write(conn, actor, "delete", type(obj).__name__, getattr(obj, "id", None), f"Deleted {type(obj).__name__} {_label(obj)}".strip(), _snapshot(obj), session)
 
 
 def verify_chain(session: Session) -> tuple[bool, int | None]:
@@ -211,6 +212,10 @@ POSTGRES_GUARDS = [
     "DROP TRIGGER IF EXISTS audit_log_no_change ON audit_log;",
     "CREATE TRIGGER audit_log_no_change BEFORE UPDATE OR DELETE ON audit_log "
     "FOR EACH ROW EXECUTE FUNCTION audit_log_immutable();",
+    # TRUNCATE skips row triggers, so it gets its own statement-level guard.
+    "DROP TRIGGER IF EXISTS audit_log_no_truncate ON audit_log;",
+    "CREATE TRIGGER audit_log_no_truncate BEFORE TRUNCATE ON audit_log "
+    "FOR EACH STATEMENT EXECUTE FUNCTION audit_log_immutable();",
 ]
 
 

@@ -103,7 +103,7 @@ def complete(session: Session, actor, profile: dict) -> dict:
     o = org.get_org(session)
 
     tags = tags_for(profile)
-    values = {"company": profile["company_name"], "isms_owner": owner.display_name, "scope": o.scope_statement, "review_months": profile.get("review_months", 12), "year": date.today().year}
+    values = {"company": profile["company_name"], "isms_owner": owner.display_name, "scope": o.scope_statement if o else None, "review_months": profile.get("review_months", 12), "year": date.today().year}
     codes = {c.code: c for c in session.scalars(select(CommonControl))}
     have = {d.code for d in session.scalars(select(PolicyDocument))}
     for meta, body in policy_templates():

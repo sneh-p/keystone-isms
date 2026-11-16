@@ -50,11 +50,32 @@ def _fast_password_hashing(monkeypatch):
     monkeypatch.setattr(auth, "_DUMMY_HASH", fast.hash("dummy"))
 
 
+def _test_db_url(tmp_path) -> str:
+    """SQLite per test by default. With KEYSTONE_TEST_PG_URL set (scripts/test-postgres.sh), the same suite runs on a
+    throwaway PostgreSQL database: its public schema is dropped and recreated before each test."""
+    import os
+
+    pg = os.environ.get("KEYSTONE_TEST_PG_URL", "")
+    if not pg:
+        return f"sqlite:///{tmp_path / 'data' / 'test.db'}"
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.engine import make_url
+
+    if not (make_url(pg).database or "").endswith("_test"):  # every test wipes it
+        raise RuntimeError("KEYSTONE_TEST_PG_URL must name a throwaway database ending in _test")
+    eng = create_engine(pg)
+    with eng.begin() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
+    eng.dispose()
+    return pg
+
+
 @pytest.fixture
 def db(tmp_path, monkeypatch):
-    """Fresh SQLite database + data dir per test."""
+    """Fresh database + data dir per test."""
     monkeypatch.setenv("KEYSTONE_DATA_DIR", str(tmp_path / "data"))
-    url = f"sqlite:///{tmp_path / 'data' / 'test.db'}"
+    url = _test_db_url(tmp_path)
     monkeypatch.setenv("KEYSTONE_DB_URL", url)
     from keystone.core import db as dbmod
 

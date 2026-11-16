@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
+from typing import Any
+
 from sqlalchemy.orm import Session
 
 from keystone.reporting.exports import xlsx
@@ -14,7 +17,7 @@ from .models import ConsentPosture, ExposureSnapshot
 def remediation_candidates(session: Session) -> dict[str, list[dict]]:
     names = {t.id: t.name for t in tenants(session)}
     apps = latest_apps(session, ("third_party", "unknown", "internal"))
-    out = {"dormant_high_risk": [], "unverified_user_consented": [], "expired_credentials": [], "users_can_consent": [], "sp_credentials_on_vendor_apps": []}
+    out: dict[str, list[dict]] = {"dormant_high_risk": [], "unverified_user_consented": [], "expired_credentials": [], "users_can_consent": [], "sp_credentials_on_vendor_apps": []}
     for a in apps:
         ex = a.exposure
         if ex is None:
@@ -30,7 +33,7 @@ def remediation_candidates(session: Session) -> dict[str, list[dict]]:
             out["sp_credentials_on_vendor_apps"].append({**row, "Credentials": ", ".join(c.display_name or c.key_id for c in a.credentials if c.owner_type == "servicePrincipal")})
     for tid, sid in latest_snapshot_ids(session).items():
         snap = session.get(ExposureSnapshot, sid)
-        cp: ConsentPosture | None = snap.consent
+        cp: ConsentPosture | None = snap.consent if snap else None
         if cp and cp.users_can_consent:
             out["users_can_consent"].append({"Tenant": names[tid], "Policies": ", ".join(cp.permission_grant_policies_raw or []), "Admin consent workflow": {True: "enabled", False: "disabled", None: "unknown"}[cp.admin_consent_workflow_enabled]})
     return out
@@ -47,7 +50,7 @@ SHEET_TITLES = {
 
 def remediation_xlsx(session: Session) -> bytes:
     data = remediation_candidates(session)
-    sheets = {}
+    sheets: dict[str, tuple[Sequence[str], Iterable[Sequence[Any]]]] = {}
     for key, title in SHEET_TITLES.items():
         rows = data[key]
         headers = list(rows[0]) if rows else ["(none found)"]

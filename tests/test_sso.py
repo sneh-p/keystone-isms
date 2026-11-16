@@ -17,7 +17,7 @@ from keystone.core import auth
 from keystone.core.audit import AuditLog
 from keystone.sso import service as sso
 
-from .conftest import api_login
+from .conftest import PASSWORD, api_login
 
 TENANT = "11111111-2222-3333-4444-555555555555"
 CLIENT = "keystone-client-id-123"
@@ -132,12 +132,12 @@ def test_precreated_account_is_activated_then_found_by_subject(api, ready_users,
 def test_temporary_password_stops_working_after_activation(api, ready_users, db, idp):
     with db.session_scope() as s:
         admin = s.get(auth.User, ready_users["admin"].id)
-        auth.create_user(s, admin, username="erin", display_name="Erin", password="Temporary-Pass-123", email="erin@alpine.example")
+        auth.create_user(s, admin, username="erin", display_name="Erin", password=PASSWORD, email="erin@alpine.example")
     _configure(api)
     idp.claims = {"sub": "sub-erin", "email": "erin@alpine.example"}
     assert _login(api, idp) == "/"
     api.cookies.clear()
-    assert api.post("/api/auth/login", json={"username": "erin", "password": "Temporary-Pass-123"}).status_code == 401
+    assert api.post("/api/auth/login", json={"username": "erin", "password": PASSWORD}).status_code == 401
 
 
 def test_unknown_people_need_an_approved_domain(api, ready_users, db, idp):

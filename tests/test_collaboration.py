@@ -20,7 +20,7 @@ def demo_api(api, db):
         admin = auth.create_user(s, None, username="admin", display_name="Admin", password=demo.DEMO_PASSWORD)
     with db.session_scope(admin) as s:
         demo.seed(s, s.get(auth.User, admin.id))
-        auth.create_user(s, s.get(auth.User, admin.id), username="emp.one", display_name="Emp One", password="Long-Enough-Pass-123", role="employee", must_change_password=False)
+        auth.create_user(s, s.get(auth.User, admin.id), username="emp.one", display_name="Emp One", password=PASSWORD, role="employee", must_change_password=False)
     return api
 
 
@@ -45,7 +45,7 @@ def test_comments_and_mentions(demo_api, db):
         ntf.refresh_all(s)  # the hourly refresh must not resolve event notifications
         assert s.get(Notification, n.id).resolved_at is None
         assert s.scalars(select(AuditLog).where(AuditLog.entity_type == "Comment")).first() is not None
-    api_login(api, "emp.one", "Long-Enough-Pass-123")
+    api_login(api, "emp.one", PASSWORD)
     assert api.get("/api/comments/risk/1").status_code == 403
     assert api.post("/api/comments/risk/1", json={"body": "hi"}).status_code == 403
 

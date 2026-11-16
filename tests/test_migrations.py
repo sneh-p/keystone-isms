@@ -9,10 +9,17 @@ from sqlalchemy.exc import DatabaseError
 from keystone import models  # noqa: F401
 from keystone.core.db import Base
 from keystone.core.migrate import alembic_config, upgrade_to_head
+from tests.conftest import _test_db_url
+
+
+def _url(tmp_path, name: str) -> str:
+    """SQLite file per test, or the throwaway PostgreSQL database under scripts/test-postgres.sh."""
+    url = _test_db_url(tmp_path)
+    return url if url.startswith("postgresql") else f"sqlite:///{tmp_path / name}"
 
 
 def test_upgrade_matches_models(tmp_path):
-    url = f"sqlite:///{tmp_path / 'm.db'}"
+    url = _url(tmp_path, "m.db")
     upgrade_to_head(url)
     eng = create_engine(url)
     with eng.connect() as conn:
@@ -22,12 +29,15 @@ def test_upgrade_matches_models(tmp_path):
 
 
 def test_migrated_audit_log_is_append_only(tmp_path):
-    url = f"sqlite:///{tmp_path / 'm.db'}"
+    url = _url(tmp_path, "m.db")
     upgrade_to_head(url)
     eng = create_engine(url)
     with eng.begin() as conn:
         conn.execute(text("INSERT INTO audit_log (ts, actor_name, action, entity_type, summary, prev_hash, hash) VALUES ('2026-01-01', 'x', 'create', 'T', '', 'a', 'b')"))
-    for stmt in ("UPDATE audit_log SET summary='x'", "DELETE FROM audit_log"):
+    statements = ["UPDATE audit_log SET summary='x'", "DELETE FROM audit_log"]
+    if eng.dialect.name == "postgresql":
+        statements.append("TRUNCATE audit_log")  # skips row triggers; has its own guard
+    for stmt in statements:
         with pytest.raises(DatabaseError, match="append-only"):
             with eng.begin() as conn:
                 conn.execute(text(stmt))
@@ -36,7 +46,7 @@ def test_migrated_audit_log_is_append_only(tmp_path):
 def test_upgrade_is_idempotent_and_downgrade_works(tmp_path):
     from alembic import command
 
-    url = f"sqlite:///{tmp_path / 'm.db'}"
+    url = _url(tmp_path, "m.db")
     upgrade_to_head(url)
     upgrade_to_head(url)
     command.downgrade(alembic_config(url), "base")
@@ -46,7 +56,7 @@ def test_upgrade_is_idempotent_and_downgrade_works(tmp_path):
 def test_unversioned_database_is_adopted(tmp_path):
     from keystone.core import db
 
-    url = f"sqlite:///{tmp_path / 'legacy.db'}"
+    url = _url(tmp_path, "legacy.db")
     db.configure(url)
     db.create_all()
     upgrade_to_head(url)
@@ -64,7 +74,7 @@ def test_each_migration_runs_on_populated_data(tmp_path):
     from alembic import command
     from alembic.script import ScriptDirectory
 
-    url = f"sqlite:///{tmp_path / 'live.db'}"
+    url = _url(tmp_path, "live.db")
     cfg = alembic_config(url)
     revisions = [r.revision for r in reversed(list(ScriptDirectory.from_config(cfg).walk_revisions()))]
     eng = create_engine(url)
@@ -73,9 +83,10 @@ def test_each_migration_runs_on_populated_data(tmp_path):
         if i == 0:
             with eng.begin() as conn:  # a user and rows that reference it, from the baseline onwards
                 conn.execute(text("INSERT INTO users (id, username, display_name, role, password_hash, active, must_change_password, failed_logins, created_at, updated_at) "
-                                  "VALUES (1, 'admin', 'Admin', 'admin', 'x', 1, 0, 0, '2026-01-01', '2026-01-01')"))
+                                  "VALUES (1, 'admin', 'Admin', 'admin', 'x', TRUE, FALSE, 0, '2026-01-01', '2026-01-01')"))
                 conn.execute(text("INSERT INTO assets (name, asset_type, classification, confidentiality, integrity, availability, contains_personal_data, status, owner_id, created_by_id, created_at, updated_at) "
-                                  "VALUES ('Laptop', 'hardware', 'internal', 3, 3, 3, 0, 'active', 1, 1, '2026-01-01', '2026-01-01')"))
+                                  "VALUES ('Laptop', 'hardware', 'internal', 3, 3, 3, FALSE, 'active', 1, 1, '2026-01-01', '2026-01-01')"))
     with eng.connect() as conn:
-        assert conn.execute(text("PRAGMA foreign_key_check")).fetchall() == []
+        if eng.dialect.name == "sqlite":  # PostgreSQL enforces foreign keys on every statement
+            assert conn.execute(text("PRAGMA foreign_key_check")).fetchall() == []
         assert conn.execute(text("SELECT count(*) FROM users")).scalar() == 1

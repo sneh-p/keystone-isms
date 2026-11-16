@@ -60,7 +60,10 @@ def resolve(session: Session, token: str | None) -> WebSession | None:
 
 
 def csrf_ok(ws: WebSession, supplied: str | None) -> bool:
-    return bool(supplied) and hmac.compare_digest(ws.csrf_token, supplied)
+    if not supplied or not ws.csrf_token:
+        return False
+    # Compare bytes: compare_digest refuses non-ASCII str, and a header can carry any Latin-1 text.
+    return hmac.compare_digest(ws.csrf_token.encode(), supplied.encode())
 
 
 def destroy(session: Session, token: str | None) -> None:

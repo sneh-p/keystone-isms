@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/layout/AppShell";
 import { BUILT } from "@/components/layout/nav";
@@ -39,6 +39,7 @@ const Account = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.
 const EmailSettings = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.EmailSettings })));
 const SsoSettings = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.SsoSettings })));
 const Reports = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Reports })));
+const SystemHealth = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.SystemHealth })));
 const AiSettings = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.AiSettings })));
 const SecurityQuestionnaires = lazy(() => import("@/pages/SecurityQuestionnaires"));
 const QuestionnaireDetail = lazy(() => import("@/pages/SecurityQuestionnaires").then((m) => ({ default: m.QuestionnaireDetail })));
@@ -84,6 +85,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/settings/ai", element: <AiSettings />, nav: true },
   { path: "/settings/email", element: <EmailSettings />, nav: true },
   { path: "/settings/sso", element: <SsoSettings />, nav: true },
+  { path: "/settings/system", element: <SystemHealth />, nav: true },
 ];
 APP_ROUTES.filter((r) => r.nav).forEach((r) => BUILT.add(r.path));
 

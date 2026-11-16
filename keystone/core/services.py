@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Iterable
+from typing import Any, Iterable, TypeVar
 
 from sqlalchemy.orm import Session
+
+
+_T = TypeVar("_T")
 
 
 class NotFound(LookupError):
     pass
 
 
-def get_or_404(session: Session, model, obj_id: int):
+def get_or_404(session: Session, model: type[_T], obj_id: int) -> _T:
     obj = session.get(model, obj_id)
     if obj is None:
         raise NotFound(f"{model.__name__} {obj_id} not found")

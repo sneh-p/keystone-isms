@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router";
 import { Command } from "cmdk";
 import * as D from "@radix-ui/react-dialog";
 import { ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Sun, User } from "lucide-react";
@@ -122,7 +122,7 @@ function CommandPalette({ open, setOpen }: { open: boolean; setOpen: (o: boolean
               {groups.map((g) => (
                 <Command.Group key={g} heading={g} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground">
                   {pages.filter((p) => p.section === g).map((it) => (
-                    <Command.Item key={it.to} value={`${g} ${it.label}`} onSelect={() => { nav(it.to); setOpen(false); }} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm data-[selected=true]:bg-muted">
+                    <Command.Item key={it.to} value={`${g} ${it.label}`} onSelect={() => { void nav(it.to); setOpen(false); }} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm data-[selected=true]:bg-muted">
                       <it.icon className="size-4 text-muted-foreground" />
                       {it.label}
                     </Command.Item>
@@ -215,8 +215,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </button>
               }
               items={[
-                { label: "My account", icon: User, onSelect: () => nav("/settings/account") },
-                { label: "My employee portal", icon: User, onSelect: () => nav("/portal") },
+                { label: "My account", icon: User, onSelect: () => { void nav("/settings/account"); } },
+                { label: "My employee portal", icon: User, onSelect: () => { void nav("/portal"); } },
                 "sep",
                 { label: "Sign out", icon: LogOut, onSelect: () => { logout().then(() => nav("/login"), () => nav("/login")); }, danger: true },
               ]}

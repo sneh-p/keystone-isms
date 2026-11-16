@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { BookMarked, CheckCircle2, ChevronLeft, Download, FileUp, Library, MessageSquareText, Plus, Quote, Sparkles, Stamp, Trash2, Undo2 } from "lucide-react";
 import { api, downloadUrl, upload } from "@/lib/api";
@@ -112,7 +112,7 @@ export function QuestionnaireDetail() {
   const draft = useAction(() => api(`${path}/ai-draft`, { body: {} }), { success: "Drafting started. Answers appear as they are ready.", invalidate: inv });
   const fill = useAction(() => api(`${path}/fill-from-kb`, { method: "POST" }), { success: (r: any) => (r.filled ? `${r.filled} answer(s) filled from the knowledge base.` : "No close knowledge-base matches for the open questions."), invalidate: inv });
   const status = useAction((s: string) => api(`${path}/status`, { body: { status: s } }), { success: "Status updated.", invalidate: inv });
-  const del = useAction(() => api(path, { method: "DELETE" }), { success: "Questionnaire deleted.", invalidate: inv, onSuccess: () => nav("/security-questionnaires") });
+  const del = useAction(() => api(path, { method: "DELETE" }), { success: "Questionnaire deleted.", invalidate: inv, onSuccess: () => { void nav("/security-questionnaires"); } });
   const d = q.data;
   const items = useMemo(() => (d?.items ?? []).filter(FILTERS.find((f) => f.key === filter)!.test), [d, filter]);
   if (!d) return <Skeleton className="h-96" />;

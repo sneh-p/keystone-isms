@@ -24,6 +24,7 @@ dependencies = [
   "defusedxml>=0.7.1",  # SC-FILE-004: openpyxl uses it to parse untrusted .xlsx safely
   "authlib>=1.9.5,<2",  # SC-AUTHN-004: OIDC single sign-on (PKCE helpers, ID token verification)
   "joserfc>=1.8.0",  # Authlib's JOSE backend; versions before 1.8.0 have advisories GHSA-9pg5-8c7x-5hfx, GHSA-jpxq-7h8p-2q76
+  "psycopg[binary]>=3.2,<4",  # PostgreSQL driver for KEYSTONE_DB_URL=postgresql+psycopg://… (wheels only)
 ]
 
 [project.optional-dependencies]
@@ -31,7 +32,7 @@ test = ["pytest>=8.0"]
 e2e = ["pytest>=8.0", "playwright>=1.49"]
 # Security gates (scripts/security-check.sh). Exact pins: SC-DEP-003. Semgrep runs from its own
 # venv (.tools/semgrep) because it pins OpenTelemetry versions that conflict with FastAPI.
-security = ["ruff==0.17.5", "pip-audit==2.10.1"]
+security = ["ruff==0.17.5", "pip-audit==2.10.1", "mypy==2.4.1"]
 
 [tool.setuptools.packages.find]
 include = ["keystone*"]
@@ -41,3 +42,15 @@ testpaths = ["tests"]
 addopts = "-ra"
 # SQLAlchemy warnings (e.g. objects not added to the session) are bugs: fail on them.
 filterwarnings = ["error::sqlalchemy.exc.SAWarning"]
+
+[tool.mypy]
+# Type checking gate (scripts/security-check.sh typecheck). Checks function bodies everywhere; libraries without
+# type information are treated as Any rather than failing the gate.
+python_version = "3.12"
+packages = ["keystone"]
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+strict_equality = true

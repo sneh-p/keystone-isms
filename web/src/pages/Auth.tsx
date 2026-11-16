@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -49,7 +49,7 @@ export function Login() {
     setErr(null);
     try {
       await login(u, p);
-      nav(safeRedirectPath((loc.state as any)?.from));
+      void nav(safeRedirectPath((loc.state as any)?.from));
     } catch (x: any) {
       setErr(x.message);
     } finally {
@@ -120,7 +120,7 @@ export function Setup() {
     setBusy(true);
     try {
       await bootstrap({ username: f.username, display_name: f.display_name, password: f.password, email: f.email || undefined });
-      nav("/onboarding");
+      void nav("/onboarding");
     } catch (x: any) {
       toast.error(x.message);
     } finally {

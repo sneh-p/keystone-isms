@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { Calculator, Check, Plus, Scale, Send, Sparkles, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";

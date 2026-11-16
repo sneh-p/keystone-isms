@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { BookOpen, Calculator, CheckCircle2, Gauge, Pencil, Plus, ShieldAlert } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi, usePeople, useUnsavedGuard } from "@/lib/hooks";

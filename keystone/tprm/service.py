@@ -120,7 +120,7 @@ def latest_approved_assessment(session: Session, vendor_id: int) -> VendorAssess
 def vendor_attention(session: Session, on: date | None = None) -> dict[str, list[Vendor]]:
     on = on or today()
     cfg = load_config()
-    out = {"review_overdue": [], "contract_ending": [], "needs_assessment": [], "no_dpa": [], "questionnaire_overdue": []}
+    out: dict[str, list[Vendor]] = {"review_overdue": [], "contract_ending": [], "needs_assessment": [], "no_dpa": [], "questionnaire_overdue": []}
     overdue_q = {q.vendor_id for q in session.scalars(select(VendorQuestionnaire).where(VendorQuestionnaire.status == "sent", VendorQuestionnaire.due_date < on))}
     for v in list_vendors(session):
         if v.status not in ("active", "prospective"):
@@ -131,7 +131,7 @@ def vendor_attention(session: Session, on: date | None = None) -> dict[str, list
             out["contract_ending"].append(v)
         if v.tier <= 2:
             a = latest_approved_assessment(session, v.id)
-            if a is None or (on - a.approved_at.date()).days > cfg.assessment_max_age_days:
+            if a is None or a.approved_at is None or (on - a.approved_at.date()).days > cfg.assessment_max_age_days:
                 out["needs_assessment"].append(v)
         if v.processes_personal_data and not v.dpa_signed:
             out["no_dpa"].append(v)

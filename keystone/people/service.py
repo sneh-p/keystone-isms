@@ -119,13 +119,13 @@ def _open_invite(session: Session, token: str) -> Invitation:
 
 def describe_invite(session: Session, token: str) -> dict:
     inv = _open_invite(session, token)
-    p = session.get(Person, inv.person_id)
+    p = get_or_404(session, Person, inv.person_id)
     return {"full_name": p.full_name, "email": p.email, "expires_at": inv.expires_at}
 
 
 def accept_invite(session: Session, token: str, password: str) -> auth.User:
     inv = _open_invite(session, token)
-    p = session.get(Person, inv.person_id)
+    p = get_or_404(session, Person, inv.person_id)
     if session.scalar(select(auth.User).where(auth.User.username == p.email)):
         raise ValueError("An account with this email already exists; ask an administrator to link it.")
     auth.check_password_policy(password, p.email)
@@ -189,7 +189,7 @@ def complete_offboarding(session: Session, actor, person_id: int) -> Person:
     if missing:
         raise ValueError("Checklist incomplete: " + "; ".join(missing))
     if p.user_id:
-        u = session.get(auth.User, p.user_id)
+        u = get_or_404(session, auth.User, p.user_id)
         if u.id == actor.id:
             raise ValueError("You cannot offboard yourself.")
         u.active = False

@@ -14,7 +14,7 @@ from keystone.reporting import dashboard, routing
 from keystone.risk.models import Risk
 from keystone.tasks.models import Task
 
-from .conftest import api_login
+from .conftest import PASSWORD, api_login
 
 
 @pytest.fixture
@@ -108,7 +108,7 @@ def test_employees_and_expired_users_get_no_staff_items(demo_db):
         s.flush()
         routed = routing.routed_items(s)
         assert omar.id not in routed
-        emp = auth.create_user(s, _u(s, "admin"), username="emp", display_name="Emp", password="Long-Enough-Pass-123", role="employee")
+        emp = auth.create_user(s, _u(s, "admin"), username="emp", display_name="Emp", password=PASSWORD, role="employee")
         assert emp.id not in routing.routed_items(s)
 
 

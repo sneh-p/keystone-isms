@@ -13,7 +13,9 @@ KEYSTONE_DATA_DIR=/srv/keystone .venv/bin/uvicorn keystone.api.app:create_app --
 **Docker** (multi-stage: Node builds the web app, a slim Python image runs it):
 
 ```bash
-docker compose up -d --build      # Keystone plus nginx on port 80
+docker compose up -d --build      # Keystone, ClamAV and nginx on port 80; SQLite in the keystone-data volume
+# PostgreSQL instead of SQLite (the password is a Docker secret file; see the comments in the file):
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
 # or the image alone:
 docker build -t keystone-isms .
 docker run -d --name keystone -p 127.0.0.1:8000:8000 -v keystone-data:/data keystone-isms
@@ -23,10 +25,29 @@ On start, Keystone runs its database migrations (Alembic) automatically. The fir
 sees a setup screen to create the first administrator, followed by the onboarding wizard. Do
 this straight away after deploying.
 
+The compose files pin every image by digest; when you update a tag, update its digest with it. ClamAV needs about
+2 GB of memory and a few minutes on first start; until it is healthy, vendor uploads are refused.
+
 One process serves everything: the web app, the API under `/api` (interactive docs at `/api/docs` only
 when `KEYSTONE_API_DOCS=1`), the public Trust Center under `/trust/<slug>`, and a background scheduler that
-runs integration checks every 15 minutes and records the dashboard's daily figures (for its trend lines). Run **one** instance per database, or set
+runs integration checks every 15 minutes, records the dashboard's daily figures (for its trend lines), takes the
+nightly backup and checks the system's health every hour. Run **one** instance per database, or set
 `KEYSTONE_DISABLE_SCHEDULER=1` on all but one.
+
+`GET /api/health` answers `{"status": "ok"}` while the database is reachable and 503 when it isn't: point load
+balancers and uptime monitors at it. It reveals nothing else; details are under **Settings → System health**.
+
+### Database: SQLite or PostgreSQL
+
+SQLite (the default) suits most single-organisation installs. For PostgreSQL 14 or later, set
+`KEYSTONE_DB_URL=postgresql+psycopg://keystone@db-host:5432/keystone` and put the password in a file named by
+`KEYSTONE_DB_PASSWORD_FILE` (or in the URL, if you must). The driver (psycopg) is already in the lockfile. The
+database user needs to own its database: migrations create tables, and the audit log's protection is a trigger that
+refuses `UPDATE`, `DELETE` and `TRUNCATE`. The whole test suite runs against PostgreSQL with
+`scripts/test-postgres.sh` (a throwaway database whose name ends in `_test`).
+
+To move from SQLite to PostgreSQL (or back): take a backup, point Keystone at the new, empty database, and restore
+the backup into it (see **Backups**).
 
 ### Behind nginx (HTTPS)
 
@@ -78,12 +99,16 @@ plain HTTP for evaluation on a private network only.
 | Variable | Default | Meaning |
 |---|---|---|
 | `KEYSTONE_DATA_DIR` | `./data` | Database (SQLite), attachments and `secret.key` |
-| `KEYSTONE_DB_URL` | SQLite in the data dir | e.g. `postgresql+psycopg://keystone:…@db/keystone` (install the driver) |
+| `KEYSTONE_DB_URL` | SQLite in the data dir | e.g. `postgresql+psycopg://keystone@db/keystone` |
+| `KEYSTONE_DB_PASSWORD_FILE` | unset | File holding the database password (for example a Docker secret), added to `KEYSTONE_DB_URL` |
+| `KEYSTONE_BACKUP_DIR` | `<data dir>/backups` | Where nightly backups are written. Use a different disk or volume, and copy them off the host |
+| `KEYSTONE_BACKUP_KEEP` | 14 | How many backups to keep; older ones Keystone wrote are deleted |
+| `KEYSTONE_BACKUP_DISABLE` | unset | Set to `1` when backups are taken another way (for example managed PostgreSQL snapshots plus a file backup) |
 | `KEYSTONE_SESSION_TIMEOUT_MINUTES` | 30 | Idle sign-out |
 | `KEYSTONE_MAX_UPLOAD_MB` | 25 | Per-file upload limit |
 | `KEYSTONE_SECRET_KEY` | generated in the data dir | Fernet key that encrypts integration, email (SMTP), single sign-on and AI credentials. Set it to keep the key out of the data volume |
 | `KEYSTONE_FRAME_ANCESTORS` | `'self'` | Who may embed Keystone in a frame (CSP source list), e.g. `https://intranet.example` |
-| `KEYSTONE_DISABLE_SCHEDULER` | unset | Set to `1` to stop this instance running scheduled integration checks |
+| `KEYSTONE_DISABLE_SCHEDULER` | unset | Set to `1` to stop this instance running scheduled jobs (integration checks, backups, alerts) |
 | `ANTHROPIC_API_KEY` | unset | Optional key for AI features, used when no key is stored under **Settings → AI** |
 | `KEYSTONE_PUBLIC_URL` | unset | Public address for links Keystone hands out, e.g. `https://isms.example.com`. When unset, links use the address the administrator's browser is on |
 | `KEYSTONE_API_DOCS` | unset | Set to `1` to serve the interactive API docs and OpenAPI schema (development only) |
@@ -163,8 +188,9 @@ apt-get install clamav-daemon clamav-freshclam   # freshclam keeps the signature
 systemctl enable --now clamav-daemon
 ```
 
-In Docker, run a ClamAV container and set `KEYSTONE_CLAMD_TCP=clamav:3310`. Allow at least
-1.5 GB of memory for the daemon.
+In Docker, `docker-compose.yml` already runs the official ClamAV container and sets
+`KEYSTONE_CLAMD_TCP=clamav:3310`. Allow about 2 GB of memory for the daemon. **Settings → System health** shows
+whether Keystone can reach it.
 
 ## Audit log
 
@@ -176,15 +202,51 @@ the database outside Keystone. Treat that as a security incident.
 
 ## Backups
 
-SQLite: stop the app, or use `sqlite3 keystone.db ".backup backup.db"`, and copy the
-`attachments/` directory and `secret.key` with it. PostgreSQL: `pg_dump` plus the attachments
-directory and `secret.key` (or your `KEYSTONE_SECRET_KEY`). Without the key, stored integration
-and AI credentials can't be decrypted and must be entered again.
+Keystone backs itself up once a day, with SQLite or PostgreSQL alike. Each backup holds every database row and every
+stored file, and records a SHA-256 checksum for each part. Keystone then **test-restores** it into a scratch
+database: it checks every checksum and the audit log's hash chain before marking the backup verified. Older backups beyond
+`KEYSTONE_BACKUP_KEEP` are deleted. **Settings → System health** lists recent backups and has **Back up now**.
+Administrators are notified (inbox, and email when it is set up) when a backup fails, is missing files, or no verified
+backup exists from the last 26 hours.
+
+What you still have to do:
+
+- **Copy backups off the server** (`KEYSTONE_BACKUP_DIR`, or the `keystone-backups` volume in Docker). A backup on
+  the same disk doesn't survive losing that disk.
+- **Keep the encryption key separately**: `secret.key` in the data directory, or your `KEYSTONE_SECRET_KEY`. It
+  isn't in the backup on purpose. Without it, a restore works, but stored integration, email, single sign-on and
+  AI credentials must be entered again.
+- Backups contain personal data and password hashes. They are written with owner-only permissions; protect the
+  copies the same way.
+
+Commands (run where Keystone runs, with the same `KEYSTONE_*` settings; in Docker prefix with
+`docker compose exec keystone`):
+
+```bash
+python -m keystone.ops backup                                  # back up now (and test-restore)
+python -m keystone.ops verify /backups/keystone-backup-….tar.gz  # check a copy, e.g. after moving it off-site
+python -m keystone.ops restore /backups/keystone-backup-….tar.gz # restore into the configured database
+```
+
+Restore only writes into a **new, empty** database (Keystone creates the tables first), and only from a backup taken
+by the same version of Keystone. It refuses a damaged or altered file, and anything it doesn't recognise. To recover,
+stop Keystone, point `KEYSTONE_DB_URL` (or `KEYSTONE_DATA_DIR`) at a fresh database, run `restore`, put the
+encryption key back, and start Keystone. The restore is recorded in the audit log. Restoring isn't possible from the
+web app.
+
 Attachments are stored by SHA-256, and Keystone checks the hash whenever a file is downloaded.
+
+## System health
+
+**Settings → System health** (administrators) shows the database and schema version, whether the scheduler is
+running, whether the virus scanner is reachable, whether email is set up, each scheduled job's last run and result,
+and recent backups. A job that fails twice in a row raises an administrator alert naming the error type (never its
+message, which can contain hosts or values).
 
 ## Upgrades
 
-Replace the code (or the image) and restart. Migrations run on start. Back up first.
+Replace the code (or the image) and restart. Migrations run on start. Back up first
+(`python -m keystone.ops backup`): a backup restores only into the version that took it.
 
 ## Framework content
 

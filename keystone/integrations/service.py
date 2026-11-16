@@ -148,7 +148,8 @@ def test(session: Session, actor, provider_key: str | None = None, values: dict 
     """Dry run: run the checks with the given settings (stored secrets fill any left empty) without
     saving anything: no results, no evidence, no change to the integration."""
     authorize(session, actor, "integration.manage")
-    stored_config, stored_secrets = {}, {}
+    stored_config: dict = {}
+    stored_secrets: dict = {}
     if integration_id:
         i = get_or_404(session, Integration, integration_id)
         provider_key = i.provider
@@ -202,7 +203,10 @@ def latest_results(session: Session, integration_id: int) -> list[CheckResult]:
 
 
 def latest_results_for_control(session: Session, control_id: int) -> list[CheckResult]:
-    code = session.get(CommonControl, control_id).code
+    control = session.get(CommonControl, control_id)
+    if control is None:
+        return []
+    code = control.code
     out = []
     for i in session.scalars(select(Integration).where(Integration.enabled.is_(True))):
         out += [r for r in latest_results(session, i.id) if code in (r.controls or [])]

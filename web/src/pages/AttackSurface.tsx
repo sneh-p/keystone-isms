@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { Crosshair, Plus, RefreshCw, ShieldOff } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi, usePeople, useUrlFilter } from "@/lib/hooks";

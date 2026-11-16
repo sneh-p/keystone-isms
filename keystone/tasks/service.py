@@ -219,7 +219,7 @@ def control_readiness(session: Session, control: CommonControl, on: date | None 
             checks.append({"kind": "checks", "label": f"{len(results) - len(failing)}/{len(results)} automated checks passing", "ok": not failing})
     except ImportError:
         pass
-    passed = sum(c["ok"] for c in checks)
+    passed = sum(1 for c in checks if c["ok"])
     score = round(100 * passed / len(checks)) if checks else 0
     status = "ready" if checks and passed == len(checks) and control.status == "implemented" else ("not_started" if passed == 0 and control.status in ("not_started", "planned") else "in_progress")
     return Readiness(status, score, checks)

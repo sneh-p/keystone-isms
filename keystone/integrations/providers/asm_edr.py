@@ -41,7 +41,8 @@ class CrowdStrikeProvider(InventoryProvider):
         if not tok:
             raise ConnectorError("CrowdStrike didn't return an access token.")
         auth = {"Authorization": f"Bearer {tok}"}
-        ids, offset = [], 0
+        ids: list[str] = []
+        offset = 0
         while True:
             body = api.json("GET", f"{base}/devices/queries/devices/v1?limit=5000&offset={offset}", headers=auth)
             page = body.get("resources") or []

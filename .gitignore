@@ -28,3 +28,6 @@ web/node_modules/
 web/dist/
 web/tsconfig.tsbuildinfo
 .tools/
+
+# Deployment secrets (Docker secrets files)
+deploy/secrets/

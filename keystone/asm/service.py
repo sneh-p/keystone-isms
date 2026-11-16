@@ -43,7 +43,7 @@ def overview(session: Session, actor) -> dict:
     blist = list(session.scalars(select(Baseline).order_by(Baseline.name)))
     sev = {b.id: b.severity for b in blist}
     by_sev = Counter(sev.get(f.baseline_id, "low") for f in findings)
-    per_b = defaultdict(lambda: {"open": 0, "excepted": 0})
+    per_b: defaultdict[int, dict[str, int]] = defaultdict(lambda: {"open": 0, "excepted": 0})
     for f in session.scalars(select(AsmFinding).where(AsmFinding.status.in_(("open", "excepted")))):
         per_b[f.baseline_id][f.status if f.status == "excepted" else "open"] += 1
     rows = []
@@ -93,7 +93,7 @@ def device(session: Session, actor, device_id: int) -> dict:
     d = get_or_404(session, AsmDevice, device_id)
     from keystone.integrations.models import Integration
 
-    names = {i.id: i.name for i in session.scalars(select(Integration))}
+    names: dict[int | None, str] = {i.id: i.name for i in session.scalars(select(Integration))}
     recs = list(session.scalars(select(AsmSourceRecord).where(AsmSourceRecord.device_id == d.id)))
     vulns = list(session.scalars(select(AsmVulnerability).where(AsmVulnerability.device_id == d.id, AsmVulnerability.state == "open").order_by(AsmVulnerability.severity, AsmVulnerability.first_seen).limit(500)))
     return {
@@ -131,21 +131,22 @@ def findings(session: Session, actor, *, status: str | None = "open", severity: 
     if entity_id:
         q = q.where(AsmFinding.entity_id == entity_id)
     bmap = {b.id: b for b in session.scalars(select(Baseline))}
-    names = {"device": {d.id: (d.name, d.owner_user_id) for d in session.scalars(select(AsmDevice))},
+    names: dict[str, dict[int, tuple[str, int | None]]] = {"device": {d.id: (d.name, d.owner_user_id) for d in session.scalars(select(AsmDevice))},
              "identity": {i.id: (i.upn, i.user_id) for i in session.scalars(select(AsmIdentity))},
              "setting": {s.id: (s.title, None) for s in session.scalars(select(AsmSetting))}}
-    out = []
+    none_found: dict[int, tuple[str, int | None]] = {}
+    out: list[dict] = []
     for f in session.scalars(q.order_by(AsmFinding.first_seen.desc()).limit(limit)):
         b = bmap.get(f.baseline_id)
         if b is None or (severity and b.severity != severity):
             continue
-        label, owner = names.get(f.entity_type, {}).get(f.entity_id, ("(removed)", None))
+        label, owner = names.get(f.entity_type, none_found).get(f.entity_id, ("(removed)", None))
         out.append({"id": f.id, "baseline_id": b.id, "baseline": b.name, "severity": b.severity, "rule": bl.describe(b), "controls": b.controls,
                     "entity_type": f.entity_type, "entity_id": f.entity_id, "entity": label, "owner_user_id": owner, "status": f.status, "no_data": f.no_data,
                     "detail": f.detail, "first_seen": f.first_seen, "last_seen": f.last_seen, "resolved_at": f.resolved_at,
                     "exception_reason": f.exception_reason, "exception_by_id": f.exception_by_id, "exception_until": f.exception_until})
     order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-    out.sort(key=lambda x: (order.get(x["severity"], 9), x["entity"]))
+    out.sort(key=lambda x: (order.get(str(x["severity"]), 9), str(x["entity"])))
     return out
 
 

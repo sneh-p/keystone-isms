@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router";
 import { BadgeCheck, CheckCircle2, ChevronDown, Download, FileText, Lock, Mail, ShieldCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";

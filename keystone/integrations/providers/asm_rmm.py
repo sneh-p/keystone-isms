@@ -56,7 +56,8 @@ class NinjaOneProvider(InventoryProvider):
             if preview or len(page) < 1000:
                 break
         inv.sample_fields["ninjaone devices"] = fields_of(devices[0] if devices else None)
-        pending: Counter = Counter()
+        pending: Counter | None = None
+        counts: Counter = Counter()
         av: dict = {}
         try:
             cursor = None
@@ -64,10 +65,11 @@ class NinjaOneProvider(InventoryProvider):
                 body = api.json("GET", f"{base}/v2/queries/os-patches?status=APPROVED&pageSize=1000" + (f"&cursor={quote(cursor, safe='')}" if cursor else ""), headers=auth)
                 for r in body.get("results") or []:
                     if (r.get("severity") or "").upper() in ("CRITICAL", "IMPORTANT"):
-                        pending[r.get("deviceId")] += 1
+                        counts[r.get("deviceId")] += 1
                 cursor = pick(body, "cursor.name")
                 if preview or not cursor or not body.get("results"):
                     break
+            pending = counts
             for r in (api.json("GET", f"{base}/v2/queries/antivirus-status?pageSize=1000", headers=auth).get("results") or []):
                 av[r.get("deviceId")] = (r.get("definitionStatus") or "").upper() in ("UP_TO_DATE", "UPTODATE")
         except ConnectorError as e:
@@ -119,7 +121,8 @@ class DattoRmmProvider(InventoryProvider):
         if not tok:
             raise ConnectorError("Datto RMM didn't return an access token.")
         auth = {"Authorization": f"Bearer {tok}"}
-        inv, url = Inventory(), f"{base}/api/v2/account/devices?max={50 if preview else 250}&page=0"
+        inv = Inventory()
+        url: str | None = f"{base}/api/v2/account/devices?max={50 if preview else 250}&page=0"
         while url:
             body = api.json("GET", url, headers=auth)
             rows = body.get("devices") or []

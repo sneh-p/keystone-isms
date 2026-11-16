@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { UsersRound } from "lucide-react";
 import { useApi } from "@/lib/hooks";
 import { cn } from "@/lib/utils";

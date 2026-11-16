@@ -95,7 +95,7 @@ def coverage_summary(rows: list[CoverageRow]) -> dict:
 
 
 def add_user_mapping(session: Session, actor, control_id: int, requirement_id: int) -> ControlMapping:
-    from keystone.core.services import authorize
+    from keystone.core.services import authorize, get_or_404
 
     authorize(session, actor, "framework.write")
     existing = session.scalar(select(ControlMapping).where(ControlMapping.common_control_id == control_id, ControlMapping.requirement_id == requirement_id))
@@ -121,8 +121,8 @@ def remove_mapping(session: Session, actor, mapping_id: int) -> None:
 
 
 def set_framework_enabled(session: Session, actor, framework_id: int, enabled: bool) -> None:
-    from keystone.core.services import authorize
+    from keystone.core.services import authorize, get_or_404
 
     authorize(session, actor, "framework.write")
-    session.get(Framework, framework_id).enabled = enabled
+    get_or_404(session, Framework, framework_id).enabled = enabled
     session.flush()

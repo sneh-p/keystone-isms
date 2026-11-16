@@ -129,7 +129,7 @@ class QualysProvider(InventoryProvider):
         auth = b64encode(f"{config.get('username', '')}:{secrets.get('password', '')}".encode()).decode()
         api = Api(QUALYS_POLICY, headers={"Authorization": f"Basic {auth}", "X-Requested-With": "Keystone-ISMS"})
         params = {"action": "list", "severities": "3-5", "status": "New,Active,Re-Opened", "show_results": "0", "output_format": "XML", "truncation_limit": "100" if preview else "1000"}
-        url = f"{base}/api/2.0/fo/asset/host/vm/detection/?{urlencode(params)}"
+        url: str | None = f"{base}/api/2.0/fo/asset/host/vm/detection/?{urlencode(params)}"
         inv = Inventory()
         while url:
             r = api.request("GET", url, headers={"Accept": "application/xml"})

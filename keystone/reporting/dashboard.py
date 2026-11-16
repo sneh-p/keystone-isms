@@ -183,22 +183,23 @@ def my_tasks(session: Session, user, on: date | None = None, routed: dict[int, l
             if a.owner_id == user.id and a.status in ("open", "in_progress"):
                 out.append({"what": f"Treatment action: {a.title} ({r.ref})", "due": a.due_date, "page": "/risks"})
     for n in imp.list_ncs(session, include_closed=False):
-        for a in n.actions:
-            if a.owner_id == user.id and a.status == "open":
-                out.append({"what": f"Corrective action: {a.description[:80]} ({n.ref})", "due": a.due_date, "page": "/nonconformities"})
+        for ca in n.actions:
+            if ca.owner_id == user.id and ca.status == "open":
+                out.append({"what": f"Corrective action: {(ca.description or '')[:80]} ({n.ref})", "due": ca.due_date, "page": "/nonconformities"})
     for c in fw.controls(session):
         if c.owner_id == user.id and c.next_review_date and c.next_review_date <= on and c.status != "not_applicable":
             out.append({"what": f"Review control {c.code} {c.title}", "due": c.next_review_date, "page": "/controls"})
     for i in inc.list_incidents(session, include_closed=False):
         if i.owner_id == user.id:
-            out.append({"what": f"Incident {i.ref} {i.title} ({i.status})", "due": inc.notification_deadline(i).date() if inc.notification_deadline(i) else None, "page": "/incidents"})
+            deadline = inc.notification_deadline(i)
+            out.append({"what": f"Incident {i.ref} {i.title} ({i.status})", "due": deadline.date() if deadline else None, "page": "/incidents"})
     for d in pol.documents(session):
-        v = pol.open_version(d)
-        if v and v.status == "in_review" and v.author_id != user.id:
+        ov = pol.open_version(d)
+        if ov and ov.status == "in_review" and ov.author_id != user.id:
             from keystone.core.rbac import has_permission
 
             if has_permission(user, "policy.approve"):
-                out.append({"what": f"Approve {d.code} {d.title} v{v.version_label}", "due": None, "page": "/policies"})
+                out.append({"what": f"Approve {d.code} {d.title} v{ov.version_label}", "due": None, "page": "/policies"})
     from keystone.core.rbac import has_permission as _has
     from keystone.tasks import service as tsk
 

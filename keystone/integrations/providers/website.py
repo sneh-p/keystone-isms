@@ -32,7 +32,7 @@ def assert_public_host(host: str) -> str:
         infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
     except (socket.gaierror, UnicodeError):
         raise ValueError(f"Cannot resolve {host}.") from None
-    addresses = [ipaddress.ip_address(info[4][0].split("%")[0]) for info in infos]
+    addresses = [ipaddress.ip_address(str(info[4][0]).split("%")[0]) for info in infos]
     if not addresses or not all(_is_public(ip) for ip in addresses):
         raise ValueError(f"{host} resolves to a non-public address; only public websites can be checked.")
     return str(next((ip for ip in addresses if ip.version == 4), addresses[0]))
@@ -43,6 +43,8 @@ def tls_info(host: str, port: int = 443, timeout: float = 10.0, ip: str | None =
     ctx = ssl.create_default_context()
     with socket.create_connection((ip or host, port), timeout=timeout) as sock, ctx.wrap_socket(sock, server_hostname=host) as tls:
         cert = tls.getpeercert()
+        if not cert or not isinstance(cert.get("notAfter"), str):
+            raise ValueError(f"{host} presented no certificate.")
         return {"version": tls.version(), "not_after": cert["notAfter"]}
 
 

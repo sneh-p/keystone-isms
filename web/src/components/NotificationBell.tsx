@@ -1,5 +1,5 @@
 import * as P from "@radix-ui/react-popover";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Bell, CheckCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
@@ -18,7 +18,7 @@ export function NotificationBell() {
   const unread = data?.unread ?? 0;
   const open = (n: Item) => {
     if (!n.read_at) read.mutate([n.id]);
-    nav(n.page);
+    void nav(n.page);
   };
   return (
     <P.Root>

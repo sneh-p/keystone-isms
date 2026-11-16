@@ -110,12 +110,14 @@ Center (`/trust/alpine-ski-house`), a customer questionnaire, 11 weeks of trend 
 ### Docker
 
 ```bash
-docker compose up -d --build               # Keystone + nginx on http://localhost/
+docker compose up -d --build               # Keystone + ClamAV + nginx on http://localhost/ (SQLite)
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build   # with PostgreSQL
 ```
 
-The image is a multi-stage build (Node builds the web app, Python runs it). Run it behind a reverse proxy that
-terminates TLS; nginx and systemd configs are in `deploy/`. Vendor portal uploads need a ClamAV daemon (set
-`KEYSTONE_CLAMD_TCP`). See [docs/admin-guide.md](docs/admin-guide.md).
+The image is a multi-stage build (Node builds the web app, Python runs it), and every image is pinned by digest. Run
+it behind a reverse proxy that terminates TLS; nginx and systemd configs are in `deploy/`. Keystone backs itself up
+nightly and test-restores each backup; copy the backups off the host and keep the encryption key separately. See
+[docs/admin-guide.md](docs/admin-guide.md).
 
 ## Attack surface management
 
@@ -186,7 +188,8 @@ tenant. Connectors were built from vendor documentation; each records how its fi
 | Setting | Where |
 |---|---|
 | Data directory (database, attachments, secret key) | `KEYSTONE_DATA_DIR` (default `./data`) |
-| Database (SQLite default, PostgreSQL supported) | `KEYSTONE_DB_URL` |
+| Database (SQLite default, PostgreSQL supported) | `KEYSTONE_DB_URL`, password via `KEYSTONE_DB_PASSWORD_FILE` |
+| Nightly backups | `KEYSTONE_BACKUP_DIR` (default `<data dir>/backups`), `KEYSTONE_BACKUP_KEEP` (default 14) |
 | Public address for links and SSO redirects | `KEYSTONE_PUBLIC_URL` (needed for SSO and emailed links) |
 | Idle session timeout | `KEYSTONE_SESSION_TIMEOUT_MINUTES` (default 30) |
 | Upload limit | `KEYSTONE_MAX_UPLOAD_MB` (default 25) |
@@ -225,7 +228,7 @@ copied.
 
 Changes by people or coding agents follow the standard in [`.knowledge/secure-coding/`](.knowledge/secure-coding/index.md):
 rules with stable IDs (`SC-INJ-001`, `SC-AUTHZ-005`, …) adapted to this stack. [AGENTS.md](AGENTS.md) explains how to
-load it, and `scripts/security-check.sh all` runs the gates: typecheck, ruff and ESLint, Semgrep, gitleaks, pip-audit
+load it, and `scripts/security-check.sh all` runs the gates: typecheck (mypy and tsc), ruff and ESLint, Semgrep, gitleaks, pip-audit
 and npm audit, the suppression check and the tests. CI runs the same gates, and `.github/CODEOWNERS` requires AppSec
 review (`@Sneh/appsec`) for the standard and its controls. New outside connections, uploads and authentication changes
 are decided by AppSec first; the decisions are recorded in
@@ -234,7 +237,8 @@ are decided by AppSec first; the decisions are recorded in
 ## Development
 
 ```bash
-.venv/bin/python -m pytest tests/ -q                     # Python (≈530 tests)
+.venv/bin/python -m pytest tests/ -q                     # Python (≈545 tests) on SQLite
+KEYSTONE_TEST_PG_URL=postgresql+psycopg://…/keystone_test scripts/test-postgres.sh   # the same suite on PostgreSQL
 (cd web && npm run typecheck && npm run lint && npm test)  # web app
 scripts/security-check.sh all                            # every security gate (see AGENTS.md)
 KEYSTONE_E2E=1 .venv/bin/python -m pytest tests/e2e      # browser journeys incl. a WCAG 2.1 AA check (pip install -e ".[e2e]")
@@ -245,15 +249,16 @@ Run the API with `--reload` and the web app with `npm run dev` (Vite proxies `/a
 an Alembic migration; `tests/test_migrations.py` fails if migrations and models drift apart, and upgrades every
 revision on a database that has data in it.
 
-**Stack**: FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, APScheduler; React 18, TypeScript, Vite, Tailwind, Radix,
-TanStack Query; PowerShell 7 for the Entra collector.
+**Stack**: FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, APScheduler, SQLite or PostgreSQL; React 18, React Router 7,
+TypeScript, Vite, Tailwind, Radix, TanStack Query; PowerShell 7 for the Entra collector.
 
 ## Documentation
 
 | Document | For |
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | Everyday use, screen by screen |
-| [docs/admin-guide.md](docs/admin-guide.md) | Installing, hardening, roles, SSO, email, ClamAV, integrations, backups |
+| [docs/admin-guide.md](docs/admin-guide.md) | Installing, hardening, roles, SSO, email, ClamAV, integrations, backups and restore, system health |
+| [docs/roadmap.md](docs/roadmap.md) | Round 3 roadmap and progress |
 | [docs/design-decisions.md](docs/design-decisions.md) | Why things work the way they do, and known limits |
 | [docs/feature-security-designs.md](docs/feature-security-designs.md) | Security designs and AppSec decisions for features that add outside access |
 | [docs/workflow-analysis.md](docs/workflow-analysis.md) | Workflow analysis and the improvements made |

@@ -32,6 +32,13 @@ class UnknownTenant(LookupError):
     pass
 
 
+def _collected(md: dict) -> datetime:
+    when = parse_dt(md.get("collected_at_utc"))
+    if when is None:
+        raise ValueError("The file has no collection time (metadata.collected_at_utc).")
+    return when
+
+
 def parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -89,7 +96,7 @@ def preview(session: Session, doc: dict) -> Preview:
         elif st["status"] == "skipped":
             problems.append(("warning", key, f"Skipped: {st['message']}"))
     tenant = session.scalar(select(EntraTenant).where(EntraTenant.entra_tenant_id == md["tenant_id"].lower()))
-    collected = parse_dt(md["collected_at_utc"])
+    collected = _collected(md)
     dup = bool(tenant and session.scalar(select(ExposureSnapshot).where(ExposureSnapshot.tenant_id == tenant.id, ExposureSnapshot.collected_at_utc == collected)))
     return Preview(md["tenant_id"].lower(), md["tenant_name"], md.get("default_domain"), collected, md["operator_upn"], md["write_scopes_present"], md["entra_p1_available"], counts, md["endpoint_status"], problems, tenant.name if tenant else None, dup)
 
@@ -134,7 +141,7 @@ def import_document(session: Session, actor, doc: dict, create_tenant_name: str 
         tenant = EntraTenant(name=create_tenant_name.strip() or md["tenant_name"], entra_tenant_id=entra_id, default_domain=md.get("default_domain"))
         session.add(tenant)
         session.flush()
-    collected = parse_dt(md["collected_at_utc"])
+    collected = _collected(md)
     if session.scalar(select(ExposureSnapshot).where(ExposureSnapshot.tenant_id == tenant.id, ExposureSnapshot.collected_at_utc == collected)):
         raise DuplicateSnapshot(f"A snapshot of {tenant.name} collected at {collected:%Y-%m-%d %H:%M} UTC is already imported.")
 
@@ -174,8 +181,7 @@ def import_document(session: Session, actor, doc: dict, create_tenant_name: str 
         last = None
         if signin is not None and sp["appId"] in signin:
             row = signin[sp["appId"]]
-            stamps = [parse_dt((row.get(k) or {}).get("lastSignInDateTime")) for k in row if k != "appId"]
-            stamps = [s for s in stamps if s]
+            stamps = [t for t in (parse_dt((row.get(k) or {}).get("lastSignInDateTime")) for k in row if k != "appId") if t]
             last = max(stamps) if stamps else None
         domains = sorted({d for d in (_domain(u) for u in [sp.get("homepage") or "", *sp.get("replyUrls", [])] if u) if d})
         app = TenantApp(

@@ -24,7 +24,7 @@ MAX_VULNS = 500_000
 
 def _clean_props(props: dict) -> dict:
     """Keep only known device properties with values of the right type."""
-    out = {}
+    out: dict[str, bool | int] = {}
     for k, v in (props or {}).items():
         spec = PROPERTIES.get(k)
         if spec is None or spec[0] != "device" or v is None:
@@ -126,38 +126,38 @@ def ingest(session: Session, integration_id: int | None, source_label: str, sour
     # Identities
     if inv.identities or "identities" in inv.complete:
         current_ids = {i.upn: i for i in session.scalars(select(AsmIdentity).where(AsmIdentity.integration_id == integration_id))}
-        seen_upn = set()
+        seen_upn: set[str] = set()
         for i in inv.identities:
             upn = i.upn.strip().lower()[:320]
             seen_upn.add(upn)
-            row = current_ids.get(upn)
-            if row is None:
-                row = AsmIdentity(source=source_key, integration_id=integration_id, upn=upn)
-                session.add(row)
-                current_ids[upn] = row
+            irow = current_ids.get(upn)
+            if irow is None:
+                irow = AsmIdentity(source=source_key, integration_id=integration_id, upn=upn)
+                session.add(irow)
+                current_ids[upn] = irow
             props = {k: v for k, v in (i.props or {}).items() if PROPERTIES.get(k, ("",))[0] == "identity" and v is not None}
-            row.display_name, row.properties, row.collected_at = (i.display_name or "")[:255] or None, props, now
+            irow.display_name, irow.properties, irow.collected_at = (i.display_name or "")[:255] or None, props, now
         if "identities" in inv.complete:
-            for upn, row in current_ids.items():
+            for upn, irow in current_ids.items():
                 if upn not in seen_upn:
-                    session.delete(row)
+                    session.delete(irow)
 
     # Settings
     if inv.settings or "settings" in inv.complete:
         current_set = {s.key: s for s in session.scalars(select(AsmSetting).where(AsmSetting.integration_id == integration_id))}
-        seen_keys = set()
+        seen_keys: set[str] = set()
         for s in inv.settings:
             seen_keys.add(s.key[:200])
-            row = current_set.get(s.key[:200])
-            if row is None:
-                row = AsmSetting(integration_id=integration_id, key=s.key[:200], title=s.title[:500])
-                session.add(row)
-                current_set[s.key[:200]] = row
-            row.title, row.category, row.compliant, row.detail, row.collected_at = s.title[:500], s.category, s.compliant, (s.detail or "")[:4000] or None, now
+            srow = current_set.get(s.key[:200])
+            if srow is None:
+                srow = AsmSetting(integration_id=integration_id, key=s.key[:200], title=s.title[:500])
+                session.add(srow)
+                current_set[s.key[:200]] = srow
+            srow.title, srow.category, srow.compliant, srow.detail, srow.collected_at = s.title[:500], s.category, s.compliant, (s.detail or "")[:4000] or None, now
         if "settings" in inv.complete:
-            for k, row in current_set.items():
-                if k not in seen_keys:
-                    session.delete(row)
+            for key, srow in current_set.items():
+                if key not in seen_keys:
+                    session.delete(srow)
     session.flush()
     if recompute_after:
         recompute(session)

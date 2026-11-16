@@ -6,6 +6,8 @@ are append-only and audited. @username mentions notify that person if they can r
 
 from __future__ import annotations
 
+from typing import Any
+
 import re
 from collections import Counter
 from datetime import datetime
@@ -24,7 +26,7 @@ MAX_COMMENT = 5000
 MENTION = re.compile(r"(?<![\w.@])@([a-z0-9][a-z0-9._-]{1,149})", re.I)
 
 
-def _targets() -> dict[str, tuple[object, str]]:
+def _targets() -> dict[str, tuple[type[Any], str]]:
     """Record types that take comments: model and the page that opens one."""
     from keystone.audits.models import Audit
     from keystone.frameworks.models import CommonControl
@@ -40,16 +42,17 @@ def _targets() -> dict[str, tuple[object, str]]:
             "nonconformity": (Nonconformity, "/nonconformities?open={id}"), "audit": (Audit, "/audits?open={id}")}
 
 
-def _record(session: Session, kind: str, record_id: int):
+def _record(session: Session, kind: str, record_id: int) -> tuple[Any, str]:
     t = _targets().get(kind)
     if t is None:
         raise LookupError("Unknown record type")
-    return get_or_404(session, t[0], record_id), t[1].format(id=record_id)
+    model, page = t
+    return get_or_404(session, model, record_id), page.format(id=record_id)
 
 
 def _label(rec) -> str:
     code = getattr(rec, "code", None) or (rec.ref if hasattr(rec, "ref") and getattr(rec, "REF_PREFIX", None) else None)
-    title = getattr(rec, "title", None) or getattr(rec, "name", "")
+    title = str(getattr(rec, "title", None) or getattr(rec, "name", None) or "")
     return f"{code} {title}".strip() if code else title
 
 
@@ -108,7 +111,7 @@ def save_view(session: Session, actor, page: str, name: str, query: str) -> Save
     pairs = [(k, v[:200]) for k, v in parse_qsl(query.lstrip("?"), keep_blank_values=False) if k in PAGES[page]]  # filters only
     if not pairs:
         raise ValueError("Choose at least one filter before saving a view.")
-    if session.scalar(select(func.count(SavedView.id)).where(SavedView.user_id == actor.id)) >= 50:
+    if (session.scalar(select(func.count(SavedView.id)).where(SavedView.user_id == actor.id)) or 0) >= 50:
         raise ValueError("You can keep up to 50 saved views.")
     v = session.scalar(select(SavedView).where(SavedView.user_id == actor.id, SavedView.page == page, SavedView.name == name))
     if v is None:

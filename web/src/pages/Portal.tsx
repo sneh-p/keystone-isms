@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router";
 import { BookOpen, Check, CheckCircle2, ChevronLeft, Laptop, LogOut, ScrollText, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { api, downloadUrl, fragmentParam, setCsrf, upload } from "@/lib/api";
@@ -187,7 +187,7 @@ export function AcceptInvite() {
       const me = await api<any>("/public/invite", { body: { password: pw.a }, headers: tokenHeader });
       setCsrf(me.csrf_token);
       await refresh();
-      nav("/portal");
+      void nav("/portal");
     } catch (x: any) {
       toast.error(x.message);
     } finally {

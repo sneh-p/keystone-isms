@@ -53,8 +53,9 @@ class MicrosoftProvider(InventoryProvider):
             raise ConnectorError("Microsoft didn't return an access token.")
         return r["access_token"]
 
-    def _pages(self, api: Api, url: str, token: str, preview: bool, limit: int = 100_000) -> list[dict]:
+    def _pages(self, api: Api, start: str, token: str, preview: bool, limit: int = 100_000) -> list[dict]:
         out: list[dict] = []
+        url: str | None = start
         while url and len(out) < limit:
             body = api.json("GET", url, headers={"Authorization": f"Bearer {token}"})
             out += body.get("value", [])

@@ -44,7 +44,7 @@ def resolve(host: str) -> str:
             infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
         except (socket.gaierror, UnicodeError):
             raise ValueError(f"Cannot resolve {host}.") from None
-        addrs = [ipaddress.ip_address(i[4][0].split("%")[0]) for i in infos]
+        addrs = [ipaddress.ip_address(str(i[4][0]).split("%")[0]) for i in infos]
         if any(a.is_loopback or a.is_link_local or a.is_multicast or a.is_unspecified for a in addrs):
             raise ValueError(f"{host} resolves to a loopback, link-local or reserved address.")
         return str(next((a for a in addrs if a.version == 4), addrs[0]))

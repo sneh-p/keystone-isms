@@ -147,3 +147,6 @@ Microsoft APIs directly, read-only (the Entra exposure module keeps using the co
 |---|---|
 | Comments | Any staff member who can read a record may comment (existing `read` permission); employees can't |
 | File downloads by number | Checked against the record a file belongs to; device screenshots, removed vendor files and unlinked files are never served through it |
+| Backups and restore (round 3) | Nightly, test-restored, owner-only file permissions; the encryption key is excluded. Restore is a server command into an empty database, reads only allowlisted archive member names, verifies every checksum before writing, and writes attachments only under their own verified hash. No web upload or restore of backups |
+| Health endpoint | `GET /api/health` is public and returns only `ok` or 503 (database unreachable). Job and backup details need `users.manage` (`GET /api/system/health`); errors are shown by exception type only |
+| PostgreSQL password | Read from `KEYSTONE_DB_PASSWORD_FILE` (a Docker secret), so it isn't in the environment or compose file |

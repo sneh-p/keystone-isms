@@ -1,22 +1,50 @@
-# Keystone ISMS with nginx in front. Usage:
-#   docker compose up -d --build        then open http://localhost/
-# Data (database, attachments, encryption key) lives in the keystone-data volume: back it up.
+# Keystone ISMS with nginx in front and ClamAV for vendor portal uploads. Usage:
+#   docker compose up -d --build                                       SQLite in the keystone-data volume
+#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build    PostgreSQL instead
+# then open http://localhost/ (put TLS in front for anything but a local trial: deploy/nginx/keystone.conf).
+#
+# Volumes: keystone-data (database, stored files, encryption key) and keystone-backups (nightly, test-restored
+# backups). Copy backups off this host; keep the encryption key (secret.key or KEYSTONE_SECRET_KEY) separately.
+# Images are pinned by digest (SC-DEP-006): update tag and digest together.
 services:
   keystone:
     build: .
     restart: unless-stopped
+    depends_on:
+      clamav:
+        condition: service_healthy
     environment:
       KEYSTONE_DATA_DIR: /data
+      KEYSTONE_BACKUP_DIR: /backups
+      KEYSTONE_BACKUP_KEEP: "14"
+      KEYSTONE_CLAMD_TCP: clamav:3310
       FORWARDED_ALLOW_IPS: "*"           # only nginx can reach this container
-      # KEYSTONE_SECRET_KEY: ...         # optional: Fernet key for integration/AI secrets (else generated in /data)
-      # ANTHROPIC_API_KEY: ...           # optional: AI features (or set the key under Settings → AI)
+      # KEYSTONE_PUBLIC_URL: https://isms.example.com   # needed for single sign-on and links in emails
+      # KEYSTONE_SECRET_KEY: ...         # optional: Fernet key for stored credentials (else generated in /data)
     volumes:
       - keystone-data:/data
+      - keystone-backups:/backups
     expose:
       - "8000"
 
+  clamav:
+    # Official ClamAV image: clamd on 3310 plus freshclam for signature updates. Needs about 2 GB of memory while it
+    # loads signatures; the first start takes a few minutes. Keystone refuses vendor uploads until it is healthy.
+    image: clamav/clamav:1.4@sha256:4cc4350d3fded380caf1799e76c0d1c93f3fa40af99c0cb2862ec0c9b117718a
+    restart: unless-stopped
+    volumes:
+      - clamav-db:/var/lib/clamav
+    expose:
+      - "3310"
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      start_period: 300s
+      retries: 3
+
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
     restart: unless-stopped
     depends_on: [keystone]
     ports:
@@ -27,3 +55,5 @@ services:
 
 volumes:
   keystone-data:
+  keystone-backups:
+  clamav-db:

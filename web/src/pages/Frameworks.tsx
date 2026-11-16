@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import { BookOpen, ChevronLeft, Download, Upload } from "lucide-react";
 import { api, upload } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";

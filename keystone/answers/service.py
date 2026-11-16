@@ -76,7 +76,7 @@ def _guess_question_col(rows: list[list[str]]) -> int | None:
         for ci, v in enumerate(row):
             if len(v) >= 15:
                 scores[ci] = scores.get(ci, 0) + (3 if v.endswith("?") else 1)
-    return max(scores, key=scores.get) if scores else None
+    return max(scores, key=lambda c: scores[c]) if scores else None
 
 
 def _extract(rows: list[list[str]]) -> tuple[list[dict], int | None, int | None]:
@@ -86,9 +86,10 @@ def _extract(rows: list[list[str]]) -> tuple[list[dict], int | None, int | None]
         hi, q, a, s = found
         start = hi + 1
     else:
-        q = _guess_question_col(rows)
-        if q is None:
+        guessed = _guess_question_col(rows)
+        if guessed is None:
             return [], None, None
+        q = guessed
         hi, a, s, start = None, None, None, 0
     items = []
     section = None
@@ -446,7 +447,7 @@ def _apply_answer(it: QuestionnaireItem, a: dict, by_id: dict[str, dict]) -> Non
         confidence = "none"
         notes.insert(0, "No verified source supports this answer. Check it before approving.")
     else:
-        confidence = a.get("confidence") if a.get("confidence") in ("high", "medium", "low") else "low"
+        confidence = str(a.get("confidence")) if a.get("confidence") in ("high", "medium", "low") else "low"
     it.answer = answer or None
     it.origin = "ai"
     it.status = "drafted" if it.answer else "open"
@@ -474,9 +475,9 @@ def draft_batch(session: Session, actor, questionnaire: SecurityQuestionnaire, i
     by_item = {it.id: it for it in items}
     for parsed in out.answers:
         a = parsed.model_dump()
-        it = by_item.get(a["item_id"])
-        if it is not None and it.status != "approved":
-            _apply_answer(it, a, by_src)
+        target = by_item.get(a["item_id"])
+        if target is not None and target.status != "approved":
+            _apply_answer(target, a, by_src)
     session.flush()
 
 
@@ -511,7 +512,7 @@ def start_ai_draft(session: Session, actor, questionnaire_id: int, item_ids: lis
 
 
 def _run_job(session: Session, actor, qid: int, ids: list[int]) -> None:
-    q = session.get(SecurityQuestionnaire, qid)
+    q = get_or_404(session, SecurityQuestionnaire, qid)
     srcs = sources(session)
     for i in range(0, len(ids), BATCH):
         items = [it for it in (session.get(QuestionnaireItem, x) for x in ids[i:i + BATCH]) if it is not None]

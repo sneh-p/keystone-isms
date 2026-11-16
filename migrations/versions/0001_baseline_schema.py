@@ -876,6 +876,7 @@ def downgrade() -> None:
         op.execute("DROP TRIGGER IF EXISTS audit_log_no_delete")
     elif dialect == "postgresql":
         op.execute("DROP TRIGGER IF EXISTS audit_log_no_change ON audit_log")
+        op.execute("DROP TRIGGER IF EXISTS audit_log_no_truncate ON audit_log")
         op.execute("DROP FUNCTION IF EXISTS audit_log_immutable()")
     if dialect != "sqlite":
         op.drop_constraint(op.f('fk_policy_documents_current_version_id_policy_versions'), 'policy_documents', type_='foreignkey')

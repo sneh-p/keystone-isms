@@ -24,7 +24,7 @@ from .conftest import PASSWORD, api_login
 
 def test_auditor_accounts_must_expire(api, ready_users):
     api_login(api, "admin")
-    base = {"username": "ext.auditor", "display_name": "External Auditor", "password": "Long-Enough-Pass-123", "role": "auditor"}
+    base = {"username": "ext.auditor", "display_name": "External Auditor", "password": PASSWORD, "role": "auditor"}
     r = api.post("/api/users", json=base)
     assert r.status_code == 400 and "expiry" in r.json()["detail"]
     past = (datetime.now() - timedelta(days=1)).isoformat()

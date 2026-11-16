@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useApi, usePeople } from "@/lib/hooks";
 import { cn } from "@/lib/utils";

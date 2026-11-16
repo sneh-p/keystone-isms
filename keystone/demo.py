@@ -16,6 +16,7 @@ from keystone.controls import service as controls
 from keystone.core import auth
 from keystone.core.rbac import Role
 from keystone.frameworks import loader
+from keystone.frameworks.models import CommonControl
 from keystone.frameworks.service import control_by_code
 from keystone.improvement import service as improvement
 from keystone.incidents import service as incidents
@@ -34,6 +35,13 @@ PEOPLE = [
     ("omar.audit", "Omar Haddad", Role.AUDITOR),
     ("sam.view", "Sam Jones", Role.VIEWER),
 ]
+
+
+def _control(session: Session, code: str) -> CommonControl:
+    c = control_by_code(session, code)
+    if c is None:
+        raise LookupError(f"Control {code} is missing from the content pack")
+    return c
 
 
 def seed(session: Session, admin) -> dict:
@@ -66,7 +74,7 @@ def seed(session: Session, admin) -> dict:
     m365 = assets.save_asset(session, admin, name="Microsoft 365 tenant", asset_type="cloud_service", classification="confidential", confidentiality=4, integrity=4, availability=4, owner_id=lena.id)
     assets.save_asset(session, admin, name="Hotel file servers", asset_type="hardware", classification="internal", confidentiality=3, integrity=3, availability=4, owner_id=lena.id, location="Resort sites")
 
-    c_backup, c_mfa, c_vuln, c_supplier = (control_by_code(session, c) for c in ("KC-TEC-13", "KC-TEC-05", "KC-TEC-08", "KC-ORG-19"))
+    c_backup, c_mfa, c_vuln, c_supplier = (_control(session, c) for c in ("KC-TEC-13", "KC-TEC-05", "KC-TEC-08", "KC-ORG-19"))
     r1 = risk.save_risk(session, raj, title="Ransomware encrypts booking platform and backups", category="technology", owner_id=raj.id, threat="Criminal ransomware groups", vulnerability="Backups reachable from the domain", consequence="Bookings unavailable during peak season", inherent_likelihood=4, inherent_impact=5, residual_likelihood=2, residual_impact=5, treatment_option="mitigate", asset_ids=[booking.id], control_ids=[c_backup.id, c_vuln.id])
     risk.set_status(session, raj, r1.id, "treatment")
     risk.save_action(session, raj, r1.id, title="Immutable off-site backup copy", common_control_id=c_backup.id, owner_id=lena.id, due_date=date.today() + timedelta(days=45))
@@ -78,16 +86,19 @@ def seed(session: Session, admin) -> dict:
     risk.save_risk(session, mia, title="Seasonal staff not trained before start", category="people", owner_id=mia.id, inherent_likelihood=4, inherent_impact=2, review_date=date.today() - timedelta(days=3))
 
     for code, status in {"KC-TEC-13": "partial", "KC-TEC-05": "partial", "KC-ORG-01": "implemented", "KC-GOV-01": "implemented", "KC-GOV-04": "implemented", "KC-ORG-09": "implemented", "KC-PHY-12": "not_applicable"}.items():
-        ctl = control_by_code(session, code)
+        ctl = _control(session, code)
         ctl.status = status
         if status == "not_applicable":
             ctl.na_justification = "No cabling under our control: all sites use the landlord's managed network."
     session.flush()
-    controls.add_evidence(session, lena, control_by_code(session, "KC-TEC-13").id, title="Backup job report, October", kind="file", filename="backup-report.pdf", data=b"%PDF-1.4 demo backup report", valid_until=date.today() + timedelta(days=20))
-    controls.add_evidence(session, admin, control_by_code(session, "KC-ORG-01").id, title="Board approval of policy set v3", kind="note", description="Approved at the board meeting; minutes item 4.")
-    controls.add_evidence(session, lena, control_by_code(session, "KC-TEC-05").id, title="Conditional Access policy export", kind="link", url="https://intranet.alpineskihouse.example/it/ca-policies", collected_on=date.today() - timedelta(days=200), valid_until=date.today() - timedelta(days=2))
+    controls.add_evidence(session, lena, _control(session, "KC-TEC-13").id, title="Backup job report, October", kind="file", filename="backup-report.pdf", data=b"%PDF-1.4 demo backup report", valid_until=date.today() + timedelta(days=20))
+    controls.add_evidence(session, admin, _control(session, "KC-ORG-01").id, title="Board approval of policy set v3", kind="note", description="Approved at the board meeting; minutes item 4.")
+    controls.add_evidence(session, lena, _control(session, "KC-TEC-05").id, title="Conditional Access policy export", kind="link", url="https://intranet.alpineskihouse.example/it/ca-policies", collected_on=date.today() - timedelta(days=200), valid_until=date.today() - timedelta(days=2))
     from keystone.frameworks.service import framework_by_code
-    controls.approve_soa(session, admin, framework_by_code(session, "ISO27001_2022").id, "Initial SoA")
+    iso = framework_by_code(session, "ISO27001_2022")
+    if iso is None:
+        raise LookupError("ISO27001_2022 is missing from the content pack")
+    controls.approve_soa(session, admin, iso.id, "Initial SoA")
     tprm.load_default_templates(session, admin)
     fab = tprm.save_vendor(session, mia, name="Fabrikam Backup", website="https://fabrikambackup.example", services="Microsoft 365 backup", status="active", data_sensitivity="restricted", operational_criticality="high", access_level="tenant_wide", processes_personal_data=True, dpa_signed=True, owner_id=mia.id, contract_start=date.today() - timedelta(days=300), contract_end=date.today() + timedelta(days=40), asset_ids=[m365.id])
     nw = tprm.save_vendor(session, mia, name="Northwind Signatures", website="northwindsignatures.example", services="Email signature management", status="active", data_sensitivity="internal", operational_criticality="low", access_level="tenant_wide", processes_personal_data=True, dpa_signed=False, owner_id=lena.id)
@@ -102,7 +113,7 @@ def seed(session: Session, admin) -> dict:
     va = tprm.save_assessment(session, mia, fab.id, title="Fabrikam Backup annual assessment", scenario="Compromise of Fabrikam's platform used to read or delete our Microsoft 365 data.", integration_depth="Tenant-wide application access", tef=[0.05, 0.2, 1], tcap=[0.5, 0.7, 0.95], control_strength=[0.5, 0.7, 0.85], plm=[100_000, 400_000, 2_000_000], slef=[0.2, 0.4, 0.7], slm=[50_000, 250_000, 1_500_000])
     tprm.run_assessment(session, mia, va.id, iterations=3000, seed=2)
     tprm.submit_assessment(session, mia, va.id)
-    c_pol = control_by_code(session, "KC-ORG-01")
+    c_pol = _control(session, "KC-ORG-01")
     isp = pol.save_document(session, mia, code="POL-001", title="Information Security Policy", requires_acknowledgement=True, owner_id=mia.id, control_ids=[c_pol.id])
     v = pol.start_version(session, mia, isp.id, body="# Information Security Policy\n\n## Purpose\nProtect guest, staff and company information.\n\n## Scope\nAll staff, contractors and systems in the ISMS scope.\n\n## Rules\n1. Use MFA for every account.\n2. Report suspected incidents to security@alpineskihouse.example at once.\n3. Handle guest data only for the purpose it was collected.", change_summary="First issue")
     pol.submit_version(session, mia, v.id)
@@ -127,14 +138,14 @@ def seed(session: Session, admin) -> dict:
     improvement.raise_nc(session, people["omar.audit"], title="Access reviews for the booking platform not evidenced", source="internal_audit", severity="minor")
 
     omar = people["omar.audit"]
-    au = audits.save_audit(session, mia, title="Internal audit: identity and access management", audit_type="internal", lead_auditor_id=omar.id, planned_start=date.today() - timedelta(days=20), planned_end=date.today() - timedelta(days=15), scope="Joiner/mover/leaver process, MFA, privileged access", criteria="ISO/IEC 27001:2022 A.5.15-A.5.18, A.8.2, A.8.5; sample of 20 leavers", control_ids=[control_by_code(session, c).id for c in ("KC-ORG-15", "KC-ORG-16", "KC-ORG-18", "KC-TEC-02", "KC-TEC-05")])
+    au = audits.save_audit(session, mia, title="Internal audit: identity and access management", audit_type="internal", lead_auditor_id=omar.id, planned_start=date.today() - timedelta(days=20), planned_end=date.today() - timedelta(days=15), scope="Joiner/mover/leaver process, MFA, privileged access", criteria="ISO/IEC 27001:2022 A.5.15-A.5.18, A.8.2, A.8.5; sample of 20 leavers", control_ids=[_control(session, c).id for c in ("KC-ORG-15", "KC-ORG-16", "KC-ORG-18", "KC-TEC-02", "KC-TEC-05")])
     audits.advance(session, mia, au.id)
-    audits.add_finding(session, omar, au.id, finding_type="minor_nc", title="Two leavers kept access for over a week", evidence="2 of 20 sampled leavers", common_control_id=control_by_code(session, "KC-ORG-18").id)
+    audits.add_finding(session, omar, au.id, finding_type="minor_nc", title="Two leavers kept access for over a week", evidence="2 of 20 sampled leavers", common_control_id=_control(session, "KC-ORG-18").id)
     audits.add_finding(session, omar, au.id, finding_type="opportunity", title="Automate access reviews in Entra ID Governance")
     audits.advance(session, mia, au.id)
     audits.save_audit(session, mia, au.id, summary="Sampled 20 leavers and 10 admin accounts.", conclusion="Controls partially effective; one minor nonconformity.")
     audits.advance(session, mia, au.id)
-    audits.save_audit(session, mia, title="Internal audit: backup and recovery", audit_type="internal", lead_auditor_id=omar.id, planned_start=date.today() + timedelta(days=30), control_ids=[control_by_code(session, "KC-TEC-13").id, control_by_code(session, "KC-ORG-30").id])
+    audits.save_audit(session, mia, title="Internal audit: backup and recovery", audit_type="internal", lead_auditor_id=omar.id, planned_start=date.today() + timedelta(days=30), control_ids=[_control(session, "KC-TEC-13").id, _control(session, "KC-ORG-30").id])
 
     # Entra exposure: the demo org has a main tenant (two snapshots) and a subsidiary tenant.
     import json
@@ -148,7 +159,7 @@ def seed(session: Session, admin) -> dict:
     vendor_matching.refresh_suggestions(session, mia)
     from keystone.tprm.exposure.inventory import mappings
     for oid, m in mappings(session).items():
-        if m.vendor_id in (fab.id, nw.id) and m.match_signals.get("strength") == "strong":
+        if m.vendor_id in (fab.id, nw.id) and (m.match_signals or {}).get("strength") == "strong":
             vendor_matching.confirm(session, mia, oid, m.vendor_id)
     main = importer.tenants(session)[0]
     nva = tprm.save_assessment(session, mia, nw.id, title="Northwind Signatures exposure review", integration_depth=None, entra_tenant_id=main.id, tef=[0.05, 0.3, 1], tcap=[0.4, 0.6, 0.9], control_strength=[0.4, 0.5, 0.7])

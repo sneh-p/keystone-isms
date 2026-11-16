@@ -119,8 +119,22 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   register (unknown columns are refused), values are converted strictly, and each row is saved through the
   register's service. A preview runs the import in a separate transaction that is always rolled back, so it applies
   the real rules (including duplicates within the file) and saves nothing; the import itself is all or nothing.
-- SQLite by default; models avoid SQLite-only types so PostgreSQL works. Migrations are applied
-  at start-up. The audit-log immutability triggers exist for SQLite and PostgreSQL.
+- SQLite by default; PostgreSQL is supported and the whole test suite runs against it
+  (`scripts/test-postgres.sh`). Migrations are applied at start-up. The audit-log immutability triggers exist for
+  SQLite and PostgreSQL; on PostgreSQL a statement-level trigger also refuses `TRUNCATE`, which skips row triggers.
+- **Backups are Keystone's own format, not a database dump.** A gzip'd tar of every table as JSON lines plus the
+  stored files, with a SHA-256 per part in a manifest. Chosen over `sqlite3 .backup` / `pg_dump` because the same file
+  restores into either database (so it doubles as the SQLite → PostgreSQL migration path), needs no database client
+  tools in the image, and can be verified end to end: every nightly backup is restored into a scratch SQLite database
+  and the audit log's hash chain is re-checked before it counts as verified. Values are decoded by column type, so
+  user JSON can never be mistaken for an encoded value. Restore is command-line only, into an empty database, from the
+  same schema revision; archives are read member by member against an allowlist of names, never extracted by the
+  names they contain. The encryption key is left out on purpose (a backup plus its key decrypts every stored
+  credential). Limit: tables are held in memory during backup and restore (attachments are streamed), which is fine
+  for an ISMS's size but not for gigabytes of rows.
+- **Scheduled jobs report their outcome.** An APScheduler listener records each run in `job_status`; two failures in
+  a row, a failed or incomplete backup, or no verified backup in 26 hours raise an administrator notification (and an
+  email when SMTP is set up), once per problem per day. Only the exception type is stored and shown.
 - The Docker image has not been built in the development environment (Docker was unavailable).
   The container layout was checked by running the app from a copy of exactly the files the
   Dockerfile copies.

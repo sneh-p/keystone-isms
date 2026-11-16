@@ -16,6 +16,8 @@ from keystone.notifications.models import Notification
 
 from .conftest import api_login
 
+RELAY_VALUE = "S3cret-relay-pw"  # a made-up SMTP relay password for the write-only checks
+
 
 @pytest.fixture
 def demo_db(db):
@@ -74,12 +76,12 @@ def test_inbox_is_per_user_api(api, demo_db):
 def test_smtp_settings_password_is_write_only_and_bound_to_host(api, demo_db, monkeypatch):
     monkeypatch.setattr(mailer, "resolve", lambda host: "203.0.113.10")
     api_login(api, "admin", demo.DEMO_PASSWORD)
-    r = api.put("/api/settings/email", json={"host": "smtp.example.com", "port": 587, "security": "starttls", "username": "keystone", "password": "S3cret-relay-pw", "from_address": "isms@example.com", "enabled": True})
+    r = api.put("/api/settings/email", json={"host": "smtp.example.com", "port": 587, "security": "starttls", "username": "keystone", "password": RELAY_VALUE, "from_address": "isms@example.com", "enabled": True})
     assert r.status_code == 200, r.text
-    assert r.json()["password_set"] is True and "S3cret" not in r.text and "password_enc" not in r.text
-    assert "S3cret" not in api.get("/api/settings/email").text
+    assert r.json()["password_set"] is True and RELAY_VALUE not in r.text and "password_enc" not in r.text
+    assert RELAY_VALUE not in api.get("/api/settings/email").text
     with demo_db.session_scope() as s:
-        assert all("S3cret" not in (a.changes and str(a.changes) or "") for a in s.scalars(select(AuditLog)))
+        assert all(RELAY_VALUE not in (a.changes and str(a.changes) or "") for a in s.scalars(select(AuditLog)))
     # Changing the host without re-entering the password drops it (SC-SSRF-003).
     r = api.put("/api/settings/email", json={"host": "mail.attacker.example"})
     assert r.json()["password_set"] is False

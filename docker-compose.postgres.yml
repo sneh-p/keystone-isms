@@ -1,0 +1,43 @@
+# Run Keystone on PostgreSQL instead of SQLite:
+#   mkdir -p deploy/secrets && openssl rand -base64 32 | tr -d '/+=' > deploy/secrets/postgres_password
+#   sudo chown 10001 deploy/secrets/postgres_password && sudo chmod 400 deploy/secrets/postgres_password
+#   (Compose mounts secret files with their host permissions; uid 10001 is Keystone's user, and PostgreSQL's
+#   entrypoint reads the file as root.)
+#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+# The password reaches both containers as a Docker secret (a file), never through the environment or this file.
+# Moving an existing SQLite install across: take a backup, start this stack once, then run
+#   docker compose ... exec keystone python -m keystone.ops restore /backups/<file>     (into the new, empty database)
+services:
+  keystone:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KEYSTONE_DB_URL: postgresql+psycopg://keystone@postgres:5432/keystone
+      KEYSTONE_DB_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+
+  postgres:
+    image: postgres:17-alpine@sha256:a77aa70e641402a21411b92b721c58d10f23b50ae5fdd2333efd22d166e1e5f7
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: keystone
+      POSTGRES_DB: keystone
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keystone -d keystone"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+secrets:
+  postgres_password:
+    file: ./deploy/secrets/postgres_password
+
+volumes:
+  postgres-data:

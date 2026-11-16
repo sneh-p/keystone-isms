@@ -69,7 +69,7 @@ def public_link(path: str) -> dict:
     return {"path": path, "url": f"{base}{path}" if base else None}
 
 
-def people_names(db) -> dict[int, str]:
+def people_names(db) -> dict[int | None, str]:  # keyed lookups by optional user ids
     from keystone.core.auth import list_users
 
     return {u.id: u.display_name for u in list_users(db)}

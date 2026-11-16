@@ -188,8 +188,10 @@ def complete_json(session: Session, actor, feature: str, *, instructions: str, c
         raise AiUnavailable("AI is not configured. An administrator can turn it on under Settings → AI.")
     check_budget(session)  # every call, including each batch of a running job
     key, _ = _key(session)
+    if not key:  # status() said available, but the key can be removed in between
+        raise AiUnavailable("AI is not configured. An administrator can turn it on under Settings → AI.")
     model, effort = st["model"], st["effort"]
-    system = [{"type": "text", "text": instructions}]
+    system: list[dict[str, Any]] = [{"type": "text", "text": instructions}]
     if context:
         system.append({"type": "text", "text": context, "cache_control": {"type": "ephemeral"}})
     params: dict[str, Any] = {

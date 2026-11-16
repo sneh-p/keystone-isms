@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { CheckCircle2, Download, FilePlus2, Plus, ScrollText, Send, Sparkles, Stamp, Undo2 } from "lucide-react";
 import { api, downloadUrl, upload } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";

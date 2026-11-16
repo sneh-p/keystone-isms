@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { Download, Paperclip, Plus } from "lucide-react";
 import { api, downloadUrl, upload } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";

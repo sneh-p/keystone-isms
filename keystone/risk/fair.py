@@ -67,7 +67,7 @@ class FairInputs:
 
     @classmethod
     def from_dict(cls, d: dict) -> FairInputs:
-        return cls(**{k: Range.of(d.get(k)) for k in ("tef", "plm", "tcap", "cs", "vuln", "slef", "slm") if d.get(k) is not None})
+        return cls(**{k: r for k in ("tef", "plm", "tcap", "cs", "vuln", "slef", "slm") if (r := Range.of(d.get(k))) is not None})
 
     def to_dict(self) -> dict:
         return {k: asdict(v) for k, v in self.__dict__.items() if v is not None}
@@ -110,13 +110,15 @@ def simulate(inputs: FairInputs, iterations: int = 10_000, seed: int | None = No
         vuln = float(vuln_samples.mean())
         lef = tef * vuln_samples
     else:
+        if inputs.tcap is None or inputs.cs is None:  # __post_init__ guarantees one or the other
+            raise ValueError("give either a vulnerability range, or both threat capability and control strength")
         tcap = pert(rng, inputs.tcap, iterations)
         cs = pert(rng, inputs.cs, iterations)
         vuln = float((tcap > cs).mean())
         lef = tef * vuln
     events = rng.poisson(lef)
     loss = events * pert(rng, inputs.plm, iterations)
-    if inputs.slef is not None:
+    if inputs.slef is not None and inputs.slm is not None:
         slef = pert(rng, inputs.slef, iterations)
         secondary_events = rng.binomial(events, np.clip(slef, 0, 1))
         loss = loss + secondary_events * pert(rng, inputs.slm, iterations)

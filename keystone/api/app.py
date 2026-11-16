@@ -101,6 +101,18 @@ def create_app(migrate: bool = True) -> FastAPI:
 
     @app.get("/api/health", include_in_schema=False)
     def health():
+        """Liveness for load balancers and the container health check: 503 when the database can't be reached.
+        Details (jobs, backups) are for administrators only, under /api/system/health."""
+        from sqlalchemy import text
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from keystone.core import db
+
+        try:
+            with db.engine().connect() as conn:
+                conn.execute(text("SELECT 1"))
+        except SQLAlchemyError:
+            return JSONResponse({"status": "unavailable"}, status_code=503)
         return {"status": "ok", "version": __version__}
 
     _mount_spa(app)

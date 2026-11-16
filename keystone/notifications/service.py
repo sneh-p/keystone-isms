@@ -7,6 +7,8 @@ refreshes every user's inbox; items that no longer need action are marked resolv
 
 from __future__ import annotations
 
+from email.message import EmailMessage
+
 import hashlib
 import logging
 import re
@@ -27,7 +29,7 @@ from .models import Notification, NotificationPrefs, SmtpSettings
 
 _LOG = logging.getLogger(__name__)
 NOTIFY_WITHIN_DAYS = 14
-EVENT_KINDS = ("mention", "asm")  # one-off notifications; the hourly refresh never resolves these
+EVENT_KINDS = ("mention", "asm", "system")  # one-off notifications; the hourly refresh never resolves these
 EMAIL = r"^[^@\s]{1,64}@[^@\s]{1,255}$"
 
 
@@ -228,6 +230,22 @@ def send_test(session: Session, actor, to: str | None = None) -> str:
     return to
 
 
+def send_now(session: Session, messages: list[tuple[str, str, str]]) -> int:
+    """Best-effort immediate emails (to, subject, body) for system alerts. Does nothing when email isn't set up; a
+    failure is recorded in smtp_settings.last_error, never raised, because the inbox notification already exists."""
+    s = smtp(session)
+    if not messages or not s.enabled or not s.from_address:
+        return 0
+    msgs = [mailer.build(s.from_address, s.from_name, to, subject, body) for to, subject, body in messages if re.match(EMAIL, to or "")]
+    try:
+        mailer.send(_cfg(s), msgs)
+    except (smtplib.SMTPException, OSError, ValueError) as e:
+        s.last_error = _describe(e)
+        session.flush()
+        return 0
+    return len(msgs)
+
+
 def _describe(e: Exception) -> str:
     """A short reason without echoing server responses that might contain credentials or addresses."""
     if isinstance(e, smtplib.SMTPAuthenticationError):
@@ -266,7 +284,7 @@ def send_digests(session: Session, now: datetime | None = None) -> int:
     s = smtp(session)
     if not s.enabled or now.hour < s.digest_hour_utc:
         return 0
-    batch: list[tuple[NotificationPrefs, list[Notification], object]] = []
+    batch: list[tuple[NotificationPrefs, list[Notification], EmailMessage]] = []
     for u in session.scalars(select(User).where(User.active.is_(True))):
         p = prefs(session, u)
         if not p.email_digest or p.last_digest_on == now.date() or not u.email or not re.match(EMAIL, u.email):

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { Bookmark, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";

@@ -2,7 +2,7 @@ import * as ProgressP from "@radix-ui/react-progress";
 import * as SwitchP from "@radix-ui/react-switch";
 import * as Tip from "@radix-ui/react-tooltip";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sparkline } from "@/components/viz/Sparkline";

@@ -150,7 +150,8 @@ def test_audit_log_rejects_raw_sql_update_and_delete(users, db):
 def test_tampering_detected_by_chain(users, db):
     # Bypass the guard by dropping the trigger, simulating a direct DB edit.
     with db.engine().begin() as conn:
-        conn.execute(text("DROP TRIGGER audit_log_no_update"))
+        drop = {"sqlite": "DROP TRIGGER audit_log_no_update", "postgresql": "DROP TRIGGER audit_log_no_change ON audit_log"}
+        conn.execute(text(drop[conn.dialect.name]))
         conn.execute(text("UPDATE audit_log SET summary='tampered' WHERE id=2"))
     with db.session_scope() as s:
         assert verify_chain(s) == (False, 2)

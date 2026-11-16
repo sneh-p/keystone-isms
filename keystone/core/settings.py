@@ -29,7 +29,17 @@ class Settings:
 
     @property
     def database_url(self) -> str:
-        return self.db_url or f"sqlite:///{self.data_dir / 'keystone.db'}"
+        """KEYSTONE_DB_URL, or SQLite in the data directory. For PostgreSQL, keep the password out of the URL and the
+        environment by pointing KEYSTONE_DB_PASSWORD_FILE at a file (for example a Docker secret)."""
+        if not self.db_url:
+            return f"sqlite:///{self.data_dir / 'keystone.db'}"
+        pw_file = os.environ.get("KEYSTONE_DB_PASSWORD_FILE", "").strip()
+        if not pw_file:
+            return self.db_url
+        from sqlalchemy.engine import make_url
+
+        password = Path(pw_file).read_text(encoding="utf-8").strip()
+        return make_url(self.db_url).set(password=password).render_as_string(hide_password=False)
 
     @property
     def attachments_dir(self) -> Path:

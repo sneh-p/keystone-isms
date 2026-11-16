@@ -232,3 +232,10 @@ images and text files open in Keystone's viewer (the eye icon); other files down
   records (previous actions, issues, nonconformities, monitoring results, audits, objectives,
   risks, incidents and third parties). Record attendees and decisions, track decisions as
   improvement items, and finalise. Finalised reviews are frozen records.
+
+## System health (administrators)
+
+**Settings → System health** shows whether everything Keystone relies on is working: the database, the scheduler,
+the virus scanner and email, each scheduled job's last run, and recent backups (each one test-restored before it's
+marked *Verified*). **Back up now** takes an extra backup. If a job keeps failing or no verified backup exists from
+the last day, administrators get an inbox notification (and an email when email is set up) that links here.
