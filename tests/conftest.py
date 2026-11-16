@@ -94,3 +94,33 @@ def content(db, users):
 
     with db.session_scope(users["admin"]) as s:
         return seed_content(s, users["admin"])
+
+
+# ---- API fixtures ----------------------------------------------------------------------------
+
+@pytest.fixture
+def api(db, monkeypatch):
+    monkeypatch.setenv("KEYSTONE_DISABLE_SCHEDULER", "1")
+    from fastapi.testclient import TestClient
+
+    from keystone.api.app import create_app
+
+    return TestClient(create_app(migrate=False))
+
+
+def api_login(client, username, password=PASSWORD):
+    r = client.post("/api/auth/login", json={"username": username, "password": password})
+    assert r.status_code == 200, r.text
+    client.headers["X-CSRF-Token"] = r.json()["csrf_token"]
+    return r.json()
+
+
+@pytest.fixture
+def ready_users(users, db):
+    """users fixture with the forced password change cleared."""
+    from keystone.core.auth import User
+
+    with db.session_scope() as s:
+        for u in s.query(User).all():
+            u.must_change_password = False
+    return users

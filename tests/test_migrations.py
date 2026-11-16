@@ -51,6 +51,8 @@ def test_unversioned_database_is_adopted(tmp_path):
     db.create_all()
     upgrade_to_head(url)
     with create_engine(url).connect() as conn:
-        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0001"
+        from alembic.script import ScriptDirectory
+        head = ScriptDirectory.from_config(alembic_config(url)).get_current_head()
+        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar() == head
     upgrade_to_head(url)  # and a second start is a no-op
     db.engine().dispose()
