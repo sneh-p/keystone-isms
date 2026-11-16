@@ -72,6 +72,7 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   const { can } = useAuth();
   const { people, name } = usePeople();
   const { data } = useApi<any>(`/controls/${id}`);
+  const ready = useApi<any>(`/controls/${id}/readiness`);
   const [f, setF] = useState<any>(null);
   useEffect(() => {
     if (data) setF({ status: data.status, owner_id: data.owner_id, implementation_notes: data.implementation_notes ?? "", na_justification: data.na_justification ?? "", review_interval_days: data.review_interval_days });
@@ -84,6 +85,19 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
       {!data || !f ? <Skeleton className="h-64" /> : (
         <div className="space-y-6">
           <p className="text-sm">{data.description}</p>
+          {ready.data && (
+            <Section title={`Audit readiness · ${ready.data.score}%`}>
+              <ul className="space-y-1.5">
+                {ready.data.checks.map((c: any) => <li key={c.kind} className="flex items-center gap-2 text-sm">{c.ok ? <CheckCircle2 className="size-4 text-good" /> : <AlertTriangle className="size-4 text-warning" />}{c.label}</li>)}
+                {ready.data.status === "not_applicable" && <li className="text-sm text-muted-foreground">Not applicable.</li>}
+              </ul>
+              {ready.data.tasks.length > 0 && (
+                <div className="mt-3 divide-y rounded-md border">
+                  {ready.data.tasks.slice(0, 6).map((t: any) => <Link key={t.id} to={`/tasks?open=${t.id}`} className="flex items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-muted/50"><span className="truncate">{t.title}</span><span className="flex items-center gap-2 text-xs text-muted-foreground">{fmtDate(t.due_date)}<StatusBadge status={t.overdue ? "overdue" : t.status} /></span></Link>)}
+                </div>
+              )}
+            </Section>
+          )}
           <Section title="Implementation">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Status"><Select value={f.status} onChange={(v) => setF({ ...f, status: v })} options={CONTROL_STATUS} disabled={!editable} /></Field>

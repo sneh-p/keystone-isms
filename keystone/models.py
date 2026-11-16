@@ -15,3 +15,5 @@ from keystone.policies.models import PolicyAcknowledgement, PolicyDocument, Poli
 from keystone.incidents.models import Incident, IncidentEvent  # noqa: F401
 from keystone.improvement.models import CorrectiveAction, Nonconformity  # noqa: F401
 from keystone.audits.models import Audit, AuditFinding, ManagementReview  # noqa: F401
+from keystone.tasks.models import Task  # noqa: F401
+from keystone.onboarding.models import OnboardingProfile  # noqa: F401

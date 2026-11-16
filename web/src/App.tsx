@@ -13,6 +13,8 @@ const Controls = lazy(() => import("@/pages/Controls"));
 const Soa = lazy(() => import("@/pages/Soa"));
 const Evidence = lazy(() => import("@/pages/Evidence"));
 const Risks = lazy(() => import("@/pages/Risks"));
+const Tasks = lazy(() => import("@/pages/Tasks"));
+const Onboarding = lazy(() => import("@/pages/Onboarding"));
 const Assets = lazy(() => import("@/pages/Assets"));
 const Vendors = lazy(() => import("@/pages/Vendors"));
 const Questionnaires = lazy(() => import("@/pages/Questionnaires"));
@@ -38,6 +40,8 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/soa", element: <Soa />, nav: true },
   { path: "/evidence", element: <Evidence />, nav: true },
   { path: "/risks", element: <Risks />, nav: true },
+  { path: "/tasks", element: <Tasks />, nav: true },
+  { path: "/onboarding", element: <Onboarding /> },
   { path: "/assets", element: <Assets />, nav: true },
   { path: "/vendors", element: <Vendors />, nav: true },
   { path: "/questionnaires", element: <Questionnaires />, nav: true },

@@ -54,6 +54,11 @@ def overview(session: Session, on: date | None = None) -> dict:
     add(len(vatt["contract_ending"]), "vendor contract(s) ending soon", "pages/vendors.py")
     add(len(patt["review_overdue"]), "policy review(s) overdue", "pages/policies.py")
     add(len(patt["awaiting_approval"]), "policy version(s) awaiting approval", "pages/policies.py")
+    from keystone.tasks import service as tsk
+
+    open_tasks = tsk.list_tasks(session, include_closed=False)
+    add(sum(1 for t in open_tasks if tsk.overdue(t, on)), "task(s) overdue", "/tasks")
+    add(sum(1 for t in open_tasks if t.status == "in_review"), "task(s) waiting for review", "/tasks")
     return {
         "open_risks": len(open_risks),
         "risk_levels": levels,
@@ -98,5 +103,13 @@ def my_tasks(session: Session, user, on: date | None = None) -> list[dict]:
 
             if has_permission(user, "policy.approve"):
                 out.append({"what": f"Approve {d.code} {d.title} v{v.version_label}", "due": None, "page": "pages/policies.py"})
+    from keystone.core.rbac import has_permission as _has
+    from keystone.tasks import service as tsk
+
+    for t in tsk.list_tasks(session, include_closed=False):
+        if t.assignee_id == user.id and t.status in ("todo", "in_progress"):
+            out.append({"what": f"Task: {t.title}", "due": t.due_date, "page": "/tasks"})
+        elif t.status == "in_review" and _has(user, "task.approve") and user.id not in (t.assignee_id, t.submitted_by_id):
+            out.append({"what": f"Review task: {t.title}", "due": t.due_date, "page": "/tasks"})
     out.sort(key=lambda t: (t["due"] is None, t["due"] or date.max))
     return out

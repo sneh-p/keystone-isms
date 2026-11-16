@@ -1,0 +1,77 @@
+# Keystone evidence task library. Original Keystone content.
+# frequency: once | monthly | quarterly | semiannual | yearly
+# when: optional tag from the onboarding profile (develops_software, offices, personal_data,
+#       cloud_aws, cloud_azure, cloud_gcp, m365, google_workspace)
+tasks:
+  # ---- governance
+  - {key: gov-scope, title: "Document and approve the ISMS scope", frequency: yearly, controls: [KC-GOV-01], evidence: "Approved scope statement (Organisation page) or board minutes."}
+  - {key: gov-context, title: "Review internal and external issues and interested parties", frequency: yearly, controls: [KC-GOV-01], evidence: "Updated context and interested parties register."}
+  - {key: gov-roles, title: "Assign ISMS roles and responsibilities", frequency: yearly, controls: [KC-GOV-03, KC-ORG-02], evidence: "Role assignments with named holders and deputies."}
+  - {key: gov-objectives, title: "Set and review security objectives", frequency: semiannual, controls: [KC-GOV-06], evidence: "Objectives with current values."}
+  - {key: gov-risk-assessment, title: "Run the annual risk assessment", frequency: yearly, controls: [KC-GOV-04], evidence: "Risk register export with review dates."}
+  - {key: gov-soa, title: "Review and approve the Statement of Applicability", frequency: yearly, controls: [KC-GOV-05], evidence: "Approved SoA version."}
+  - {key: gov-internal-audit, title: "Carry out the internal audit programme", frequency: yearly, controls: [KC-GOV-12, KC-ORG-35], evidence: "Audit report with findings."}
+  - {key: gov-management-review, title: "Hold the management review", frequency: yearly, controls: [KC-GOV-13, KC-GOV-02], evidence: "Finalised management review record."}
+  - {key: gov-metrics, title: "Report ISMS metrics to management", frequency: quarterly, controls: [KC-GOV-11], evidence: "Metrics report or dashboard export."}
+  - {key: gov-legal-register, title: "Review legal, regulatory and contractual requirements", frequency: yearly, controls: [KC-ORG-31, KC-ORG-32], evidence: "Updated legal and contractual requirements register."}
+  - {key: gov-document-control, title: "Check ISMS documents are current and approved", frequency: yearly, controls: [KC-GOV-09, KC-ORG-37], evidence: "Policy list showing approval and review dates."}
+  - {key: gov-compliance-check, title: "Check compliance with security policies", frequency: semiannual, controls: [KC-ORG-36], evidence: "Spot-check results and follow-up actions."}
+  # ---- people
+  - {key: ppl-training, title: "Run security awareness training for all staff", frequency: yearly, controls: [KC-PPL-03, KC-GOV-08], evidence: "Training completion report."}
+  - {key: ppl-phishing, title: "Run a phishing simulation", frequency: quarterly, controls: [KC-PPL-03], evidence: "Campaign results and follow-up."}
+  - {key: ppl-screening, title: "Confirm background checks for new joiners", frequency: quarterly, controls: [KC-PPL-01], evidence: "List of joiners with screening status (no personal details)."}
+  - {key: ppl-contracts, title: "Confirm contracts and NDAs include security terms", frequency: yearly, controls: [KC-PPL-02, KC-PPL-06], evidence: "Contract template sections."}
+  - {key: ppl-policy-ack, title: "Chase policy acknowledgements", frequency: quarterly, controls: [KC-ORG-01, KC-GOV-08], evidence: "Acknowledgement report from Keystone."}
+  - {key: ppl-offboarding, title: "Review leaver offboarding records", frequency: quarterly, controls: [KC-PPL-05, KC-ORG-11, KC-ORG-18], evidence: "Leavers with access-removal and asset-return dates."}
+  # ---- access
+  - {key: acc-review, title: "Review user access to key systems", frequency: semiannual, controls: [KC-ORG-18, KC-ORG-15], evidence: "Access review sign-off per system."}
+  - {key: acc-privileged, title: "Review privileged and admin accounts", frequency: quarterly, controls: [KC-TEC-02, KC-TEC-18], evidence: "Admin account list with justification."}
+  - {key: acc-mfa, title: "Confirm MFA is enforced for all accounts", frequency: quarterly, controls: [KC-TEC-05, KC-ORG-17], evidence: "Identity provider MFA report or policy export."}
+  - {key: acc-service-accounts, title: "Review service accounts and API keys", frequency: semiannual, controls: [KC-ORG-16, KC-ORG-17], evidence: "Service account inventory with owners."}
+  - {key: acc-m365-apps, title: "Run the Entra vendor exposure collector and review third-party apps", frequency: quarterly, when: m365, controls: [KC-ORG-19, KC-ORG-22, KC-ORG-15], evidence: "Imported exposure snapshot and remediation list."}
+  # ---- assets and data
+  - {key: ast-inventory, title: "Review the asset inventory", frequency: semiannual, controls: [KC-ORG-09], evidence: "Asset register export."}
+  - {key: ast-endpoints, title: "Confirm laptops are encrypted and managed", frequency: quarterly, controls: [KC-TEC-01, KC-TEC-24], evidence: "Device management compliance report."}
+  - {key: ast-disposal, title: "Record secure disposal of retired equipment", frequency: yearly, controls: [KC-PHY-14, KC-TEC-10], evidence: "Disposal or wiping certificates."}
+  - {key: dat-retention, title: "Apply the data retention schedule", frequency: yearly, controls: [KC-ORG-33, KC-TEC-10], evidence: "Retention review and deletion log."}
+  - {key: dat-classification, title: "Check data classification and labelling", frequency: yearly, controls: [KC-ORG-12, KC-ORG-13], evidence: "Sample of labelled documents or DLP labels."}
+  - {key: dat-dlp, title: "Review data loss prevention alerts", frequency: quarterly, controls: [KC-TEC-12], evidence: "DLP alert summary."}
+  - {key: dat-privacy-ropa, title: "Update the record of processing activities", frequency: yearly, when: personal_data, controls: [KC-ORG-34], evidence: "Current record of processing."}
+  - {key: dat-dsar, title: "Review data subject requests handled", frequency: quarterly, when: personal_data, controls: [KC-ORG-34], evidence: "Request log with response times."}
+  # ---- operations
+  - {key: ops-vuln-scan, title: "Run vulnerability scans and track remediation", frequency: monthly, controls: [KC-TEC-08], evidence: "Scan report and open findings by severity."}
+  - {key: ops-patching, title: "Confirm patch compliance", frequency: monthly, controls: [KC-TEC-08, KC-TEC-19], evidence: "Patch compliance report."}
+  - {key: ops-malware, title: "Confirm anti-malware is active everywhere", frequency: quarterly, controls: [KC-TEC-07], evidence: "Endpoint protection console report."}
+  - {key: ops-backup-test, title: "Test restoring from backup", frequency: quarterly, controls: [KC-TEC-13], evidence: "Restore test record with time taken."}
+  - {key: ops-backup-monitor, title: "Review backup job results", frequency: monthly, controls: [KC-TEC-13], evidence: "Backup success report."}
+  - {key: ops-logging, title: "Review security logs and alerts", frequency: monthly, controls: [KC-TEC-15, KC-TEC-16], evidence: "Log review notes or SIEM report."}
+  - {key: ops-capacity, title: "Review capacity and availability", frequency: quarterly, controls: [KC-TEC-06], evidence: "Capacity dashboard or report."}
+  - {key: ops-config-baseline, title: "Check systems against secure baselines", frequency: semiannual, controls: [KC-TEC-09], evidence: "Configuration compliance report."}
+  - {key: ops-change-review, title: "Review a sample of changes", frequency: quarterly, controls: [KC-TEC-32], evidence: "Change records with approvals."}
+  - {key: ops-network, title: "Review firewall and network rules", frequency: semiannual, controls: [KC-TEC-20, KC-TEC-22, KC-TEC-21], evidence: "Rule review sign-off."}
+  - {key: ops-web-filter, title: "Confirm web and DNS filtering is active", frequency: yearly, controls: [KC-TEC-23], evidence: "Filtering policy export."}
+  - {key: ops-threat-intel, title: "Review threat intelligence and act on it", frequency: quarterly, controls: [KC-ORG-07, KC-ORG-06], evidence: "Threat briefing notes and actions."}
+  # ---- incidents and continuity
+  - {key: inc-tabletop, title: "Run an incident response tabletop exercise", frequency: yearly, controls: [KC-ORG-24, KC-ORG-27], evidence: "Exercise report and lessons learned."}
+  - {key: inc-contacts, title: "Check authority and emergency contacts are current", frequency: yearly, controls: [KC-ORG-05], evidence: "Contact list review."}
+  - {key: bcp-test, title: "Test the business continuity and ICT recovery plan", frequency: yearly, controls: [KC-ORG-29, KC-ORG-30, KC-TEC-14], evidence: "Test report against recovery objectives."}
+  # ---- suppliers
+  - {key: sup-register, title: "Review the vendor register and tiers", frequency: semiannual, controls: [KC-ORG-19], evidence: "Vendor register export."}
+  - {key: sup-assess, title: "Reassess critical suppliers", frequency: yearly, controls: [KC-ORG-22, KC-ORG-21], evidence: "Approved vendor assessments."}
+  - {key: sup-contracts, title: "Confirm supplier contracts include security terms and DPAs", frequency: yearly, controls: [KC-ORG-20], evidence: "Contract checklist."}
+  - {key: sup-cloud, title: "Review cloud services in use", frequency: yearly, controls: [KC-ORG-23], evidence: "Cloud service inventory with owners."}
+  # ---- cloud
+  - {key: cld-aws, title: "Review AWS security posture", frequency: quarterly, when: cloud_aws, controls: [KC-TEC-09, KC-TEC-15, KC-TEC-05], evidence: "Keystone AWS integration results or Security Hub report."}
+  - {key: cld-azure, title: "Review Azure security posture", frequency: quarterly, when: cloud_azure, controls: [KC-TEC-09, KC-TEC-15], evidence: "Defender for Cloud secure score report."}
+  - {key: cld-gcp, title: "Review Google Cloud security posture", frequency: quarterly, when: cloud_gcp, controls: [KC-TEC-09, KC-TEC-15], evidence: "Security Command Center findings report."}
+  - {key: cld-gws, title: "Review Google Workspace security settings", frequency: semiannual, when: google_workspace, controls: [KC-TEC-05, KC-ORG-17], evidence: "Admin console security report."}
+  # ---- development
+  - {key: dev-code-review, title: "Confirm branch protection and code review", frequency: quarterly, when: develops_software, controls: [KC-TEC-25, KC-TEC-28, KC-TEC-04], evidence: "Keystone GitHub integration results or repository settings."}
+  - {key: dev-dependencies, title: "Review dependency vulnerability alerts", frequency: monthly, when: develops_software, controls: [KC-TEC-28, KC-ORG-21], evidence: "Dependency scanning report."}
+  - {key: dev-pentest, title: "Commission a penetration test", frequency: yearly, when: develops_software, controls: [KC-TEC-29], evidence: "Penetration test report and remediation tracker."}
+  - {key: dev-training, title: "Secure coding training for developers", frequency: yearly, when: develops_software, controls: [KC-TEC-28, KC-PPL-03], evidence: "Training records."}
+  - {key: dev-environments, title: "Confirm separation of environments", frequency: yearly, when: develops_software, controls: [KC-TEC-31, KC-TEC-33], evidence: "Architecture note or access matrix."}
+  # ---- physical
+  - {key: phy-access, title: "Review physical access to offices", frequency: semiannual, when: offices, controls: [KC-PHY-01, KC-PHY-02, KC-PHY-03, KC-PHY-04], evidence: "Badge access list review."}
+  - {key: phy-environment, title: "Check fire, power and environmental protection", frequency: yearly, when: offices, controls: [KC-PHY-05, KC-PHY-11, KC-PHY-13], evidence: "Maintenance and inspection records."}
+  - {key: phy-clear-desk, title: "Carry out a clear desk check", frequency: semiannual, when: offices, controls: [KC-PHY-07], evidence: "Walk-through results."}

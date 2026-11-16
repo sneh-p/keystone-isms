@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 
 const PAGE_FOR: Record<string, string> = {
   "pages/incidents.py": "/incidents", "pages/risks.py": "/risks", "pages/nonconformities.py": "/nonconformities", "pages/controls.py": "/controls",
-  "pages/evidence.py": "/evidence", "pages/vendors.py": "/vendors", "pages/policies.py": "/policies",
+  "pages/evidence.py": "/evidence", "pages/vendors.py": "/vendors", "pages/policies.py": "/policies", "/tasks": "/tasks",
 };
 
 export default function Dashboard() {
   const { data, isLoading } = useApi<any>("/dashboard");
+  const onb = useApi<any>("/onboarding");
   const matrix = useApi<any>("/risk-matrix");
   const nav = useNavigate();
   if (isLoading || !data) return <div className="space-y-4"><Skeleton className="h-10 w-72" /><div className="grid gap-4 md:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-24" />)}</div><Skeleton className="h-72" /></div>;
@@ -23,6 +24,14 @@ export default function Dashboard() {
     <div className="animate-fade-in">
       <PageHeader icon={LayoutDashboard} title={data.org?.name ?? "Overview"} description={data.org ? (data.org.scope_approved ? "ISMS scope approved." : "ISMS scope not approved yet.") : "Start by setting up your organisation."}
         actions={!data.org && <Button onClick={() => nav("/onboarding")}>Start setup <ArrowRight /></Button>} />
+      {onb.data && !onb.data.completed && (
+        <Card className="mb-6 overflow-hidden border-primary/30">
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-5 text-white">
+            <div><div className="text-lg font-semibold">Set up your ISMS in a few minutes</div><div className="text-sm text-white/80">Answer a few questions and Keystone drafts your policies, schedules evidence tasks and tailors your controls.</div></div>
+            <Button variant="secondary" onClick={() => nav("/onboarding")}>Start setup <ArrowRight /></Button>
+          </div>
+        </Card>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Open risks" value={data.open_risks} icon={Gauge} hint={`${lv.Critical + lv.High} critical or high`} tone={lv.Critical ? "critical" : undefined} />
         <Stat label="Open incidents" value={data.open_incidents} icon={Siren} tone={data.open_incidents ? "warning" : undefined} />
