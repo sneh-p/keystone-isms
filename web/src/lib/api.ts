@@ -39,12 +39,12 @@ function headers(method: string, json: boolean): HeadersInit {
   return h;
 }
 
-export async function api<T = any>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
+export async function api<T = any>(path: string, opts: { method?: string; body?: unknown; headers?: Record<string, string> } = {}): Promise<T> {
   const method = opts.method ?? (opts.body === undefined ? "GET" : "POST");
   const res = await fetch(`/api${path}`, {
     method,
     credentials: "same-origin",
-    headers: headers(method, opts.body !== undefined),
+    headers: { ...(headers(method, opts.body !== undefined) as Record<string, string>), ...(opts.headers ?? {}) },
     body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
   });
   return parse(res);
@@ -57,4 +57,29 @@ export async function upload<T = any>(path: string, form: FormData, method = "PO
 
 export function downloadUrl(path: string) {
   return `/api${path}`;
+}
+
+/** Downloads a file that needs request headers (for example an access token, which must not go in the URL). */
+export async function saveDownload(path: string, extraHeaders: Record<string, string> = {}): Promise<void> {
+  const res = await fetch(`/api${path}`, { credentials: "same-origin", headers: extraHeaders });
+  if (!res.ok) await parse(res);
+  const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "download";
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** A secret from the URL fragment (#key=value). Fragments are never sent to the server, so they stay out of logs. */
+export function fragmentParam(key: string): string | null {
+  return new URLSearchParams(window.location.hash.replace(/^#/, "")).get(key);
+}
+
+/** A link the API handed out: its full URL when the server knows its public address, else this origin plus the path. */
+export function absoluteLink(link: { url?: string | null; path: string }): string {
+  return link.url ?? `${window.location.origin}${link.path}`;
 }

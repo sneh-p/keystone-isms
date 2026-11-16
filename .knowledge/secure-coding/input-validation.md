@@ -63,7 +63,11 @@ Uploaded files go through `keystone/core/attachments.py` (allowlist, magic numbe
 **MUST · high** · CWE-20, CWE-770 · ASVS V2
 
 Use `Literal`, enums and formats, not blocklists. Strings get `max_length`, lists get `max_length`, numbers get a
-range. Services re-check business ranges (for example `review_interval_months` 1-36). Validation errors return
+range. `In` applies defaults to every request body (`keystone/api/routers/common.py`): 20,000 characters per string,
+1,000 items per list, 200 keys per object, nesting depth 8, finite numbers of magnitude at most 10^15
+(`tests/test_api.py::test_request_bodies_are_bounded`). A field that needs more text declares its own `max_length`
+(policy bodies: 500,000), and `Form(...)` parameters always declare one. Tighter, meaningful bounds on individual
+fields are still expected. Services re-check business ranges (for example `review_interval_months` 1-36). Validation errors return
 400/422 with a message written by us; never echo a whole invalid payload back.
 
 ### SC-VAL-003 — Never merge untrusted objects

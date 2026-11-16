@@ -11,6 +11,7 @@ User=keystone
 Group=keystone
 WorkingDirectory=/opt/keystone-isms
 Environment=KEYSTONE_DATA_DIR=/srv/keystone
+Environment=KEYSTONE_PUBLIC_URL=https://isms.example.com
 # Optional: Environment=ANTHROPIC_API_KEY=... (or set the key under Settings → AI)
 ExecStart=/opt/keystone-isms/.venv/bin/uvicorn keystone.api.app:create_app --factory --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=on-failure

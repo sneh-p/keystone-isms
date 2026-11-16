@@ -45,7 +45,12 @@ required:
 - Re-validate every redirect hop.
 - Set timeouts and cap the response size.
 
-Changing this design is an escalation per [SC-AGT-006](/agent-conduct.md); don't hand-roll a new fetcher.
+The website integration implements all of these: `assert_public_host()` resolves once, requires every address to
+be globally routable (including IPv4-mapped IPv6 and carrier-grade NAT checks) and returns the IP; every request and
+the TLS check connect to that IP while presenting the original host name for `Host` and SNI, so certificates are
+still verified (`_pinned()`); responses are streamed and their bodies never read; each redirect hop is re-validated
+over HTTPS only. Changing this design is an escalation per [SC-AGT-006](/agent-conduct.md); reuse this code rather
+than hand-rolling a new fetcher.
 
 ### SC-SSRF-003 — Never send credentials to input-chosen hosts
 **MUST NOT · critical** · CWE-918, CWE-201

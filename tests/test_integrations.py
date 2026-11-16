@@ -5,7 +5,7 @@ import json
 import httpx
 import pytest
 from botocore.exceptions import ClientError
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from keystone.controls.models import Evidence
 from keystone.core.audit import AuditLog
@@ -291,3 +291,84 @@ def test_aws_real_client_gets_timeouts(monkeypatch):
     monkeypatch.setattr(boto3.session, "Session", FakeSession)
     AwsProvider().run({"region": "eu-west-1"}, {"access_key_id": "x", "secret_access_key": "y"})
     assert seen and all(c == 10 and r == 20 for _, c, r in seen) and len({n for n, _, _ in seen}) > 1
+
+
+def test_passing_runs_refresh_one_evidence_record(content, session, users, monkeypatch):
+    """SC-ERR-004: repeated passing runs refresh the same evidence instead of adding a row per run."""
+    monkeypatch.setitem(integ.PROVIDERS, "website", website())
+    i = integ.save_integration(session, users["admin"], provider_key="website", values={"url": "https://shop.example"})
+    integ.run(session, users["admin"], i.id)
+    first = session.scalar(select(func.count(Evidence.id)))
+    for _ in range(3):
+        integ.run(session, users["admin"], i.id)
+    assert first > 0 and session.scalar(select(func.count(Evidence.id))) == first
+
+
+def test_evidence_and_task_lists_are_bounded(api, ready_users, content, db):
+    from datetime import timedelta
+
+    from keystone.controls.models import Evidence as Ev
+    from keystone.core.services import today
+    from keystone.tasks.models import Task
+
+    api_login(api, "admin")
+    with db.session_scope() as s:
+        ctl_id = control_by_code(s, "KC-ORG-01").id
+        for n in range(5):
+            s.add(Ev(common_control_id=ctl_id, title=f"e{n}", kind="note", collected_on=today()))
+        s.add(Task(title="open one", status="todo", frequency="once", due_date=today() + timedelta(days=400)))
+        for n in range(4):
+            s.add(Task(title=f"done {n}", status="done", frequency="once", due_date=today() - timedelta(days=n)))
+    r = api.get("/api/evidence?limit=2")
+    assert r.status_code == 200 and len(r.json()) == 2 and int(r.headers["x-total-count"]) >= 5
+    assert api.get("/api/evidence?limit=100000").status_code == 422
+    titles = [t["title"] for t in api.get("/api/tasks?closed_limit=1").json()]
+    assert "open one" in titles and sum(t.startswith("done") for t in titles) == 1
+
+
+@pytest.mark.parametrize("addr", ["100.64.1.1", "::ffff:127.0.0.1", "::ffff:10.0.0.1", "fd00::1", "198.18.0.1"])
+def test_ssrf_guard_rejects_non_global_addresses(monkeypatch, addr):
+    import socket
+
+    fam = socket.AF_INET6 if ":" in addr else socket.AF_INET
+    monkeypatch.setattr(socket, "getaddrinfo", lambda host, *a, **k: [(fam, socket.SOCK_STREAM, 6, "", (addr, 0))])
+    with pytest.raises(ValueError, match="non-public"):
+        assert_public_host("rebind.example")
+
+
+def test_connections_are_pinned_to_the_validated_ip_and_bodies_unread(monkeypatch):
+    """SC-SSRF-002: one resolution, every request goes to that IP with the original Host and SNI; no body is read."""
+    import socket
+
+    lookups = []
+
+    def fake_getaddrinfo(host, *a, **k):
+        lookups.append(host)
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+    seen = []
+
+    class NeverRead(httpx.SyncByteStream):
+        def __iter__(self):
+            raise AssertionError("the response body must not be read")
+
+    def handler(req: httpx.Request):
+        seen.append((req.url.scheme, req.url.host, req.headers["host"], req.extensions.get("sni_hostname")))
+        if req.url.scheme == "http":
+            return httpx.Response(301, headers={"location": "https://shop.example/"}, stream=NeverRead())
+        return httpx.Response(200, headers={"strict-transport-security": "max-age=1", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'self'"}, stream=NeverRead())
+
+    tls_calls = []
+    p = WebsiteProvider(client_factory=lambda: httpx.Client(transport=httpx.MockTransport(handler)),
+                        tls=lambda host, ip=None: tls_calls.append((host, ip)) or {"version": "TLSv1.3", "not_after": "Dec 31 23:59:59 2099 GMT"})
+    res = {o.key: o.result for o in p.run({"url": "https://shop.example"}, {})}
+    assert res == {"https_redirect": "pass", "security_headers": "pass", "tls_version": "pass", "certificate": "pass"}
+    assert lookups == ["shop.example"]  # resolved exactly once
+    assert seen == [("http", "93.184.216.34", "shop.example", None), ("https", "93.184.216.34", "shop.example", "shop.example")]
+    assert tls_calls == [("shop.example", "93.184.216.34")]
+
+
+def test_urls_with_credentials_are_refused():
+    with pytest.raises(ValueError, match="full website URL"):
+        website().run({"url": "https://user:pass@shop.example/"}, {})

@@ -125,12 +125,13 @@ def test_offboarding_disables_account(users, db):
 def test_employee_portal_via_api(api, ready_users, db):
     api_login(api, "admin")
     pid = api.post("/api/people", json={"full_name": "Erin Employee", "email": "erin@example.example", "start_date": "2026-01-01"}).json()["id"]
-    url = api.post(f"/api/people/{pid}/invite").json()["url"]
-    token = url.rsplit("/", 1)[1]
+    link = api.post(f"/api/people/{pid}/invite").json()
+    assert link["path"].startswith("/invite#token=")  # SC-CRY-005: the token stays out of paths and queries
+    token = link["path"].split("#token=")[1]
     from fastapi.testclient import TestClient
     emp = TestClient(api.app)
-    assert emp.get(f"/api/public/invite/{token}").json()["full_name"] == "Erin Employee"
-    me = emp.post(f"/api/public/invite/{token}", json={"password": PASSWORD}).json()
+    assert emp.get("/api/public/invite", headers={"X-Invite-Token": token}).json()["full_name"] == "Erin Employee"
+    me = emp.post("/api/public/invite", json={"password": PASSWORD}, headers={"X-Invite-Token": token}).json()
     assert me["role"] == "employee" and "read" not in me["permissions"]
     emp.headers["X-CSRF-Token"] = me["csrf_token"]
     # Employees cannot see ISMS data...
@@ -149,3 +150,40 @@ def test_employee_portal_via_api(api, ready_users, db):
     people = api.get("/api/people").json()["people"]
     erin = next(p for p in people if p["email"] == "erin@example.example")
     assert erin["status"] == "active" and erin["compliance"]["training_done"] == 1 and erin["compliance"]["device_ok"] is True
+
+
+def test_employee_can_download_only_current_acknowledgement_policy_files(api, ready_users, db):
+    """Portal policy files are served only for the current approved version that needs acknowledgement."""
+    from fastapi.testclient import TestClient
+
+    from keystone.policies import service as pol
+
+    pdf = b"%PDF-1.4 acceptable use"
+    with db.session_scope() as s:
+        from keystone.core.auth import User
+
+        author = s.query(User).filter(User.username == "ismsmanager").one()
+        approver = s.query(User).filter(User.username == "admin").one()
+        d = pol.save_document(s, author, code="POL-AUP", title="Acceptable Use", requires_acknowledgement=True)
+        v1 = pol.start_version(s, author, d.id, filename="aup-v1.pdf", data=pdf)
+        pol.submit_version(s, author, v1.id)
+        pol.approve_version(s, approver, v1.id)
+        v2 = pol.start_version(s, author, d.id, filename="aup-v2.pdf", data=b"%PDF-1.4 draft v2")  # draft, not current
+        noack = pol.save_document(s, author, code="POL-INT", title="Internal standard", requires_acknowledgement=False)
+        n1 = pol.start_version(s, author, noack.id, filename="int.pdf", data=b"%PDF-1.4 internal")
+        pol.submit_version(s, author, n1.id)
+        pol.approve_version(s, approver, n1.id)
+        ids = (v1.id, v2.id, n1.id, v1.attachment_id)
+
+    api_login(api, "admin")
+    pid = api.post("/api/people", json={"full_name": "Pat Portal", "email": "pat@example.example"}).json()["id"]
+    token = api.post(f"/api/people/{pid}/invite").json()["path"].split("#token=")[1]
+    emp = TestClient(api.app)
+    emp.headers["X-CSRF-Token"] = emp.post("/api/public/invite", json={"password": PASSWORD}, headers={"X-Invite-Token": token}).json()["csrf_token"]
+
+    r = emp.get(f"/api/portal/policies/{ids[0]}/document")
+    assert r.status_code == 200 and r.content == pdf and r.headers["content-disposition"].startswith("attachment") and r.headers["x-content-type-options"] == "nosniff"
+    assert emp.get(f"/api/portal/policies/{ids[1]}/document").status_code == 404   # draft version
+    assert emp.get(f"/api/portal/policies/{ids[2]}/document").status_code == 404   # no acknowledgement required
+    assert emp.get("/api/portal/policies/999999/document").status_code == 404
+    assert emp.get(f"/api/attachments/{ids[3]}").status_code == 403                # the general route stays closed

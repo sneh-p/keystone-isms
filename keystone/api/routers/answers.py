@@ -31,7 +31,7 @@ def list_all(user=Depends(perm("read")), db: Session = Depends(get_db)):
 
 
 @router.post("/security-questionnaires")
-async def create(title: str = Form(...), requester: str | None = Form(None), due_date: date | None = Form(None), pasted: str | None = Form(None),
+async def create(title: str = Form(..., max_length=200), requester: str | None = Form(None, max_length=200), due_date: date | None = Form(None), pasted: str | None = Form(None, max_length=500_000),
                  file: UploadFile | None = File(None), user=Depends(perm("questionnaire.write")), db: Session = Depends(get_db)):
     data = await file.read() if file else None
     q = svc.create(db, user, title=title, requester=requester, due_date=due_date, filename=file.filename if file else None, data=data, pasted=pasted)

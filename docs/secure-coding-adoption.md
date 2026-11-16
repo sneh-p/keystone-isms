@@ -23,20 +23,36 @@ Semgrep baseline refer to.
 | SC-DEP-005 | 2 critical and 1 high npm advisories (Vitest 2 and its nested Vite/tinypool, dev tooling) | Vitest upgraded to 5.1.0 after SC-DEP-002 checks |
 | — | `assert` used for a runtime check in `keystone/core/db.py` (stripped under `python -O`) | Explicit check |
 
-## Needs a human decision (SC-AGT-006 escalations)
+## Escalations (approved by human:sneh and fixed, 2026-11-16)
 
-| Rule | Finding | Recommended fix |
+| Rule | Finding | Fix |
 |---|---|---|
-| SC-CRY-005 | Trust Center access tokens travel in API URL paths (`/api/public/trust/<slug>/access/<token>`), so they reach proxy and server access logs | Send the token in a header (for example `X-Trust-Access`) or a POST body; keep it out of URLs |
-| SC-CFG-006 / Semgrep `request-host-used` (baselined) | Invitation and Trust Center links are built from `request.base_url`, which comes from the forwarded `Host` header (nginx passes `$http_host`) | Add a `KEYSTONE_PUBLIC_URL` setting for links; restrict `server_name` in nginx |
-| SC-SSRF-002 | The website integration resolves and checks the host, re-validates redirects and has timeouts, but does not connect to the validated IP (DNS rebinding) and does not cap the response size | Pin the connection to the validated address or route through an egress proxy; cap the body size |
-| SC-LLM-005 | AI calls have token limits, timeouts and per-user accounting, but no per-user rate limit or cost budget | Hourly per-user limit and a monthly token budget in **Settings → AI** |
-| SC-CFG-006 | The evaluation server is served over plain HTTP on port 80 | TLS at the proxy before real use (see the admin guide) |
+| SC-CRY-005, SC-AUTHN-007 | Trust Center access tokens (and invitation tokens) travelled in URL paths and queries, reaching access logs | Links carry tokens after `#`; the browser sends them in `X-Trust-Access` / `X-Invite-Token`; documents download through the browser with the header. Old links still work in the browser |
+| SC-CFG-006 / Semgrep `request-host-used` | Invitation and Trust Center links were built from the forwarded `Host` header | `KEYSTONE_PUBLIC_URL` (else the administrator's browser origin); nginx no longer forwards `Host`. The Semgrep baseline was removed |
+| SC-SSRF-002 | Website integration: no protection against DNS rebinding, no response size cap | Resolve once, require globally routable addresses, connect to that IP with the original host name for `Host` and TLS; bodies never read |
+| SC-LLM-005 | No per-user rate limit or cost budget for AI calls | Calls per user per hour (at the start of an AI action) and a monthly token budget (before every call), under **Settings → AI** |
+| SC-CFG-006 | Plain HTTP only | HTTPS production config (`deploy/nginx/keystone.conf`), HSTS on HTTPS responses; the HTTP config is marked for private-network evaluation only |
+
+## Rule-by-rule review (2026-11-16)
+
+Checked what the scanners can't see. Holding: every write path checks a permission; an employee is refused on all
+staff read routes; no raw SQL, shell, `eval` or weak randomness; logs use parameters and no secrets; role changes end
+sessions; downloads are attachments with `nosniff`.
+
+| Rule | Finding | Fix |
+|---|---|---|
+| SC-VAL-002 | 180 strings, 13 lists, 10 objects and 51 numbers in request bodies had no bound | Default bounds in `In`; explicit limits on long text and all form fields |
+| SC-AUTHN-003 | A password change kept the current session ID (and the rule text said otherwise) | Every session ends and a new session ID and CSRF token are issued |
+| SC-AUTHZ-005 | No test kept employees out of read routes | `test_employee_is_refused_on_every_staff_read_route` |
+| SC-ERR-004, SC-CFG-004 | Unbounded lists; integration runs added an evidence row per control on every run | Evidence refreshed instead of duplicated; evidence list paged; task history capped |
+| — (bug) | Employees couldn't download policies attached as files | `GET /api/portal/policies/{id}/document`: current approved acknowledgement policies only |
+| SC-AUTHZ-001 | `answers.draft_batch` relied on its caller's permission check | Checks `questionnaire.write` itself |
+| SC-SEC-001 | Test API key used the real key prefix format | Obviously fake value |
 
 ## Baseline decisions (confirmed by AppSec, human:sneh, 2026-11-16)
 
-- `.semgrep/baseline-commit` holds back the one Semgrep registry finding present at adoption
-  (`request-host-used` in `deploy/nginx/keystone-proxy.conf`, above).
+The Semgrep baseline has since been removed (the finding it held back is fixed).
+
 - `ruff.toml` `per-file-ignores`: pytest asserts, fake test passwords and the e2e server launch in `tests/`; the
   fictional demo password in `keystone/demo.py`.
 - `.semgrepignore` and the suppression check exclude the standard's own text, the lint configs, the Semgrep rule
@@ -64,5 +80,5 @@ Semgrep baseline refer to.
    and in `log.md`); Code Owner team is `@Sneh/appsec`.
 2. Branch protection (when the repository is on GitHub): make `security-check` a required status check and
    require Code Owner review on `main`.
-3. Done 2026-11-16: baseline decisions confirmed. The escalations above remain open until fixed.
+3. Done 2026-11-16: baseline decisions confirmed and all escalations fixed.
 4. ASVS mappings are chapter-level; verify them against ASVS 5.0 before audit use.

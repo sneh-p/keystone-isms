@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { CheckCircle2, ChevronDown, Download, FileText, Lock, Mail, ShieldCheck } from "lucide-react";
-import { api } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { api, fragmentParam, saveDownload } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { cn, fmtDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,10 +23,22 @@ function readToken(param: string | null, slug: string): string | null {
 export default function PublicTrust() {
   const { slug = "" } = useParams();
   const [params, setParams] = useSearchParams();
-  const token = readToken(params.get("access"), slug);
-  useEffect(() => { if (params.get("access")) setParams({}, { replace: true }); }, [params, setParams]); // keep the token out of the address bar
+  // SC-CRY-005: links carry the token after '#', which never reaches the server; ?access= is accepted for old links.
+  const [token, setToken] = useState(() => readToken(fragmentParam("access") ?? params.get("access"), slug));
+  useEffect(() => {
+    if (params.get("access")) setParams({}, { replace: true });
+    const fromFragment = () => {
+      const t = fragmentParam("access");
+      if (t) setToken(readToken(t, slug)); // also when the link is opened in a tab already on this page
+      if (window.location.hash) window.history.replaceState(null, "", window.location.pathname + window.location.search); // keep it out of the address bar
+    };
+    fromFragment();
+    window.addEventListener("hashchange", fromFragment);
+    return () => window.removeEventListener("hashchange", fromFragment);
+  }, [params, setParams, slug]);
+  const auth = token ? { "X-Trust-Access": token } : undefined;
   const { data, isError, error } = useApi<any>(`/public/trust/${slug}`);
-  const grant = useApi<any>(token ? `/public/trust/${slug}/access/${token}` : null);
+  const grant = useQuery<any>({ queryKey: [`/public/trust/${slug}/access`, token], queryFn: () => api(`/public/trust/${slug}/access`, { headers: auth }), enabled: !!token });
   const [req, setReq] = useState({ name: "", email: "", company: "", reason: "", website: "" });
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -39,8 +53,8 @@ export default function PublicTrust() {
     setErr(null);
     try { await api(`/public/trust/${slug}/requests`, { body: req }); setSent(true); } catch (x: any) { setErr(x.message); }
   };
-  const acceptNda = async () => { await api(`/public/trust/${slug}/access/${token}/nda`, { body: { signed_name: signed } }); await grant.refetch(); };
-  const dl = (id: string) => `/api/public/trust/${slug}/documents/${id}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+  const acceptNda = async () => { await api(`/public/trust/${slug}/access/nda`, { body: { signed_name: signed }, headers: auth }); await grant.refetch(); };
+  const download = (id: string) => { saveDownload(`/public/trust/${slug}/documents/${id}`, auth).catch((x: Error) => toast.error(x.message)); };
   return (
     <div className="min-h-full bg-background">
       <header style={{ background: `linear-gradient(135deg, ${brand}, ${brand}cc)` }} className="text-white">
@@ -75,7 +89,7 @@ export default function PublicTrust() {
                 {data.documents.map((d: any) => (
                   <li key={d.id} className="flex items-center justify-between gap-3 py-3 text-sm">
                     <span className="flex items-start gap-2"><FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><span><span className="font-medium">{d.title}</span>{d.description && <span className="block text-xs text-muted-foreground">{d.description}</span>}</span></span>
-                    {d.access === "public" || access ? <a href={dl(d.id)}><Button size="sm" variant="outline"><Download /> Download</Button></a> : <span className="flex items-center gap-1 text-xs text-muted-foreground"><Lock className="size-3.5" /> On request</span>}
+                    {d.access === "public" || access ? <Button size="sm" variant="outline" onClick={() => download(d.id)}><Download /> Download</Button> : <span className="flex items-center gap-1 text-xs text-muted-foreground"><Lock className="size-3.5" /> On request</span>}
                   </li>
                 ))}
               </ul>

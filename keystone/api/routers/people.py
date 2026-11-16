@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, Request, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from keystone.core import auth, sessions
@@ -13,7 +13,7 @@ from keystone.policies import service as pol
 
 from ..deps import COOKIE, get_db, perm
 from ..serialize import ser
-from .common import In
+from .common import In, public_link
 
 router = APIRouter(tags=["people"])
 PERSON = ("id", "full_name", "email", "job_title", "department", "employment_type", "manager_id", "start_date", "end_date", "status", "user_id", "offboarding")
@@ -47,10 +47,10 @@ def update(pid: int, body: PersonIn, user=Depends(perm("people.write")), db: Ses
 
 
 @router.post("/people/{pid}/invite")
-def invite(pid: int, request: Request, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+def invite(pid: int, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
     token = ppl.invite(db, user, pid)
-    base = str(request.base_url).rstrip("/")
-    return {"url": f"{base}/invite/{token}", "expires_in_days": ppl.INVITE_DAYS}
+    # SC-CRY-005: the token travels in the URL fragment, never in a path or query the server would log.
+    return {**public_link(f"/invite#token={token}"), "expires_in_days": ppl.INVITE_DAYS}
 
 
 class LinkIn(In):
@@ -88,6 +88,15 @@ def complete(pid: int, user=Depends(perm("people.write")), db: Session = Depends
 
 # ---- portal ----------------------------------------------------------------------------------
 
+@router.get("/portal/policies/{vid}/document")
+def portal_policy_document(vid: int, user=Depends(perm("portal")), db: Session = Depends(get_db)):
+    from keystone.core.attachments import read_attachment
+
+    a = pol.portal_document(db, user, vid)
+    safe = a.filename.replace('"', "")
+    return Response(read_attachment(a), media_type=a.content_type, headers={"Content-Disposition": f'attachment; filename="{safe}"', "X-Content-Type-Options": "nosniff"})
+
+
 @router.get("/portal")
 def portal(user=Depends(perm("portal")), db: Session = Depends(get_db)):
     from sqlalchemy import select
@@ -119,7 +128,7 @@ def take_quiz(key: str, body: QuizIn, user=Depends(perm("portal")), db: Session 
 
 
 @router.post("/portal/devices")
-async def attest(device_name: str = Form(...), os: str = Form(...), checks: str = Form(...), file: UploadFile | None = File(None), user=Depends(perm("portal")), db: Session = Depends(get_db)):
+async def attest(device_name: str = Form(..., max_length=200), os: str = Form(..., max_length=20), checks: str = Form(..., max_length=5_000), file: UploadFile | None = File(None), user=Depends(perm("portal")), db: Session = Depends(get_db)):
     import json
 
     d = ppl.attest_device(db, user, device_name=device_name, os=os, checks=json.loads(checks), filename=file.filename if file else None, data=await file.read() if file else None)
@@ -128,20 +137,29 @@ async def attest(device_name: str = Form(...), os: str = Form(...), checks: str 
 
 # ---- public invitation acceptance ---------------------------------------------------------------
 
-@router.get("/public/invite/{token}")
-def invite_info(token: str, db: Session = Depends(get_db)):
-    return ppl.describe_invite(db, token)
+INVITE_HEADER = "X-Invite-Token"
+
+
+def _invite_token(token: str | None) -> str:
+    if not token or len(token) > 200:
+        raise LookupError("This invitation link is not valid.")
+    return token
+
+
+@router.get("/public/invite")
+def invite_info(token: str | None = Header(None, alias=INVITE_HEADER), db: Session = Depends(get_db)):
+    return ppl.describe_invite(db, _invite_token(token))
 
 
 class AcceptIn(In):
     password: str
 
 
-@router.post("/public/invite/{token}")
-def accept(token: str, body: AcceptIn, request: Request, response: Response, db: Session = Depends(get_db)):
+@router.post("/public/invite")
+def accept(body: AcceptIn, request: Request, response: Response, token: str | None = Header(None, alias=INVITE_HEADER), db: Session = Depends(get_db)):
     from .auth import _me, _set_cookie
 
-    user = ppl.accept_invite(db, token, body.password)
+    user = ppl.accept_invite(db, _invite_token(token), body.password)
     t, ws = sessions.create(db, user.id, request.client.host if request.client else None, request.headers.get("user-agent"))
     _set_cookie(request, response, t)
     return _me(user, ws)

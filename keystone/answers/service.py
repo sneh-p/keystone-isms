@@ -459,6 +459,7 @@ def _apply_answer(it: QuestionnaireItem, a: dict, by_id: dict[str, dict]) -> Non
 def draft_batch(session: Session, actor, questionnaire: SecurityQuestionnaire, items: list[QuestionnaireItem], srcs: list[dict]) -> None:
     from keystone.ai import service as ai
 
+    authorize(session, actor, "questionnaire.write")  # SC-AUTHZ-001: checked here too, not only by the caller
     lines = []
     for it in items:
         prefix = f"[{it.section}] " if it.section else ""
@@ -496,6 +497,7 @@ def start_ai_draft(session: Session, actor, questionnaire_id: int, item_ids: lis
         raise ValueError("There are no unanswered questions to draft.")
     if not sources(session):
         raise ValueError("There are no approved policies or knowledge-base answers to draft from.")
+    ai.check_quota(session, actor)  # SC-LLM-005: per-user rate limit and monthly budget before the job starts
     q.job_status, q.job_progress, q.job_total, q.job_error = "running", 0, len(targets), None
     session.flush()
     log_event(session, actor, "ai_draft_started", "SecurityQuestionnaire", q.id, f"AI drafting {len(targets)} answer(s) for {q.title}")

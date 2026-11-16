@@ -84,7 +84,8 @@ def test_employee_invite_portal_and_isolation(demo_server, open_page):
     a.get_by_role("button", name="Add", exact=True).click()
     a.get_by_role("button", name="Create invitation link").click()
     link = a.locator("input[readonly]").input_value()
-    path = link[link.index("/invite/"):]
+    assert "#token=" in link and "/invite/" not in link  # token only in the fragment
+    path = link[link.index("/invite"):]
 
     emp = open_page(demo_server)
     e = emp.go(path)
@@ -123,12 +124,13 @@ def test_trust_center_access_request_nda_and_download(demo_server, open_page):
     admin.go("/trust-center")
     a.get_by_role("button", name="Approve").first.click()
     link = a.locator("[role=dialog] input[readonly]").input_value()
+    assert "#access=" in link and "?access=" not in link
     v.goto(demo_server + link[link.index("/trust/"):], wait_until="networkidle")
     v.get_by_label("Type your full name to sign").fill("Dana Smith")
     v.get_by_role("button", name="I agree").click()
     v.wait_for_selector("text=Access granted")
     with v.expect_download() as d:
-        v.get_by_role("link").filter(has_text="Download").last.click()
+        v.get_by_role("button", name="Download").last.click()  # fetched with the X-Trust-Access header, saved in the browser
     assert d.value.suggested_filename.endswith(".pdf")
 
 

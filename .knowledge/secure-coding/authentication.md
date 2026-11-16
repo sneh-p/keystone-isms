@@ -34,8 +34,10 @@ to adding composition rules.
 **MUST · critical** · CWE-384, CWE-614, CWE-1004 · ASVS V7
 
 - The cookie holds a random token (`secrets.token_urlsafe(32)`); only its SHA-256 is stored.
-- A new session is created on sign-in and password change; sessions are destroyed on sign-out, when a user is
-  disabled or offboarded, and when their role changes (`sessions.destroy_all_for`).
+- A new session is created on sign-in. A password change ends every session of that user, including the current
+  one, and issues a new session ID and CSRF token (`tests/test_api.py::test_password_change_rotates_the_session`).
+  Sessions are destroyed on sign-out, when a user is disabled or offboarded, and when their role changes
+  (`sessions.destroy_all_for`).
 - Idle and absolute timeouts are both enforced server-side.
 - The cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, and `Secure` whenever the request arrived over HTTPS.
 
@@ -78,4 +80,6 @@ Look tokens up by their hash (`WHERE token_hash = :h`), which avoids comparing s
 
 Session tokens, invitation tokens and Trust Center access tokens are stored as SHA-256 hashes, expire, and are
 single-use where that applies (invitations). Generate them as described in [SC-CRY-002](/cryptography.md). Never
-put them in logs or the audit log.
+put them in logs, the audit log, URL paths or query strings: links carry them after `#` (`/invite#token=…`,
+`/trust/<slug>#access=…`), and the browser sends them in the `X-Invite-Token` / `X-Trust-Access` header
+([SC-CRY-005](/cryptography.md)).

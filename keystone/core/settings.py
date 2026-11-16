@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -15,9 +16,16 @@ class Settings:
     db_url: str = field(default_factory=lambda: os.environ.get("KEYSTONE_DB_URL", ""))
     session_timeout_minutes: int = field(default_factory=lambda: int(os.environ.get("KEYSTONE_SESSION_TIMEOUT_MINUTES", "30")))
     max_upload_mb: int = field(default_factory=lambda: int(os.environ.get("KEYSTONE_MAX_UPLOAD_MB", "25")))
+    # Public base URL for links Keystone hands out (invitations, Trust Center access). Never derived from the
+    # request's Host header (SC-CFG-006). When unset, the API returns paths and the browser adds its own origin.
+    public_url: str = field(default_factory=lambda: os.environ.get("KEYSTONE_PUBLIC_URL", "").strip().rstrip("/"))
     min_password_length: int = 12
     max_failed_logins: int = 5
     lockout_minutes: int = 15
+
+    def __post_init__(self) -> None:
+        if self.public_url and not re.fullmatch(r"https?://[A-Za-z0-9.\-]+(:\d{1,5})?", self.public_url):
+            raise ValueError("KEYSTONE_PUBLIC_URL must be a scheme and host, for example https://isms.example.com")
 
     @property
     def database_url(self) -> str:

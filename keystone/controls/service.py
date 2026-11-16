@@ -103,10 +103,12 @@ def evidence_state(ev: Evidence, on: date | None = None) -> str:
     return "current"
 
 
-def evidence_for(session: Session, control_id: int | None = None) -> list[Evidence]:
-    q = select(Evidence).order_by(Evidence.collected_on.desc())
+def evidence_for(session: Session, control_id: int | None = None, limit: int | None = None, offset: int = 0) -> list[Evidence]:
+    q = select(Evidence).order_by(Evidence.collected_on.desc(), Evidence.id.desc())
     if control_id:
         q = q.where(Evidence.common_control_id == control_id)
+    if limit is not None:
+        q = q.limit(limit).offset(offset)
     return list(session.scalars(q))
 
 

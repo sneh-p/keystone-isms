@@ -13,6 +13,8 @@ import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 
+const EVIDENCE_PAGE = 1000; // matches the API default page size (SC-ERR-004)
+
 export default function Evidence() {
   const { can } = useAuth();
   const [params] = useSearchParams();
@@ -37,6 +39,7 @@ export default function Evidence() {
     <div className="animate-fade-in">
       <PageHeader icon={Paperclip} title="Evidence" description="Proof that controls operate: files, links and notes, with expiry tracking."
         actions={can("evidence.write") && <Button onClick={() => setOpen(true)}><Plus /> Add evidence</Button>} />
+      {data.length >= EVIDENCE_PAGE && <p className="mb-4 rounded-lg border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">Showing the {EVIDENCE_PAGE.toLocaleString()} most recent items. Open a control to see all of its evidence.</p>}
       <div className="mb-5 grid gap-4 sm:grid-cols-4">
         <Stat label="Current" value={count("current")} tone="good" />
         <Stat label="Expiring in 30 days" value={count("expiring")} tone={count("expiring") ? "warning" : undefined} />

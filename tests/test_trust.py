@@ -88,20 +88,22 @@ def test_access_flow_api(api, published, ready_users, db):
     api_login(api, "viewer")
     assert api.post(f"/api/trust-center/requests/{rid}/approve", json={}).status_code == 403
     api_login(api, "ismsmanager")
-    url = api.post(f"/api/trust-center/requests/{rid}/approve", json={"days": 14}).json()["url"]
-    token = url.split("access=")[1]
-    g = public.get(f"/api/public/trust/alpine/access/{token}").json()
+    link = api.post(f"/api/trust-center/requests/{rid}/approve", json={"days": 14}).json()
+    assert link["path"].startswith("/trust/alpine#access=") and "?" not in link["path"]  # SC-CRY-005: fragment only
+    token = link["path"].split("#access=")[1]
+    hdr = {"X-Trust-Access": token}
+    g = public.get("/api/public/trust/alpine/access", headers=hdr).json()
     assert g["nda_required"] and not g["nda_ok"]
-    assert public.get(f"/api/public/trust/alpine/documents/{nda}?token={token}").status_code == 403
-    assert public.post(f"/api/public/trust/alpine/access/{token}/nda", json={"signed_name": "Dana Smith"}).status_code == 200
-    assert public.get(f"/api/public/trust/alpine/documents/{nda}?token={token}").content == b"%PDF-1.4 secret report"
+    assert public.get(f"/api/public/trust/alpine/documents/{nda}", headers=hdr).status_code == 403
+    assert public.post("/api/public/trust/alpine/access/nda", json={"signed_name": "Dana Smith"}, headers=hdr).status_code == 200
+    assert public.get(f"/api/public/trust/alpine/documents/{nda}", headers=hdr).content == b"%PDF-1.4 secret report"
     with db.session_scope() as s:
         r = s.get(AccessRequest, rid)
         assert r.view_count == 1 and r.nda_signed_name == "Dana Smith" and r.token_hash and token not in r.token_hash
         acts = [a.action for a in s.scalars(select(AuditLog).where(AuditLog.action.in_(["nda_accepted", "trust_download"])))]
         assert acts.count("trust_download") == 2 and "nda_accepted" in acts
     assert api.post(f"/api/trust-center/requests/{rid}/revoke").status_code == 200
-    assert public.get(f"/api/public/trust/alpine/documents/{nda}?token={token}").status_code == 404
+    assert public.get(f"/api/public/trust/alpine/documents/{nda}", headers=hdr).status_code == 404
 
 
 def test_nda_change_requires_reacceptance(published, db, users):
@@ -120,3 +122,16 @@ def test_request_rate_limit(published, db):
             trust.request_access(s, "alpine", name="n", email=f"n{i}@x.example", company="c", reason=None, ip="9.9.9.9")
         with pytest.raises(PermissionError, match="Too many"):
             trust.request_access(s, "alpine", name="n", email="z@x.example", company="c", reason=None, ip="9.9.9.9")
+
+
+def test_access_token_never_needs_to_be_in_a_url(api, published, ready_users, db):
+    """SC-CRY-005: the old token-in-path routes are gone, and a token in a query string is ignored."""
+    from fastapi.routing import APIRoute
+
+    from keystone.api.routers import ROUTERS
+
+    paths = [r.path for router in ROUTERS for r in router.routes if isinstance(r, APIRoute)]
+    assert not [p for p in paths if "{token}" in p], "tokens must not be path parameters"
+    public = TestClient(api.app)
+    nda = published["nda_doc"]
+    assert public.get(f"/api/public/trust/alpine/documents/{nda}?token=anything").status_code in (403, 404)

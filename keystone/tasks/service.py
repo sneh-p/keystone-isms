@@ -128,13 +128,19 @@ def mark_not_relevant(session: Session, actor, task_id: int, reason: str) -> Tas
     return t
 
 
-def list_tasks(session: Session, *, assignee_id: int | None = None, include_closed: bool = True) -> list[Task]:
-    q = select(Task).order_by(Task.due_date.is_(None), Task.due_date, Task.id)
+def list_tasks(session: Session, *, assignee_id: int | None = None, include_closed: bool = True, closed_limit: int | None = None) -> list[Task]:
+    """Open tasks always; closed ones too unless excluded. `closed_limit` keeps only the most recent closed tasks."""
+    base = select(Task)
     if assignee_id:
-        q = q.where(Task.assignee_id == assignee_id)
+        base = base.where(Task.assignee_id == assignee_id)
+    order = (Task.due_date.is_(None), Task.due_date, Task.id)
     if not include_closed:
-        q = q.where(Task.status.in_(OPEN))
-    return list(session.scalars(q))
+        return list(session.scalars(base.where(Task.status.in_(OPEN)).order_by(*order)))
+    if closed_limit is None:
+        return list(session.scalars(base.order_by(*order)))
+    open_tasks = list(session.scalars(base.where(Task.status.in_(OPEN))))
+    closed = list(session.scalars(base.where(Task.status.not_in(OPEN)).order_by(Task.updated_at.desc(), Task.id.desc()).limit(closed_limit)))
+    return sorted(open_tasks + closed, key=lambda t: (t.due_date is None, t.due_date or today(), t.id))
 
 
 def overdue(t: Task, on: date | None = None) -> bool:

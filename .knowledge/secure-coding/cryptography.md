@@ -68,4 +68,5 @@ check that HTTP redirects to HTTPS.
 
 Don't store sensitive data you don't need (the collector exports counts, never user IDs). Encrypt credentials at
 rest. Never put tokens, personal data or secrets in URLs or query strings, because those end up in logs, browser
-history and referrers. Send tokens in a header or request body instead.
+history and referrers. Send tokens in a header or request body instead; a link that must carry a secret puts it in
+the fragment (`#access=…`), which browsers never send to the server.

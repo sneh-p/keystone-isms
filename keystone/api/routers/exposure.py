@@ -55,7 +55,7 @@ async def preview(file: UploadFile = File(...), user=Depends(perm("exposure.impo
 
 
 @router.post("/import")
-async def do_import(file: UploadFile = File(...), tenant_name: str | None = Form(None), user=Depends(perm("exposure.import")), db: Session = Depends(get_db)):
+async def do_import(file: UploadFile = File(...), tenant_name: str | None = Form(None, max_length=200), user=Depends(perm("exposure.import")), db: Session = Depends(get_db)):
     doc = importer.load_document(await file.read())
     return importer.import_document(db, user, doc, tenant_name).__dict__
 

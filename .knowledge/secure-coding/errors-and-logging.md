@@ -54,7 +54,8 @@ await or explicitly handle every promise.
 
 Every outbound call has a timeout (httpx `timeout=`, boto3 `Config(connect_timeout, read_timeout)`, the Anthropic
 client `timeout=`). Lists that can grow without limit are paginated or capped. Uploads, imports and loops over
-input have size limits (`KEYSTONE_MAX_UPLOAD_MB`, `MAX_ITEMS`, row limits).
+input have size limits (`KEYSTONE_MAX_UPLOAD_MB`, `MAX_ITEMS`, row limits). Data that grows with every scheduled
+run is refreshed rather than duplicated (one evidence record per integration check and control).
 
 # Logging
 

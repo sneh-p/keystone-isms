@@ -2,11 +2,13 @@
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import Response
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from keystone.controls import service as ctl
+from keystone.controls.models import Evidence
 from keystone.core.attachments import Attachment, read_attachment
 from keystone.core.services import get_or_404
 from keystone.frameworks import loader, service as fw
@@ -133,13 +135,15 @@ def evidence_out(e) -> dict:
 
 
 @router.get("/evidence")
-def evidence(user=Depends(perm("read")), db: Session = Depends(get_db)):
-    return [evidence_out(e) for e in ctl.evidence_for(db)]
+def evidence(response: Response, limit: int = Query(1000, ge=1, le=5000), offset: int = Query(0, ge=0, le=1_000_000), user=Depends(perm("read")), db: Session = Depends(get_db)):
+    # SC-ERR-004 / SC-CFG-004: bounded page; the total lets the UI say when the list is truncated.
+    response.headers["X-Total-Count"] = str(db.scalar(select(func.count(Evidence.id))))
+    return [evidence_out(e) for e in ctl.evidence_for(db, limit=limit, offset=offset)]
 
 
 @router.post("/evidence")
 async def add_evidence(
-    control_id: int = Form(...), title: str = Form(...), kind: str = Form(...), description: str | None = Form(None), url: str | None = Form(None),
+    control_id: int = Form(...), title: str = Form(..., max_length=300), kind: str = Form(..., max_length=20), description: str | None = Form(None, max_length=20_000), url: str | None = Form(None, max_length=2048),
     collected_on: date | None = Form(None), valid_until: date | None = Form(None), file: UploadFile | None = File(None),
     user=Depends(perm("evidence.write")), db: Session = Depends(get_db),
 ):

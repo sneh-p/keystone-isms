@@ -29,8 +29,9 @@ own virtual environment (`.tools/semgrep`) because its pinned dependencies confl
 PSScriptAnalyzer are installed separately. A missing tool fails its gate.
 
 `BASE_REF` is the branch the work merges into (default `origin/main`, else `main`; on `main` with no remote,
-`HEAD`, so only uncommitted changes count as new). Semgrep ignores findings that already existed at the commit in
-`.semgrep/baseline-commit`; those are listed in the adoption report and tracked until fixed.
+`HEAD`, so only uncommitted changes count as new). If AppSec ever records a Semgrep baseline in
+`.semgrep/baseline-commit`, findings that existed at that commit are held back and must be tracked until fixed;
+there is none at present.
 
 # Steps
 

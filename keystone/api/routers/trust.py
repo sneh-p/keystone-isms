@@ -1,7 +1,8 @@
 """Trust Center: staff management and public endpoints."""
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import Response
+from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,7 +11,7 @@ from keystone.trust.models import TrustDocument, TrustFaq, TrustSubprocessor
 
 from ..deps import get_db, perm
 from ..serialize import ser
-from .common import In
+from .common import In, public_link
 
 router = APIRouter(tags=["trust center"])
 SET = ("published", "slug", "headline", "overview", "contact_email", "brand_color", "show_frameworks", "show_controls", "show_policies", "show_subprocessors", "nda_required", "nda_text", "nda_version", "access_days")
@@ -37,7 +38,7 @@ class SettingsIn(In):
     published: bool | None = None
     slug: str | None = None
     headline: str | None = None
-    overview: str | None = None
+    overview: str | None = Field(None, max_length=50_000)
     contact_email: str | None = None
     brand_color: str | None = None
     show_frameworks: bool | None = None
@@ -45,7 +46,7 @@ class SettingsIn(In):
     show_policies: bool | None = None
     show_subprocessors: bool | None = None
     nda_required: bool | None = None
-    nda_text: str | None = None
+    nda_text: str | None = Field(None, max_length=100_000)
     access_days: int | None = None
 
 
@@ -55,7 +56,7 @@ def update(body: SettingsIn, user=Depends(perm("trust.manage")), db: Session = D
 
 
 @router.post("/trust-center/documents")
-async def add_doc(title: str = Form(...), kind: str = Form("report"), access: str = Form("nda"), description: str | None = Form(None), file: UploadFile = File(...), user=Depends(perm("trust.manage")), db: Session = Depends(get_db)):
+async def add_doc(title: str = Form(..., max_length=200), kind: str = Form("report", max_length=20), access: str = Form("nda", max_length=10), description: str | None = Form(None, max_length=20_000), file: UploadFile = File(...), user=Depends(perm("trust.manage")), db: Session = Depends(get_db)):
     d = trust.add_document(db, user, title=title, kind=kind, access=access, filename=file.filename or "document", data=await file.read(), description=description)
     return ser(d, ("id", "public_id", "title", "access"))
 
@@ -106,10 +107,11 @@ class ApproveIn(In):
 
 
 @router.post("/trust-center/requests/{rid}/approve")
-def approve(rid: int, body: ApproveIn, request: Request, user=Depends(perm("trust.manage")), db: Session = Depends(get_db)):
+def approve(rid: int, body: ApproveIn, user=Depends(perm("trust.manage")), db: Session = Depends(get_db)):
     token = trust.approve(db, user, rid, body.days)
     slug = trust.settings(db).slug
-    return {"url": f"{str(request.base_url).rstrip('/')}/trust/{slug}?access={token}"}
+    # SC-CRY-005: the token travels in the URL fragment, never in a path or query the server would log.
+    return public_link(f"/trust/{slug}#access={token}")
 
 
 @router.post("/trust-center/requests/{rid}/deny")
@@ -150,8 +152,11 @@ def public_request(slug: str, body: RequestIn, request: Request, db: Session = D
     return {"ok": True}
 
 
-@router.get("/public/trust/{slug}/access/{token}")
-def public_grant(slug: str, token: str, db: Session = Depends(get_db)):
+ACCESS_HEADER = "X-Trust-Access"
+
+
+@router.get("/public/trust/{slug}/access")
+def public_grant(slug: str, token: str | None = Header(None, alias=ACCESS_HEADER), db: Session = Depends(get_db)):
     s = trust.published_settings(db, slug)
     r = trust.grant_for(db, slug, token)
     return {"name": r.name, "company": r.company, "expires_at": r.expires_at, "nda_required": s.nda_required, "nda_ok": trust.nda_ok(s, r), "nda_text": s.nda_text if s.nda_required else None, "nda_version": s.nda_version}
@@ -161,14 +166,14 @@ class NdaIn(In):
     signed_name: str
 
 
-@router.post("/public/trust/{slug}/access/{token}/nda")
-def public_nda(slug: str, token: str, body: NdaIn, request: Request, db: Session = Depends(get_db)):
+@router.post("/public/trust/{slug}/access/nda")
+def public_nda(slug: str, body: NdaIn, request: Request, token: str | None = Header(None, alias=ACCESS_HEADER), db: Session = Depends(get_db)):
     trust.accept_nda(db, slug, token, body.signed_name, _ip(request))
     return {"ok": True}
 
 
 @router.get("/public/trust/{slug}/documents/{public_id}")
-def public_download(slug: str, public_id: str, token: str | None = None, db: Session = Depends(get_db)):
+def public_download(slug: str, public_id: str, token: str | None = Header(None, alias=ACCESS_HEADER), db: Session = Depends(get_db)):
     try:
         att, data = trust.download(db, slug, public_id, token)
     except PermissionError as e:

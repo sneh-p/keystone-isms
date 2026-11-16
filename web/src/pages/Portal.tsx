@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { BookOpen, Check, CheckCircle2, ChevronLeft, Laptop, LogOut, ScrollText, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { api, downloadUrl, setCsrf, upload } from "@/lib/api";
+import { api, downloadUrl, fragmentParam, setCsrf, upload } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { cn, fmtDate } from "@/lib/utils";
@@ -103,7 +104,7 @@ export default function Portal() {
       <Dialog open={!!read} onOpenChange={(o) => !o && setRead(null)} wide title={read ? `${read.title} v${read.version_label}` : ""}
         footer={<Button onClick={() => { ack.mutate(read.id); setRead(null); }}><Check /> I have read and understood this policy</Button>}>
         {read?.body && <Markdown>{read.body}</Markdown>}
-        {read?.attachment_id && <a href={downloadUrl(`/attachments/${read.attachment_id}`)} className="text-sm text-primary underline">Download document</a>}
+        {read?.attachment_id && <a href={downloadUrl(`/portal/policies/${read.id}/document`)} className="text-sm text-primary underline">Download document</a>}
       </Dialog>
       <Dialog open={!!dev} onOpenChange={(o) => !o && setDev(null)} title="Device security checklist" footer={<Button disabled={!dev?.device_name} loading={attest.isPending} onClick={() => attest.mutate(undefined)}>Save checklist</Button>}>
         {dev && <div className="space-y-4">
@@ -161,10 +162,14 @@ export function TrainingModule() {
 }
 
 export function AcceptInvite() {
-  const { token } = useParams();
+  const params = useParams();
+  // SC-CRY-005: the token arrives after '#', never in a path or query the server logs; /invite/<token> still works.
+  const [token] = useState(() => fragmentParam("token") ?? params.token ?? null);
+  useEffect(() => { if (window.location.hash) window.history.replaceState(null, "", window.location.pathname); }, []);
+  const tokenHeader = { "X-Invite-Token": token ?? "" };
   const { refresh } = useAuth();
   const nav = useNavigate();
-  const info = useApi<any>(`/public/invite/${token}`);
+  const info = useQuery<any>({ queryKey: ["/public/invite", token], queryFn: () => api("/public/invite", { headers: tokenHeader }), enabled: !!token });
   const [pw, setPw] = useState({ a: "", b: "" });
   const [busy, setBusy] = useState(false);
   const submit = async (e: FormEvent) => {
@@ -172,7 +177,7 @@ export function AcceptInvite() {
     if (pw.a !== pw.b) return toast.error("Passwords do not match.");
     setBusy(true);
     try {
-      const me = await api<any>(`/public/invite/${token}`, { body: { password: pw.a } });
+      const me = await api<any>("/public/invite", { body: { password: pw.a }, headers: tokenHeader });
       setCsrf(me.csrf_token);
       await refresh();
       nav("/portal");

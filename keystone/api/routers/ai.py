@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 from keystone.ai import policy_assistant
@@ -29,8 +30,10 @@ class AiSettingsIn(In):
     enabled: bool | None = None
     model: str | None = None
     effort: str | None = None
-    api_key: str | None = None
+    api_key: str | None = Field(None, max_length=500)
     clear_key: bool = False
+    max_calls_per_user_hour: int | None = Field(None, ge=1, le=10_000)
+    monthly_token_budget: int | None = Field(None, ge=10_000, le=2_000_000_000)
 
 
 @router.patch("/ai/settings")
@@ -49,7 +52,7 @@ def propose(did: int, body: AssistIn, user=Depends(perm("policy.write")), db: Se
 
 
 class AcceptIn(In):
-    body: str
+    body: str = Field(max_length=500_000)
     change_summary: str | None = None
 
 

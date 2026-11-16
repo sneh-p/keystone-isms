@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, Form, UploadFile
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 from keystone.core.services import get_or_404
@@ -63,7 +64,7 @@ def update(did: int, body: DocIn, user=Depends(perm("policy.write")), db: Sessio
 
 
 class VersionIn(In):
-    body: str | None = None
+    body: str | None = Field(None, max_length=500_000)
     change_summary: str | None = None
     major: bool = True
 
@@ -75,7 +76,7 @@ def start(did: int, body: VersionIn, user=Depends(perm("policy.write")), db: Ses
 
 
 @router.patch("/versions/{vid}")
-async def edit(vid: int, body: str | None = Form(None), change_summary: str | None = Form(None), file: UploadFile | None = File(None), user=Depends(perm("policy.write")), db: Session = Depends(get_db)):
+async def edit(vid: int, body: str | None = Form(None, max_length=500_000), change_summary: str | None = Form(None, max_length=2_000), file: UploadFile | None = File(None), user=Depends(perm("policy.write")), db: Session = Depends(get_db)):
     data = await file.read() if file else None
     v = pol.edit_version(db, user, vid, body=body, change_summary=change_summary, filename=file.filename if file else None, data=data)
     return ser(v, VER)

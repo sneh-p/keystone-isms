@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, ExternalLink, Globe2, Lock, Plus, Trash2, Unlock, X } from "lucide-react";
 import { CopyButton } from "@/components/CopyButton";
-import { api, upload } from "@/lib/api";
+import { absoluteLink, api, upload } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { fmtDate } from "@/lib/utils";
@@ -33,7 +33,7 @@ export default function TrustCenterAdmin() {
   const addFaq = useAction(() => api("/trust-center/faqs", { body: faq }), { success: "FAQ added.", invalidate: inv, onSuccess: () => setFaq(null) });
   const delFaq = useAction((id: number) => api(`/trust-center/faqs/${id}`, { method: "DELETE" }), { invalidate: inv });
   const setSub = useAction((v: any) => api(`/trust-center/subprocessors/${v.id}`, { method: "PUT", body: { purpose: v.purpose, location: v.location } }), { success: "Subprocessor list updated.", invalidate: inv });
-  const approve = useAction((id: number) => api(`/trust-center/requests/${id}/approve`, { body: {} }), { invalidate: inv, onSuccess: (r: any) => setLink(r.url) });
+  const approve = useAction((id: number) => api(`/trust-center/requests/${id}/approve`, { body: {} }), { invalidate: inv, onSuccess: (r: any) => setLink(absoluteLink(r)) });
   const deny = useAction((id: number) => api(`/trust-center/requests/${id}/deny`, { method: "POST" }), { success: "Request denied.", invalidate: inv });
   const revoke = useAction((id: number) => api(`/trust-center/requests/${id}/revoke`, { method: "POST" }), { success: "Access revoked.", invalidate: inv });
   if (!data || !s) return <Skeleton className="h-96" />;

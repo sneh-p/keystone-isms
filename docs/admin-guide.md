@@ -28,24 +28,26 @@ when `KEYSTONE_API_DOCS=1`), the public Trust Center under `/trust/<slug>`, and 
 runs integration checks every 15 minutes. Run **one** instance per database, or set
 `KEYSTONE_DISABLE_SCHEDULER=1` on all but one.
 
-### Behind nginx (port 80)
+### Behind nginx (HTTPS)
 
-`deploy/nginx/keystone.conf` publishes Keystone on port 80 and keeps uvicorn on
-`127.0.0.1:8000`. It rate-limits the sign-in endpoint, allows uploads up to the upload limit
-and gives AI drafting and integration runs up to five minutes.
+`deploy/nginx/keystone.conf` serves Keystone over HTTPS only (TLS 1.2+, HTTP redirected to your host name) and
+keeps uvicorn on `127.0.0.1:8000`. It rate-limits the sign-in endpoint, allows uploads up to the upload limit and
+gives AI drafting and integration runs up to five minutes. It does not forward the client's `Host` header:
+Keystone builds the links it hands out (invitations, Trust Center access) from `KEYSTONE_PUBLIC_URL`.
 
 ```bash
-sudo apt-get install nginx
+sudo apt-get install nginx certbot
 sudo cp deploy/nginx/keystone-proxy.conf /etc/nginx/snippets/keystone-proxy.conf
-sudo cp deploy/nginx/keystone.conf /etc/nginx/sites-available/keystone.conf
+sudo cp deploy/nginx/keystone.conf /etc/nginx/sites-available/keystone.conf   # replace isms.example.com
+sudo certbot certonly --webroot -w /var/www/html -d isms.example.com
 sudo ln -s /etc/nginx/sites-available/keystone.conf /etc/nginx/sites-enabled/
 sudo rm /etc/nginx/sites-enabled/default && sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Run Keystone itself with `deploy/systemd/keystone.service`, which passes `--proxy-headers` so
-Keystone sees real client addresses (used for Trust Center rate limits and NDA records). Port
-80 is plain HTTP: add TLS (for example with certbot) before real use. The session cookie is
-marked `Secure` automatically when the request arrived over HTTPS.
+Run Keystone itself with `deploy/systemd/keystone.service`, which passes `--proxy-headers` so Keystone sees real
+client addresses (used for Trust Center rate limits and NDA records); set `KEYSTONE_PUBLIC_URL` there. Behind
+HTTPS the session cookie is marked `Secure` and responses carry HSTS. `deploy/nginx/keystone-http.conf` serves
+plain HTTP for evaluation on a private network only.
 
 ## Hardening checklist
 
@@ -74,6 +76,7 @@ marked `Secure` automatically when the request arrived over HTTPS.
 | `KEYSTONE_FRAME_ANCESTORS` | `'self'` | Who may embed Keystone in a frame (CSP source list), e.g. `https://intranet.example` |
 | `KEYSTONE_DISABLE_SCHEDULER` | unset | Set to `1` to stop this instance running scheduled integration checks |
 | `ANTHROPIC_API_KEY` | unset | Optional key for AI features, used when no key is stored under **Settings → AI** |
+| `KEYSTONE_PUBLIC_URL` | unset | Public address for links Keystone hands out, e.g. `https://isms.example.com`. When unset, links use the address the administrator's browser is on |
 | `KEYSTONE_API_DOCS` | unset | Set to `1` to serve the interactive API docs and OpenAPI schema (development only) |
 
 Don't put secrets in the repository. Pass database credentials through the environment.

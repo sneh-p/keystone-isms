@@ -98,9 +98,17 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
         session.add(r)
         results.append(r)
         if o.result == "pass":
+            title = f"Automated check: {d.title} ({i.name})"
+            description = f"{o.summary}. Checked {now:%Y-%m-%d %H:%M} UTC by the {p.name} integration."
             for code in d.controls:
-                if code in codes:
-                    session.add(Evidence(common_control_id=codes[code].id, title=f"Automated check: {d.title} ({i.name})", kind="note", description=f"{o.summary}. Checked {now:%Y-%m-%d %H:%M} UTC by the {p.name} integration.", collected_on=today(), valid_until=valid_until))
+                if code not in codes:
+                    continue
+                # SC-ERR-004: one evidence record per check and control, refreshed on each passing run.
+                ev = session.scalar(select(Evidence).where(Evidence.common_control_id == codes[code].id, Evidence.title == title, Evidence.kind == "note"))
+                if ev is None:
+                    session.add(Evidence(common_control_id=codes[code].id, title=title, kind="note", description=description, collected_on=today(), valid_until=valid_until))
+                else:
+                    ev.description, ev.collected_on, ev.valid_until = description, today(), valid_until
     log_event(session, actor, "integration_run", "Integration", i.id, f"{i.name}: " + ", ".join(f"{r.check_key}={r.result}" for r in results))
     session.flush()
     return results

@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from keystone.core.attachments import attachments_for
@@ -28,8 +28,9 @@ def task_out(db, t: Task, detail=False) -> dict:
 
 
 @router.get("/tasks")
-def tasks(mine: bool = False, include_closed: bool = True, user=Depends(perm("read")), db: Session = Depends(get_db)):
-    return [task_out(db, t) for t in tsk.list_tasks(db, assignee_id=user.id if mine else None, include_closed=include_closed)]
+def tasks(mine: bool = False, include_closed: bool = True, closed_limit: int = Query(500, ge=0, le=5000), user=Depends(perm("read")), db: Session = Depends(get_db)):
+    # SC-ERR-004: every open task, plus the most recent completed ones (bounded).
+    return [task_out(db, t) for t in tsk.list_tasks(db, assignee_id=user.id if mine else None, include_closed=include_closed, closed_limit=closed_limit)]
 
 
 @router.get("/tasks/{tid}")

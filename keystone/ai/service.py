@@ -8,6 +8,7 @@ contain only the documents the feature needs: never user lists, people records o
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 import os
 import re
 from typing import Any, Callable
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from keystone.core import secrets as crypto
 from keystone.core.audit import log_event
+from keystone.core.db import utcnow
 from keystone.core.services import authorize
 
 from .models import AiSettings, AiUsage
@@ -34,6 +36,10 @@ class AiUnavailable(ValueError):
     """AI is turned off or no key is configured. Features fall back to manual mode."""
 
 
+class AiLimitReached(ValueError):
+    """The per-user rate limit or the monthly token budget is used up (SC-LLM-005)."""
+
+
 # Tests replace this to supply a fake client; production builds the official SDK client.
 def _default_client_factory(api_key: str):
     import anthropic
@@ -47,7 +53,7 @@ client_factory: Callable[[str], Any] = _default_client_factory
 def settings(session: Session) -> AiSettings:
     s = session.scalar(select(AiSettings).limit(1))
     if s is None:
-        s = AiSettings(enabled=False, model=DEFAULT_MODEL, effort="medium")
+        s = AiSettings(enabled=False, model=DEFAULT_MODEL, effort="medium", max_calls_per_user_hour=100, monthly_token_budget=2_000_000)
         session.add(s)
         session.flush()
     return s
@@ -73,6 +79,9 @@ def status(session: Session) -> dict:
         "available": enabled and key is not None,
         "model": s.model if s else DEFAULT_MODEL,
         "effort": s.effort if s else "medium",
+        "max_calls_per_user_hour": s.max_calls_per_user_hour if s else 100,
+        "monthly_token_budget": s.monthly_token_budget if s else 2_000_000,
+        "tokens_this_month": tokens_this_month(session),
         "suggested_models": list(SUGGESTED_MODELS),
         "efforts": list(EFFORTS),
     }
@@ -82,7 +91,8 @@ def available(session: Session) -> bool:
     return status(session)["available"]
 
 
-def update_settings(session: Session, actor, *, enabled: bool | None = None, model: str | None = None, effort: str | None = None, api_key: str | None = None, clear_key: bool = False) -> AiSettings:
+def update_settings(session: Session, actor, *, enabled: bool | None = None, model: str | None = None, effort: str | None = None, api_key: str | None = None, clear_key: bool = False,
+                    max_calls_per_user_hour: int | None = None, monthly_token_budget: int | None = None) -> AiSettings:
     """The API key is write-only: it is encrypted at rest and never returned."""
     authorize(session, actor, "ai.manage")
     s = settings(session)
@@ -92,6 +102,10 @@ def update_settings(session: Session, actor, *, enabled: bool | None = None, mod
             raise ValueError("Model must be a Claude model ID, for example claude-opus-5-5.")
     if effort is not None and effort not in EFFORTS:
         raise ValueError(f"Effort must be one of {EFFORTS}.")
+    if max_calls_per_user_hour is not None and not 1 <= max_calls_per_user_hour <= 10_000:
+        raise ValueError("Calls per user per hour must be between 1 and 10,000.")
+    if monthly_token_budget is not None and not 10_000 <= monthly_token_budget <= 2_000_000_000:
+        raise ValueError("The monthly token budget must be between 10,000 and 2,000,000,000 tokens.")
     if api_key is not None and api_key.strip() and not api_key.strip().startswith("sk-ant-"):
         raise ValueError("That does not look like an Anthropic API key (it should start with sk-ant-).")
     if model is not None:
@@ -104,8 +118,39 @@ def update_settings(session: Session, actor, *, enabled: bool | None = None, mod
         s.api_key_enc = crypto.encrypt(api_key.strip())
     if enabled is not None:
         s.enabled = enabled
+    if max_calls_per_user_hour is not None:
+        s.max_calls_per_user_hour = max_calls_per_user_hour
+    if monthly_token_budget is not None:
+        s.monthly_token_budget = monthly_token_budget
     session.flush()
     return s
+
+
+def _month_start() -> datetime:
+    now = utcnow()
+    return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+def tokens_this_month(session: Session) -> int:
+    used = session.scalar(select(func.coalesce(func.sum(AiUsage.input_tokens + AiUsage.cache_read_tokens + AiUsage.output_tokens), 0)).where(AiUsage.at >= _month_start()))
+    return int(used or 0)
+
+
+def check_budget(session: Session) -> None:
+    """Refuse any further call once this month's organisation-wide token budget is used."""
+    s = settings(session)
+    if tokens_this_month(session) >= s.monthly_token_budget:
+        raise AiLimitReached("This month's AI token budget is used up. An administrator can raise it under Settings → AI.")
+
+
+def check_quota(session: Session, actor) -> None:
+    """At the start of an AI action: the user's hourly call limit and the monthly budget (SC-LLM-005)."""
+    s = settings(session)
+    since = utcnow() - timedelta(hours=1)
+    calls = session.scalar(select(func.count(AiUsage.id)).where(AiUsage.user_id == getattr(actor, "id", None), AiUsage.at >= since)) or 0
+    if calls >= s.max_calls_per_user_hour:
+        raise AiLimitReached(f"You have reached the limit of {s.max_calls_per_user_hour} AI calls per hour. Try again later.")
+    check_budget(session)
 
 
 def usage(session: Session, limit: int = 100) -> dict:
@@ -141,6 +186,7 @@ def complete_json(session: Session, actor, feature: str, *, instructions: str, c
     st = status(session)
     if not st["available"]:
         raise AiUnavailable("AI is not configured. An administrator can turn it on under Settings → AI.")
+    check_budget(session)  # every call, including each batch of a running job
     key, _ = _key(session)
     model, effort = st["model"], st["effort"]
     system = [{"type": "text", "text": instructions}]

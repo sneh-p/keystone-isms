@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Check, Link2, LogOut, Mail, Plus, Users as UsersIcon } from "lucide-react";
 import { CopyButton } from "@/components/CopyButton";
-import { api } from "@/lib/api";
+import { absoluteLink, api } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { fmtDate, titleCase } from "@/lib/utils";
@@ -76,7 +76,7 @@ function PersonDrawer({ person: p, items, onClose }: { person: any; items: Recor
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [linkTo, setLinkTo] = useState<string | null>(null);
   const inv = ["/people"];
-  const invite = useAction(() => api(`/people/${p.id}/invite`, { method: "POST" }), { onSuccess: (r: any) => setInviteUrl(r.url) });
+  const invite = useAction(() => api(`/people/${p.id}/invite`, { method: "POST" }), { onSuccess: (r: any) => setInviteUrl(absoluteLink(r)) });
   const status = useAction((s: string) => api(`/people/${p.id}/status`, { body: { status: s } }), { success: "Status updated.", invalidate: inv });
   const tick = useAction((v: { item: string; done: boolean }) => api(`/people/${p.id}/offboarding`, { body: v }), { invalidate: inv });
   const complete = useAction(() => api(`/people/${p.id}/offboarding/complete`, { method: "POST" }), { success: "Offboarding complete; their sign-in was disabled.", invalidate: inv });

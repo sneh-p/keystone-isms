@@ -82,6 +82,7 @@ def propose(session: Session, actor, document_id: int, instruction: str) -> dict
     linked = ", ".join(f"{c.code} {c.title}" for c in doc.controls)
     if linked:
         prompt += f"\n\nThe document supports these controls: {linked}"
+    ai.check_quota(session, actor)
     raw = ai.complete_json(session, actor, "policy_assistant", instructions=INSTRUCTIONS, context=_org_context(session), prompt=prompt, schema=SCHEMA, max_tokens=64000)
     try:
         out = ProposedRevision.model_validate(raw)

@@ -64,6 +64,9 @@ def create_app(migrate: bool = True) -> FastAPI:
             resp.headers.setdefault(k, v)
         if request.url.path.startswith("/api/"):
             resp.headers.setdefault("Cache-Control", "no-store")
+        # SC-CFG-006: HSTS on every response served over HTTPS (directly or behind the TLS proxy).
+        if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+            resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         return resp
 
     def err(status: int):

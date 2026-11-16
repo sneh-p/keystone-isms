@@ -56,7 +56,8 @@ invitation acceptance) carry no session and are rate-limited. GET, HEAD and OPTI
 
 - Upload size: `KEYSTONE_MAX_UPLOAD_MB` in the app, `client_max_body_size` in nginx.
 - Rate limits on sign-in (account lockout plus nginx `limit_req`) and public Trust Center requests.
-- Item caps on imports (questionnaire rows, collector datasets) and history queries.
+- Item caps on imports (questionnaire rows, collector datasets) and history queries; the evidence list is paged
+  (`limit` ≤ 5,000, total in `X-Total-Count`) and the task list returns all open tasks plus a capped history.
 - Timeouts on outbound calls ([SC-ERR-004](/errors-and-logging.md)).
 
 ### SC-CFG-005 — Production defaults are the safe ones
@@ -69,7 +70,9 @@ feature flags default to their secure value (AI off, framing same-origin, integr
 ### SC-CFG-006 — HTTPS only
 **MUST · high** · CWE-319 · ASVS V12
 
-Serve over TLS with HSTS, terminated at the reverse proxy (`deploy/nginx/`). The session cookie becomes `Secure`
-automatically behind HTTPS. Run uvicorn with `--proxy-headers --forwarded-allow-ips` set to the real proxy address
-only, because that controls the client IP used for rate limits and NDA records. Plain HTTP is acceptable only on a
-private network for evaluation.
+Serve over TLS (`deploy/nginx/keystone.conf`: TLS 1.2+, HTTP redirected to the configured host). Keystone sends
+HSTS on every HTTPS response and marks the session cookie `Secure`. Run uvicorn with `--proxy-headers
+--forwarded-allow-ips` set to the real proxy address only, because that controls the client IP used for rate limits
+and NDA records. Links Keystone hands out are built from `KEYSTONE_PUBLIC_URL` (or the administrator's browser
+origin), never from the request's `Host` header, and the proxy does not forward `Host`. Plain HTTP
+(`deploy/nginx/keystone-http.conf`) is acceptable only on a private network for evaluation.

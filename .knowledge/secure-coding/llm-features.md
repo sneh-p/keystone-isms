@@ -71,8 +71,9 @@ API key is used only by the SDK client and never appears in prompts, logs or res
 **MUST · high** · LLM10 Unbounded Consumption
 
 Every call has `max_tokens`, a client timeout and bounded retries. Batches are capped (`BATCH`, `MAX_ITEMS`).
-Every call is recorded in `ai_usage` and the audit log with the user and token counts, so spend is visible per user.
-A per-user rate limit and a cost budget are required; until they exist, AI stays an administrator-enabled feature.
+Every call is recorded in `ai_usage` and the audit log with the user and token counts. `check_quota()` enforces a
+per-user limit of calls per hour when an AI action starts, and `check_budget()` stops every call, including each batch
+of a running job, once the organisation's monthly token budget is used (both set under **Settings → AI**).
 
 ### SC-LLM-006 — Render output safely
 **MUST · high** · CWE-79

@@ -8,9 +8,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from keystone.core.attachments import save_attachment
+from keystone.core.audit import log_event
 from keystone.core.auth import User
 from keystone.core.db import utcnow
-from keystone.core.services import apply_fields, authorize, get_or_404, require_text, today
+from keystone.core.services import NotFound, apply_fields, authorize, get_or_404, require_text, today
 from keystone.core.workflow import Workflow
 from keystone.frameworks.models import CommonControl
 
@@ -179,6 +180,26 @@ def documents(session: Session, include_retired: bool = False) -> list[PolicyDoc
     if not include_retired:
         q = q.where(PolicyDocument.status != "retired")
     return list(session.scalars(q))
+
+
+def portal_document(session: Session, actor, version_id: int):
+    """The attached file of a policy an employee must acknowledge (SC-AUTHZ-002: scoped in the lookup).
+
+    Only the current approved version of an approved document that requires acknowledgement is served;
+    anything else is reported as not found.
+    """
+    from keystone.core.attachments import Attachment
+
+    authorize(session, actor, "portal")
+    v = session.get(PolicyVersion, version_id)
+    doc = v.document if v else None
+    if v is None or not v.attachment_id or doc.status != "approved" or doc.current_version_id != v.id or not doc.requires_acknowledgement:
+        raise NotFound("Not found")
+    att = session.get(Attachment, v.attachment_id)
+    if att is None:
+        raise NotFound("Not found")
+    log_event(session, actor, "download", "PolicyVersion", v.id, f"Portal download of {doc.code} v{v.version_label}")
+    return att
 
 
 def pending_for(session: Session, user: User) -> list[PolicyVersion]:

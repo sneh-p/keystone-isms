@@ -91,11 +91,11 @@ def me(user=Depends(current_user), ws=Depends(current_session)):
 
 
 @router.post("/change-password")
-def change_password(body: PasswordIn, request: Request, user=Depends(current_user), db: Session = Depends(get_db)):
+def change_password(body: PasswordIn, request: Request, response: Response, user=Depends(current_user), db: Session = Depends(get_db)):
     auth.change_password(db, user, body.current, body.new)
-    # Sign out other sessions after a password change.
-    keep = sessions.resolve(db, request.cookies.get(COOKIE))
-    for s in db.query(sessions.WebSession).filter(sessions.WebSession.user_id == user.id).all():
-        if keep is None or s.id != keep.id:
-            db.delete(s)
-    return {"ok": True}
+    # SC-AUTHN-003: a password change ends every session, including this one, and issues a new session ID and
+    # CSRF token (it can also lift the forced-change restriction, which is a privilege change).
+    sessions.destroy_all_for(db, user.id)
+    token, ws = sessions.create(db, user.id, request.client.host if request.client else None, request.headers.get("user-agent"))
+    _set_cookie(request, response, token)
+    return {"ok": True, **_me(user, ws)}

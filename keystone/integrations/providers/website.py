@@ -18,22 +18,44 @@ REDIRECTS = (301, 302, 303, 307, 308)
 MAX_HOPS = 5
 
 
-def assert_public_host(host: str) -> None:
+def _is_public(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    # is_global excludes private, loopback, link-local, carrier-grade NAT (100.64/10), reserved and documentation ranges.
+    return ip.is_global and not ip.is_multicast
+
+
+def assert_public_host(host: str) -> str:
+    """SC-SSRF-002: resolve once, require every address to be public, and return the address to connect to.
+    Connecting to this exact IP (not the name again) prevents DNS rebinding."""
     try:
-        infos = socket.getaddrinfo(host, None)
-    except socket.gaierror:
+        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    except (socket.gaierror, UnicodeError):
         raise ValueError(f"Cannot resolve {host}.") from None
-    for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
-            raise ValueError(f"{host} resolves to a non-public address; only public websites can be checked.")
+    addresses = [ipaddress.ip_address(info[4][0].split("%")[0]) for info in infos]
+    if not addresses or not all(_is_public(ip) for ip in addresses):
+        raise ValueError(f"{host} resolves to a non-public address; only public websites can be checked.")
+    return str(next((ip for ip in addresses if ip.version == 4), addresses[0]))
 
 
-def tls_info(host: str, port: int = 443, timeout: float = 10.0) -> dict:
+def tls_info(host: str, port: int = 443, timeout: float = 10.0, ip: str | None = None) -> dict:
+    """TLS version and certificate expiry. Connects to the validated IP and verifies the certificate for `host`."""
     ctx = ssl.create_default_context()
-    with socket.create_connection((host, port), timeout=timeout) as sock, ctx.wrap_socket(sock, server_hostname=host) as tls:
+    with socket.create_connection((ip or host, port), timeout=timeout) as sock, ctx.wrap_socket(sock, server_hostname=host) as tls:
         cert = tls.getpeercert()
         return {"version": tls.version(), "not_after": cert["notAfter"]}
+
+
+def _pinned(url: str, ip: str | None) -> tuple[str, dict, dict]:
+    """(url to request, headers, extensions): connect to `ip` but present the original host name for HTTP and TLS."""
+    p = urlparse(url)
+    if not ip:
+        return url, {}, {}
+    netloc = f"[{ip}]" if ":" in ip else ip
+    if p.port:
+        netloc += f":{p.port}"
+    target = p._replace(netloc=netloc).geturl()
+    return target, {"Host": p.netloc}, ({"sni_hostname": p.hostname} if p.scheme == "https" else {})
 
 
 class WebsiteProvider(Provider):
@@ -70,11 +92,18 @@ class WebsiteProvider(Provider):
         self.tls = tls
         self.resolve_check = resolve_check
 
-    def _headers(self, c, url: str) -> Outcome:
+    def _fetch(self, c, url: str, ip: str | None) -> httpx.Response:
+        """One GET to the validated IP with the original host name; the body is never read (response size cap)."""
+        target, headers, extensions = _pinned(url, ip)
+        r = c.send(c.build_request("GET", target, headers=headers, extensions=extensions), stream=True)
+        r.close()  # status and headers are all the checks need
+        return r
+
+    def _headers(self, c, url: str, ip: str | None = None) -> Outcome:
         """Security headers of the page the URL finally serves. Redirects are followed over HTTPS only,
         and every new host must be public. A page that can't be read gives unknown, never fail or pass."""
         for _ in range(MAX_HOPS + 1):
-            r = c.get(url)
+            r = self._fetch(c, url, ip)
             loc = r.headers.get("location")
             if r.status_code in REDIRECTS and loc:
                 nxt = urljoin(url, loc)
@@ -83,7 +112,7 @@ class WebsiteProvider(Provider):
                     return Outcome("security_headers", "fail", f"The HTTPS page redirects to plain HTTP ({nxt})", {"redirect": nxt})
                 try:
                     if np.hostname != urlparse(url).hostname:
-                        self.resolve_check(np.hostname or "")
+                        ip = self.resolve_check(np.hostname or "")  # re-validate and pin every new host
                 except ValueError as e:
                     return Outcome("security_headers", "error", f"Redirect not followed: {e}")
                 url = nxt
@@ -97,25 +126,25 @@ class WebsiteProvider(Provider):
     def run(self, config: dict, secrets: dict, session=None) -> list[Outcome]:
         url = (config.get("url") or "").strip()
         p = urlparse(url if "://" in url else f"https://{url}")
-        if p.scheme not in ("http", "https") or not p.hostname:
+        if p.scheme not in ("http", "https") or not p.hostname or p.username or p.password:
             raise ValueError("Enter a full website URL.")
         host = p.hostname
-        self.resolve_check(host)
+        ip = self.resolve_check(host)  # SC-SSRF-002: resolved and validated once; every connection goes to this IP
         out = []
         with self.client_factory() as c:
             try:
-                r = c.get(f"http://{host}/")
+                r = self._fetch(c, f"http://{host}/", ip)
                 loc = r.headers.get("location", "")
                 ok = r.status_code in (301, 302, 307, 308) and loc.startswith("https://")
                 out.append(Outcome("https_redirect", "pass" if ok else "fail", f"HTTP returned {r.status_code}" + (f" to {loc}" if loc else ""), {"status": r.status_code}))
             except httpx.HTTPError as e:
                 out.append(Outcome("https_redirect", "error", f"HTTP request failed: {type(e).__name__}"))
             try:
-                out.append(self._headers(c, f"https://{host}{p.path or '/'}"))
+                out.append(self._headers(c, f"https://{host}{p.path or '/'}", ip))
             except httpx.HTTPError as e:
                 out.append(Outcome("security_headers", "error", f"HTTPS request failed: {type(e).__name__}"))
         try:
-            info = self.tls(host)
+            info = self.tls(host, ip=ip) if ip else self.tls(host)
             ok = info["version"] in ("TLSv1.2", "TLSv1.3")
             out.append(Outcome("tls_version", "pass" if ok else "fail", f"Negotiated {info['version']}", info))
             expires = datetime.strptime(info["not_after"], "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)

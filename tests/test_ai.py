@@ -19,7 +19,7 @@ from keystone.core.rbac import PermissionDenied
 from keystone.policies import service as pol
 from tests.conftest import api_login
 
-KEY = "sk-ant-test-0000000000000000"
+KEY = "sk-ant-TEST-NOT-A-REAL-KEY"  # SC-SEC-001: obviously fake; the app only checks the prefix
 POLICY_TEXT = "# Access control\n\nAll staff must use multi-factor authentication for remote access.\nAccess rights are reviewed every quarter by system owners."
 
 
@@ -375,3 +375,38 @@ def test_model_output_is_validated_before_use(session, users, policy, monkeypatc
     monkeypatch.setattr(ai, "client_factory", lambda key: FakeClient(lambda p: message({"body": "x", "change_summary": "y", "notes": ["n"] * 51})))
     with pytest.raises(ValueError, match="could not be used"):
         policy_assistant.propose(session, users["admin"], policy.id, "Shorten it")
+
+
+def test_per_user_rate_limit_and_monthly_budget(session, users, policy, monkeypatch):
+    """SC-LLM-005: a user can't start more AI actions than allowed per hour, and nobody can exceed the budget."""
+    revised = POLICY_TEXT + "\n\n## Exceptions\n\nDocumented."
+    fake = enable(session, users, lambda p: message({"body": revised, "change_summary": "x", "notes": []}), monkeypatch)
+    ai.update_settings(session, users["admin"], max_calls_per_user_hour=2, monthly_token_budget=1_000_000)
+    for _ in range(2):
+        policy_assistant.propose(session, users["isms_manager"], policy.id, "Add exceptions")
+    with pytest.raises(ai.AiLimitReached, match="per hour"):
+        policy_assistant.propose(session, users["isms_manager"], policy.id, "Add exceptions")
+    policy_assistant.propose(session, users["admin"], policy.id, "Add exceptions")  # the limit is per user
+    calls = len(fake.calls)
+    # Each fake call uses 1200 + 800 + 300 tokens; a budget below what's used stops every further call.
+    ai.update_settings(session, users["admin"], max_calls_per_user_hour=100, monthly_token_budget=10_000)
+    for _ in range(3):
+        try:
+            policy_assistant.propose(session, users["admin"], policy.id, "Add exceptions")
+        except ai.AiLimitReached:
+            break
+    with pytest.raises(ai.AiLimitReached, match="budget"):
+        ai.complete_json(session, users["admin"], "x", instructions="i", context=None, prompt="p", schema={})
+    assert len(fake.calls) - calls <= 4 and ai.status(session)["tokens_this_month"] >= 10_000
+    for bad in ({"max_calls_per_user_hour": 0}, {"monthly_token_budget": 5}):
+        with pytest.raises(ValueError):
+            ai.update_settings(session, users["admin"], **bad)
+
+
+def test_budget_stops_a_running_questionnaire_job(session, users, policy, monkeypatch):
+    q = sq.create(session, users["admin"], title="Big", pasted="\n".join(f"Do you encrypt system {n} at rest?" for n in range(100)))
+    enable(session, users, lambda p: message({"answers": []}), monkeypatch)
+    ai.update_settings(session, users["admin"], monthly_token_budget=10_000)  # each batch costs 2,300 tokens
+    with pytest.raises(ai.AiLimitReached, match="budget"):
+        sq.start_ai_draft(session, users["admin"], q.id)
+    assert session.scalar(select(AiUsage).order_by(AiUsage.id.desc())) is not None

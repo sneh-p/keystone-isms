@@ -11,7 +11,7 @@ from keystone.core.rbac import Role, has_permission
 from tests.conftest import PASSWORD, api_login
 
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
-PUBLIC = {"/auth/status", "/auth/bootstrap", "/auth/login", "/public/invite/{token}", "/public/trust/{slug}", "/public/trust/{slug}/requests", "/public/trust/{slug}/access/{token}", "/public/trust/{slug}/access/{token}/nda", "/public/trust/{slug}/documents/{public_id}"}
+PUBLIC = {"/auth/status", "/auth/bootstrap", "/auth/login", "/public/invite", "/public/trust/{slug}", "/public/trust/{slug}/requests", "/public/trust/{slug}/access", "/public/trust/{slug}/access/nda", "/public/trust/{slug}/documents/{public_id}"}
 
 
 def all_routes():
@@ -93,7 +93,9 @@ def test_password_change_required_blocks_writes(api, users):
     api_login(api, "riskowner")
     r = api.post("/api/assets", json={"name": "x", "asset_type": "hardware"})
     assert r.status_code == 403 and "Change your password" in r.json()["detail"]
-    assert api.post("/api/auth/change-password", json={"current": PASSWORD, "new": "Brand-New-Pass-42"}).status_code == 200
+    r = api.post("/api/auth/change-password", json={"current": PASSWORD, "new": "Brand-New-Pass-42"})
+    assert r.status_code == 200
+    api.headers["X-CSRF-Token"] = r.json()["csrf_token"]  # the session was rotated (SC-AUTHN-003)
     assert api.post("/api/assets", json={"name": "x", "asset_type": "hardware"}).status_code == 200
 
 
@@ -260,3 +262,88 @@ def test_request_bodies_forbid_unknown_fields():
                 loose.append(f"{sorted(r.methods)} {r.path}: {model.__name__}")
     assert not loose, "Request models must extend In (extra='forbid'):\n" + "\n".join(loose)
     assert any(r.dependant.body_params for r in all_routes())  # the check actually saw bodies
+
+
+def test_request_bodies_are_bounded(api, ready_users):
+    """SC-VAL-002: oversized or malformed bodies are rejected with 422 before reaching a service."""
+    api_login(api, "admin")
+    cases = [
+        {"title": "x" * 20_001},                                   # default string cap
+        {"title": "ok", "description": "x" * 20_001},
+        {"title": "ok", "inherent_likelihood": 1e16},               # number magnitude
+        {"title": "ok", "inherent_likelihood": float("inf")},
+    ]
+    for body in cases:
+        r = api.post("/api/risks", content=__import__("json").dumps(body, allow_nan=True), headers={"content-type": "application/json"})
+        assert r.status_code in (400, 422), (list(body), r.status_code)  # inf can't be echoed back as JSON, so it is a 400
+    assert api.get("/api/risks").json()["risks"] == []  # nothing reached the service
+    deep: dict = {}
+    cur = deep
+    for _ in range(12):
+        cur["x"] = {}
+        cur = cur["x"]
+    for values in ({"url": "https://a.example", "extra": deep}, {f"k{i}": "v" for i in range(201)}, {"url": ["x"] * 1001}):
+        assert api.post("/api/integrations", json={"provider": "website", "values": values}).status_code == 422
+    # Fields that legitimately hold long text keep their own, larger limit.
+    assert api.post("/api/ai/policies/1/accept", json={"body": "x" * 30_000}).status_code != 422
+
+
+def test_employee_is_refused_on_every_staff_read_route(api, users, db):
+    """SC-AUTHZ-005: the employee boundary holds for every read route, not just writes."""
+    from keystone.core.auth import User
+
+    with db.session_scope() as s:
+        s.query(User).filter(User.username == "employee").one().must_change_password = False
+    api_login(api, "employee")
+    probed = []
+    for r in all_routes():
+        if "GET" in r.methods and r.path not in PUBLIC and not r.path.startswith(("/auth/", "/portal")):
+            resp = api.get(concrete(r.path))
+            probed.append(r.path)
+            assert resp.status_code == 403, f"{r.path} returned {resp.status_code} to an employee"
+    assert len(probed) > 50
+
+
+def test_password_change_rotates_the_session(api, ready_users):
+    """SC-AUTHN-003: the old session ID and CSRF token stop working; a new pair is issued."""
+    me = api_login(api, "viewer")
+    old_cookie, old_csrf = api.cookies.get("ks_session"), me["csrf_token"]
+    other = __import__("fastapi.testclient", fromlist=["TestClient"]).TestClient(api.app)
+    api_login(other, "viewer")
+    r = api.post("/api/auth/change-password", json={"current": "Correct-Horse-9-Battery", "new": "Brand-New-Passphrase-77"})
+    assert r.status_code == 200
+    new_cookie, new_csrf = api.cookies.get("ks_session"), r.json()["csrf_token"]
+    assert new_cookie and new_cookie != old_cookie and new_csrf != old_csrf
+    api.headers["X-CSRF-Token"] = new_csrf
+    assert api.get("/api/auth/me").status_code == 200          # the new session works
+    assert other.get("/api/auth/me").status_code == 401        # other sessions were ended
+    stale = __import__("fastapi.testclient", fromlist=["TestClient"]).TestClient(api.app)
+    stale.cookies.set("ks_session", old_cookie)
+    assert stale.get("/api/auth/me").status_code == 401        # the old session ID is gone
+
+
+def test_links_never_come_from_the_host_header(api, ready_users, monkeypatch):
+    """SC-CFG-006: a forged Host header can't redirect invitation links; KEYSTONE_PUBLIC_URL is used when set."""
+    from keystone.core import settings as settings_mod
+
+    api_login(api, "admin")
+    pid = api.post("/api/people", json={"full_name": "Hal Host", "email": "hal@example.example"}).json()["id"]
+    link = api.post(f"/api/people/{pid}/invite", headers={"Host": "evil.example"}).json()
+    assert link["url"] is None and link["path"].startswith("/invite#token=") and "evil" not in str(link)
+    monkeypatch.setenv("KEYSTONE_PUBLIC_URL", "https://isms.example.com")
+    if hasattr(settings_mod.get_settings, "cache_clear"):
+        settings_mod.get_settings.cache_clear()
+    link = api.post(f"/api/people/{pid}/invite", headers={"Host": "evil.example"}).json()
+    assert link["url"].startswith("https://isms.example.com/invite#token=")
+    monkeypatch.setenv("KEYSTONE_PUBLIC_URL", "javascript:alert(1)")
+    with pytest.raises(ValueError):
+        settings_mod.Settings()
+    monkeypatch.delenv("KEYSTONE_PUBLIC_URL")
+    if hasattr(settings_mod.get_settings, "cache_clear"):
+        settings_mod.get_settings.cache_clear()
+
+
+def test_hsts_only_over_https(api):
+    assert "strict-transport-security" not in api.get("/api/auth/status").headers
+    h = api.get("/api/auth/status", headers={"X-Forwarded-Proto": "https"}).headers
+    assert h["strict-transport-security"].startswith("max-age=31536000")

@@ -147,9 +147,9 @@ export function AuditLog() {
 }
 
 export function Account() {
-  const { me } = useAuth();
+  const { me, refresh } = useAuth();
   const [f, setF] = useState({ current: "", next: "", confirm: "" });
-  const change = useAction(() => api("/auth/change-password", { body: { current: f.current, new: f.next } }), { success: "Password changed. Other sessions were signed out.", onSuccess: () => setF({ current: "", next: "", confirm: "" }) });
+  const change = useAction(() => api("/auth/change-password", { body: { current: f.current, new: f.next } }), { success: "Password changed. Your other sessions were signed out.", onSuccess: () => { setF({ current: "", next: "", confirm: "" }); void refresh(); } });
   return (
     <div className="animate-fade-in max-w-3xl">
       <PageHeader icon={KeyRound} title="My account" />
@@ -191,9 +191,9 @@ export function AiSettings() {
   const { data } = useApi<any>("/ai/settings");
   const [form, setForm] = useState<any>(null);
   const [key, setKey] = useState("");
-  const loadedKey = data ? `${data.enabled}|${data.model}|${data.effort}` : null;
+  const loadedKey = data ? `${data.enabled}|${data.model}|${data.effort}|${data.max_calls_per_user_hour}|${data.monthly_token_budget}` : null;
   const [formKey, setFormKey] = useState<string | null>(null);
-  if (data && loadedKey !== formKey) { setFormKey(loadedKey); setForm({ enabled: data.enabled, model: data.model, effort: data.effort }); } // reload after save
+  if (data && loadedKey !== formKey) { setFormKey(loadedKey); setForm({ enabled: data.enabled, model: data.model, effort: data.effort, max_calls_per_user_hour: data.max_calls_per_user_hour, monthly_token_budget: data.monthly_token_budget }); } // reload after save
   const save = useAction((extra: any) => api("/ai/settings", { method: "PATCH", body: { ...form, ...(key ? { api_key: key } : {}), ...extra } }), { success: "AI settings saved.", invalidate: ["/ai"], onSuccess: () => setKey("") });
   if (!data || !form) return <Skeleton className="h-96" />;
   const keyLabel = data.key_source === "settings" ? "Stored in Keystone (encrypted)" : data.key_source === "environment" ? "From the ANTHROPIC_API_KEY environment variable" : "No key";
@@ -215,6 +215,14 @@ export function AiSettings() {
               </Field>
               <Field label="Effort" hint="Higher effort is more thorough, slower and costs more.">
                 <Select value={form.effort} onChange={(v) => setForm({ ...form, effort: v })} options={data.efforts.map((e: string) => ({ value: e, label: titleCase(e) }))} />
+              </Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Calls per user per hour" hint="Each person can start AI actions until they reach this many calls in an hour.">
+                <Input type="number" min={1} max={10000} value={form.max_calls_per_user_hour} onChange={(e) => setForm({ ...form, max_calls_per_user_hour: Number(e.target.value) })} />
+              </Field>
+              <Field label="Monthly token budget" hint={<>All users together. Used this month: {data.tokens_this_month.toLocaleString()} ({Math.min(100, Math.round((100 * data.tokens_this_month) / Math.max(1, data.monthly_token_budget)))}%).</>}>
+                <Input type="number" min={10000} step={100000} value={form.monthly_token_budget} onChange={(e) => setForm({ ...form, monthly_token_budget: Number(e.target.value) })} />
               </Field>
             </div>
             <div className="flex flex-wrap gap-2">

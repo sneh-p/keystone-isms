@@ -20,6 +20,9 @@ class AiSettings(Audited, TimestampMixin, Base):
     model: Mapped[str] = mapped_column(String(80), nullable=False)
     effort: Mapped[str] = mapped_column(String(10), nullable=False, default="medium")
     api_key_enc: Mapped[str | None] = mapped_column(Text)
+    # SC-LLM-005: bounded consumption.
+    max_calls_per_user_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=100, server_default="100")
+    monthly_token_budget: Mapped[int] = mapped_column(Integer, nullable=False, default=2_000_000, server_default="2000000")
 
 
 class AiUsage(Base):

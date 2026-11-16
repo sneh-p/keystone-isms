@@ -107,6 +107,7 @@ export default function App() {
       <Route path="/login" element={me ? <Navigate to="/" replace /> : needsBootstrap ? <Navigate to="/setup" replace /> : <Login />} />
       <Route path="/setup" element={needsBootstrap ? <Setup /> : <Navigate to="/" replace />} />
       <Route path="/trust/:slug" element={<Suspense fallback={<Loading />}><PublicTrust /></Suspense>} />
+      <Route path="/invite" element={<Suspense fallback={<Loading />}><AcceptInvite /></Suspense>} />
       <Route path="/invite/:token" element={<Suspense fallback={<Loading />}><AcceptInvite /></Suspense>} />
       <Route path="/portal" element={<Private><Suspense fallback={<Loading />}><Portal /></Suspense></Private>} />
       <Route path="/portal/training/:key" element={<Private><Suspense fallback={<Loading />}><TrainingModule /></Suspense></Private>} />
