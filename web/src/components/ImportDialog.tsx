@@ -12,7 +12,7 @@ type Result = { header_errors: string[]; rows: { row: number; label: string; err
  * Import a register from CSV. The file is read and parsed here in the browser; only the rows go to the server, as
  * JSON, where each one runs through the same rules as a manual entry. Preview first; import is all or nothing.
  */
-export function ImportButton({ register, noun, invalidate }: { register: "assets" | "risks" | "vendors" | "people"; noun: string; invalidate: string[] }) {
+export function ImportButton({ register, noun, invalidate }: { register: "assets" | "risks" | "vendors" | "people" | "devices"; noun: string; invalidate: string[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>

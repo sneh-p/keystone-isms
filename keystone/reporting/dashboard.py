@@ -62,6 +62,10 @@ def overview(session: Session, on: date | None = None) -> dict:
     open_tasks = tsk.list_tasks(session, include_closed=False)
     add(sum(1 for t in open_tasks if tsk.overdue(t, on)), "task(s) overdue", "/tasks")
     add(sum(1 for t in open_tasks if t.status == "in_review"), "task(s) waiting for review", "/tasks")
+    from keystone.asm.models import AsmFinding, Baseline
+
+    asm_open = session.scalar(select(func.count(AsmFinding.id)).join(Baseline, Baseline.id == AsmFinding.baseline_id).where(AsmFinding.status == "open", Baseline.severity.in_(("critical", "high")))) or 0
+    add(asm_open, "critical or high attack surface finding(s)", "/attack-surface")
     return {
         "open_risks": len(open_risks),
         "risk_levels": levels,

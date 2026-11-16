@@ -18,6 +18,8 @@ import { safeHref } from "@/lib/safe-url";
 
 const ICON: Record<string, any> = { website: Globe, github: Github, aws: Cloud, entra: ShieldCheck };
 
+const CATEGORY: Record<string, string> = { rmm: "devices (RMM)", edr: "EDR", vuln: "vulnerabilities", mdm: "device management", identity: "identities", posture: "configuration" };
+
 export default function Integrations() {
   const { can } = useAuth();
   const { data } = useApi<any>("/integrations");
@@ -36,25 +38,35 @@ export default function Integrations() {
         <Stat label="Checks failing" value={failing} tone={failing ? "critical" : undefined} />
         <Stat label="Errors or unknown" value={all.filter((r: any) => ["error", "unknown"].includes(r.result)).length} tone={all.some((r: any) => r.result === "error") ? "warning" : undefined} />
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {data.providers.map((p: any) => {
-          const Icon = ICON[p.key] ?? Plug;
-          const mine = data.integrations.filter((i: any) => i.provider === p.key);
-          return (
-            <Card key={p.key} className="flex flex-col">
-              <CardBody className="flex flex-1 flex-col">
-                <div className="flex items-center gap-3"><div className="rounded-lg bg-accent p-2 text-accent-foreground"><Icon className="size-5" /></div><div className="font-semibold leading-tight">{p.name}</div></div>
-                <p className="mt-3 flex-1 text-sm text-muted-foreground">{p.description}</p>
-                <div className="mt-3 text-xs text-muted-foreground">{p.checks.length} checks · maps to {[...new Set(p.checks.flatMap((c: any) => c.controls))].length} controls</div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {mine.map((i: any) => <Button key={i.id} size="sm" variant="secondary" onClick={() => setOpen(i.id)}>{i.name} <StatusBadge status={i.last_status === "error" ? "error" : i.results.some((r: any) => r.result === "fail") ? "fail" : i.results.length ? "pass" : "unknown"} label=" " /></Button>)}
-                  {can("integration.manage") && <Button size="sm" variant="outline" onClick={() => setConnect({ provider: p.key, name: p.name, values: {}, schedule_hours: 24 })}>Connect</Button>}
-                </div>
-              </CardBody>
-            </Card>
-          );
-        })}
-      </div>
+      {[["Control checks", (p: any) => !p.inventory], ["Attack surface sources", (p: any) => p.inventory]].map(([title, test]: any) => {
+        const list = data.providers.filter(test);
+        if (!list.length) return null;
+        return (
+          <section key={title} className="mb-6" aria-label={title}>
+            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+            {title === "Attack surface sources" && <p className="mb-3 text-sm text-muted-foreground">Read-only device, identity, vulnerability and configuration data for <Link to="/attack-surface" className="text-primary underline">Attack surface</Link>, checked against your baselines.</p>}
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {list.map((p: any) => {
+                const Icon = ICON[p.key] ?? Plug;
+                const mine = data.integrations.filter((i: any) => i.provider === p.key);
+                return (
+                  <Card key={p.key} className="flex flex-col">
+                    <CardBody className="flex flex-1 flex-col">
+                      <div className="flex items-center gap-3"><div className="rounded-lg bg-accent p-2 text-accent-foreground"><Icon className="size-5" /></div><div className="font-semibold leading-tight">{p.name}</div></div>
+                      <p className="mt-3 flex-1 text-sm text-muted-foreground">{p.description}</p>
+                      <div className="mt-3 text-xs text-muted-foreground">{p.inventory ? `Provides: ${p.categories.map((c: string) => CATEGORY[c] ?? c).join(", ")}` : `${p.checks.length} checks · maps to ${[...new Set(p.checks.flatMap((c: any) => c.controls))].length} controls`}</div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {mine.map((i: any) => <Button key={i.id} size="sm" variant="secondary" onClick={() => setOpen(i.id)}>{i.name} <StatusBadge status={i.last_status === "error" ? "error" : i.results.some((r: any) => r.result === "fail") ? "fail" : i.results.length ? "pass" : "unknown"} label=" " /></Button>)}
+                        {can("integration.manage") && <Button size="sm" variant="outline" onClick={() => setConnect({ provider: p.key, name: p.name, values: {}, schedule_hours: p.inventory ? 6 : 24 })}>Connect</Button>}
+                      </div>
+                    </CardBody>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
       {connect && <ConnectDialog connect={connect} setConnect={setConnect} provider={data.providers.find((p: any) => p.key === connect.provider)} saving={save.isPending} onSave={() => save.mutate(connect)} />}
       {open && <IntegrationDrawer id={open} providers={data.providers} integrations={data.integrations} onClose={() => setOpen(null)} onEdit={(c: any) => setConnect(c)} />}
     </div>
@@ -161,12 +173,19 @@ function ConnectDialog({ connect, setConnect, provider, saving, onSave }: { conn
           <Field label="Run every (hours)"><Input type="number" min={1} max={720} value={connect.schedule_hours} onChange={(e) => setConnect({ ...connect, schedule_hours: Number(e.target.value) })} /></Field>
           <div className="rounded-lg border bg-muted/30 p-3" aria-live="polite">
             <div className="text-sm font-medium">Test connection</div>
-            <p className="mt-0.5 text-xs text-muted-foreground">Runs the checks now with these settings. Nothing is saved and no evidence is filed.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{provider.inventory ? "Reads one page from each source with these settings and shows what it found. Nothing is saved." : "Runs the checks now with these settings. Nothing is saved and no evidence is filed."}</p>
+            {provider.inventory && provider.mapping_note && <p className="mt-1 text-xs text-muted-foreground">Field mapping: {provider.mapping_note}</p>}
             {results && (
               <ul className="mt-3 space-y-2">{results.map((r) => (
                 <li key={r.check_key} className="text-sm">
                   <div className="flex items-start justify-between gap-2"><span className="font-medium">{r.title}</span><StatusBadge status={r.result} /></div>
                   <p className="text-xs text-muted-foreground">{r.summary}</p>
+                  {r.fields && Object.keys(r.fields).length > 0 && (
+                    <details className="mt-1 text-xs">
+                      <summary className="cursor-pointer text-muted-foreground">Fields the API returned (names only)</summary>
+                      <ul className="mt-1 space-y-1">{Object.entries(r.fields).map(([k, v]: any) => <li key={k}><span className="font-medium">{k}:</span> <span className="font-mono text-muted-foreground">{v.join(", ") || "(none)"}</span></li>)}</ul>
+                    </details>
+                  )}
                 </li>
               ))}</ul>
             )}

@@ -11,8 +11,10 @@ the controls, and the decisions that needed a human answer (marked **Decide**).
 | Vendor portal | File types and sizes as proposed; virus scanner required; link expiry set manually, default never | Built with ClamAV, fail-closed |
 | Auditor workspace | Read-only auditor accounts that expire; in-app document viewer requested | Built (viewer: PDF, images, text) |
 | SSO | Entra ID and Google; admin pre-creates users who activate by signing in, or approved domains get a basic role automatically; Authlib approved | Built |
+| Attack surface management | RMM (NinjaOne, Datto RMM, N-central, ConnectWise Automate), EDR (Defender, CrowdStrike, SentinelOne, Sophos), vulnerability management (Tenable, Qualys, Rapid7, Defender VM); Keystone may call Microsoft APIs read-only (reverses the original collector-only rule) | Built: read-only connectors with fixed or vendor-domain hosts, self-hosted servers public-only unless operator-allowlisted, host-bound credentials, no redirects, size caps |
 
-"SSO required" (disabling password sign-in) was not decided and is not built.
+"SSO required" was later decided (administrators keep password sign-in as break-glass) and built.
+
 
 ## 1. Notifications and reminders
 

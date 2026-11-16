@@ -29,3 +29,4 @@ from keystone.tprm.models import VendorPortalLink
 from keystone.sso.models import OidcLogin, SsoProvider
 from keystone.collab.models import Comment, SavedView
 from keystone.sso.models import SsoPolicy
+from keystone.asm.models import AsmDevice, AsmFinding, AsmIdentity, AsmSetting, AsmSourceRecord, AsmVulnerability, Baseline

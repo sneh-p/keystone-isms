@@ -80,6 +80,7 @@ plain HTTP for evaluation on a private network only.
 | `KEYSTONE_API_DOCS` | unset | Set to `1` to serve the interactive API docs and OpenAPI schema (development only) |
 | `KEYSTONE_SMTP_PRIVATE_HOSTS` | unset | Comma-separated host names of internal SMTP relays Keystone may connect to. Without it, only relays with public addresses are allowed |
 | `KEYSTONE_CLAMD_SOCKET` | `/var/run/clamav/clamd.ctl` | ClamAV daemon socket used to scan vendor uploads |
+| `KEYSTONE_INTEGRATION_PRIVATE_HOSTS` | unset | Comma-separated host names of self-hosted tools inside your network (N-central, ConnectWise Automate) that attack surface connectors may reach. Without it, only public addresses are allowed |
 | `KEYSTONE_CLAMD_TCP` | unset | `host:port` of a ClamAV daemon (for example a ClamAV container), used instead of the socket |
 
 Don't put secrets in the repository. Pass database credentials through the environment.
@@ -233,6 +234,39 @@ Redirects are followed over HTTPS only, and each new host must also be public.
 Secrets are encrypted with `secret.key` and are write-only: the API never returns them, and the
 audit log records only that they changed. A check that errors or can't decide is reported as
 error or unknown, never as passing.
+
+## Attack surface management
+
+**Integrations → Attack surface sources** connect read-only to the tools that know your devices, accounts and
+vulnerabilities; **Attack surface** shows the merged picture and the gaps against your baselines.
+
+| Source | Provides | Read-only access to create |
+|---|---|---|
+| Microsoft 365 | Entra accounts and MFA registration, Intune compliance and encryption, Defender for Endpoint health and vulnerabilities, Secure Score | App registration, application permissions: User.Read.All, AuditLog.Read.All, UserAuthenticationMethod.Read.All, DeviceManagementManagedDevices.Read.All, SecurityEvents.Read.All; WindowsDefenderATP Machine.Read.All, Vulnerability.Read.All |
+| CrowdStrike Falcon | Hosts and sensor status | API client, Hosts: Read |
+| SentinelOne | Agents, health, threats, firewall | Service user, Viewer role |
+| Sophos Central | Endpoints, health, tamper protection, encryption | Tenant API credential, Service Principal ReadOnly |
+| NinjaOne | Devices, pending patches, anti-malware status | API client, Monitoring scope, client credentials |
+| Datto RMM | Devices, anti-malware, approved pending patches | API keys of a read-only user |
+| N-able N-central | Devices and last check-in | API-only user with a read-only role (JWT) |
+| ConnectWise Automate | Computers, last contact, anti-malware definitions | Read-only integrator account plus your ClientID |
+| Tenable | Open critical/high/medium vulnerabilities and assets | API keys of a user with view access |
+| Qualys VMDR | Hosts with severity 3-5 detections | Reader user with API access |
+| Rapid7 InsightVM | Assets with critical and severe vulnerabilities | API key of a read-only user |
+
+How it works: each run reads the source (read-only), matches devices across tools (serial number, then Entra device
+ID, then host name), and re-checks every enabled **baseline**. Gaps become **findings**; they close by themselves when
+fixed. New critical and high findings notify the device's or account's owner (devices are linked to people by email),
+or the ISMS managers when nobody owns it; critical ones are also emailed straight away when email is set up. A baseline
+that every item meets files evidence on its controls. **Exceptions** need the risk-acceptance permission, a reason and an
+end date within a year, and can't be approved by the owner of the device or account.
+
+Safety: keys are encrypted and write-only; each connector may only contact its vendor's hosts (exact hosts, or the
+vendor's domain for customer consoles such as `*.sentinelone.net`); self-hosted N-central and Automate servers must
+have public addresses unless listed in `KEYSTONE_INTEGRATION_PRIVATE_HOSTS`, and their credentials are dropped when the
+server address changes; redirects are refused; responses are size-capped. **Test connection** reads one page per
+source, saves nothing, and lists the field names the API returned, so a field mapping can be confirmed against your
+tenant. Devices without an API can be imported from CSV (Attack surface → Import CSV).
 
 ## AI (optional)
 

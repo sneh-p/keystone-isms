@@ -43,6 +43,15 @@ read. If an
 administrator has set up email, you also get a daily digest of unread items; turn it off under
 **My account**.
 
+## Attack surface
+
+**Risk → Attack surface** shows every device, account, vulnerability and configuration setting your connected tools
+report, and where they miss your **baselines** (for example "Disk encryption on" for workstations, "MFA registered for
+every enabled account", "Critical vulnerabilities fixed within 7 days"). Start with **Baselines → Add recommended
+baselines** and adjust scope and severity. **Findings** lists the gaps; they close when the tools report the fix.
+Missing coverage is a finding too, for example a device the RMM manages but no EDR agent reports. If a gap is accepted
+for a while, someone with risk-acceptance rights can approve an **exception** with a reason and an end date.
+
 ## Working together
 
 - **Discussion:** risks, controls, tasks, incidents, policies, vendors, nonconformities and audits have a discussion.

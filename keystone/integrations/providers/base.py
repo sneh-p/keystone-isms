@@ -63,3 +63,20 @@ class Provider:
             "checks": [{"key": c.key, "title": c.title, "controls": list(c.controls)} for c in self.checks],
             "setup": [st.__dict__ for st in self.setup],
         }
+
+
+class InventoryProvider(Provider):
+    """A read-only source for attack surface management: returns devices, vulnerabilities, identities and settings
+    (keystone/asm/vocabulary.Inventory) instead of pass/fail checks. Baselines turn the data into findings."""
+
+    category: str = ""  # rmm | edr | vuln | mdm | identity | posture (several for multi-purpose sources)
+    categories: tuple[str, ...] = ()
+    host_field: str | None = None  # self-hosted server field: stored credentials are bound to it (SC-SSRF-003)
+    mapping_note: str = ""  # how the field mapping was verified, shown on the integration
+
+    def collect(self, config: dict, secrets: dict, preview: bool = False):  # pragma: no cover - interface
+        """preview=True (Test connection): read only the first page of each endpoint."""
+        raise NotImplementedError
+
+    def describe(self) -> dict:
+        return {**super().describe(), "inventory": True, "categories": list(self.categories or (self.category,)), "mapping_note": self.mapping_note}

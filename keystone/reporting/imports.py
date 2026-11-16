@@ -45,6 +45,7 @@ class Register:
     save: Callable
     columns: tuple[Column, ...]
     describe: Callable[[dict], str] = field(default=lambda v: "")
+    after: Callable | None = None  # run once after all rows (e.g. re-evaluate baselines)
 
 
 def all_registers() -> dict[str, Register]:
@@ -55,6 +56,7 @@ def all_registers() -> dict[str, Register]:
     from keystone.risk.service import save_risk
     from keystone.tprm.models import ACCESS_LEVELS, CRITICALITY, SENSITIVITY, VENDOR_STATUSES
     from keystone.tprm.service import save_vendor
+    from keystone.asm import service as asm
 
     owner = Column("owner", "user", field="owner_id", help="Username or email of a Keystone user")
     cia = "1 (low) to 5 (high)"
@@ -84,6 +86,12 @@ def all_registers() -> dict[str, Register]:
             Column("employment_type", "choice", choices=("employee", "contractor")), Column("manager", "user", field="manager_id", help="Username or email of a Keystone user"),
             Column("start_date", "date", help="YYYY-MM-DD"), Column("end_date", "date", help="YYYY-MM-DD"),
         ), lambda v: f"{v.get('full_name', '')} <{v.get('email', '')}>"),
+        "devices": Register("Devices (attack surface)", "integration.manage", asm.import_device, (
+            Column("name", required=True), Column("hostname"), Column("serial"), Column("os", help="e.g. Windows 11"),
+            Column("device_type", "choice", choices=("workstation", "server", "mobile", "other")), Column("owner_email", help="email of the person who uses it"),
+            Column("last_seen", "date", help="YYYY-MM-DD"), Column("disk_encrypted", "bool", help="yes or no"), Column("edr_active", "bool", help="yes or no"),
+            Column("av_up_to_date", "bool", help="yes or no"), Column("firewall_on", "bool", help="yes or no"), Column("patches_pending", "int", help="number of security patches pending"),
+        ), lambda v: v.get("name", ""), asm.after_import),
     }
 
 
@@ -197,6 +205,8 @@ def run(session: Session, actor, name: str, rows: list[dict[str, str | None]]) -
                 out += [{"row": j, "label": "", "errors": ["not checked: an earlier row failed"]} for j in range(i + 1, len(rows) + 2)]
                 return {"header_errors": [], "rows": out, "ok": ok, "errors": sum(1 for x in out if x["errors"])}
         out.append({"row": i, "label": r.describe({_norm(k): v for k, v in row.items() if v}), "errors": errors})
+    if r.after and ok:
+        r.after(session, actor)
     return {"header_errors": [], "rows": out, "ok": ok, "errors": sum(1 for x in out if x["errors"])}
 
 

@@ -16,13 +16,23 @@ from keystone.core.services import authorize, get_or_404, require_text, today
 from keystone.frameworks.models import CommonControl
 
 from .models import CheckResult, Integration
+from .providers.asm_edr import CrowdStrikeProvider, SentinelOneProvider, SophosProvider
+from .providers.asm_microsoft import MicrosoftProvider
+from .providers.asm_rmm import ConnectWiseAutomateProvider, DattoRmmProvider, NCentralProvider, NinjaOneProvider
+from .providers.asm_vuln import QualysProvider, Rapid7Provider, TenableProvider
 from .providers.aws import AwsProvider
-from .providers.base import Provider
+from .providers.base import InventoryProvider, Provider
 from .providers.entra import EntraProvider
 from .providers.github import GitHubProvider
 from .providers.website import WebsiteProvider
 
-PROVIDERS: dict[str, Provider] = {p.key: p for p in (WebsiteProvider(), GitHubProvider(), AwsProvider(), EntraProvider())}
+PROVIDERS: dict[str, Provider] = {p.key: p for p in (
+    WebsiteProvider(), GitHubProvider(), AwsProvider(), EntraProvider(),
+    # attack surface sources (keystone/asm): read-only inventory, decision 2026-11-16
+    MicrosoftProvider(), CrowdStrikeProvider(), SentinelOneProvider(), SophosProvider(),
+    NinjaOneProvider(), DattoRmmProvider(), NCentralProvider(), ConnectWiseAutomateProvider(),
+    TenableProvider(), QualysProvider(), Rapid7Provider(),
+)}
 
 
 def provider(key: str) -> Provider:
@@ -51,11 +61,14 @@ def save_integration(session: Session, actor, integration_id: int | None = None,
     p = provider(i.provider)
     config, secrets = _split(p, values or {})
     stored = json.loads(crypto.decrypt(i.secret_enc)) if i.secret_enc else {}
-    merged_secrets = {**stored, **secrets}
     merged_config = {**(i.config or {}), **config}
+    hf = getattr(p, "host_field", None)
+    if hf and i.id and (i.config or {}).get(hf) != merged_config.get(hf) and not secrets:
+        stored = {}  # SC-SSRF-003: credentials are only ever sent to the server they were entered for
+    merged_secrets = {**stored, **secrets}
     missing = [f.label for f in p.fields if f.required and not (merged_secrets.get(f.name) if f.secret else merged_config.get(f.name))]
     if missing:
-        raise ValueError("Missing: " + ", ".join(missing))
+        raise ValueError("Missing: " + ", ".join(missing) + (" (the server address changed, so enter the credentials again)" if hf and i.id and not stored else ""))
     i.name = require_text(name or i.name or p.name, "Name")
     i.config = merged_config
     i.secret_enc = crypto.encrypt(json.dumps(merged_secrets)) if merged_secrets else None
@@ -77,9 +90,13 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
     i = get_or_404(session, Integration, integration_id)
     p = provider(i.provider)
     now = utcnow()
+    inventory = None
     try:
         secrets = json.loads(crypto.decrypt(i.secret_enc)) if i.secret_enc else {}
-        outcomes = p.run(i.config or {}, secrets, session)
+        if isinstance(p, InventoryProvider):  # attack surface source: collect now, store below
+            inventory, outcomes = p.collect(i.config or {}, secrets), []
+        else:
+            outcomes = p.run(i.config or {}, secrets, session)
         i.last_status, i.last_error = "ok", None
     except Exception as e:  # noqa: BLE001 - any provider failure becomes an 'error' result, never a pass
         msg = str(e)[:500] if isinstance(e, ValueError) else f"{type(e).__name__}: run failed"
@@ -109,6 +126,19 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
                     session.add(Evidence(common_control_id=codes[code].id, title=title, kind="note", description=description, collected_on=today(), valid_until=valid_until))
                 else:
                     ev.description, ev.collected_on, ev.valid_until = description, today(), valid_until
+    if inventory is not None:
+        # Outside the provider's error handling on purpose: a database error fails the run and rolls it back.
+        from keystone.asm import baselines, ingest
+
+        counts = ingest.ingest(session, i.id, i.name, i.provider, inventory)
+        evaluation = baselines.evaluate(session)
+        summary = (f"{counts['devices']} device(s) ({counts['new_devices']} new), {counts['vulnerabilities']} open vulnerabilit(ies), "
+                   f"{counts['identities']} identit(ies), {counts['settings']} setting(s); {evaluation['new_findings']} new finding(s)")
+        if inventory.notes:
+            summary += ". " + "; ".join(inventory.notes)[:400]
+        r = CheckResult(integration_id=i.id, check_key="inventory", title="Data collected", result="pass", summary=summary[:2000], details=counts, controls=[], run_at=now)
+        session.add(r)
+        results.append(r)
     log_event(session, actor, "integration_run", "Integration", i.id, f"{i.name}: " + ", ".join(f"{r.check_key}={r.result}" for r in results))
     session.flush()
     return results
@@ -130,15 +160,38 @@ def test(session: Session, actor, provider_key: str | None = None, values: dict 
     missing = [f.label for f in p.fields if f.required and not (secrets.get(f.name) if f.secret else config.get(f.name))]
     if missing:
         raise ValueError("Missing: " + ", ".join(missing))
+    inventory, msg = None, "Test failed"
     try:
-        outcomes = p.run(config, secrets, session)
+        if isinstance(p, InventoryProvider):
+            inventory, outcomes = p.collect(config, secrets, preview=True), []
+        else:
+            outcomes = p.run(config, secrets, session)
     except Exception as e:  # noqa: BLE001 - report, never pass
         msg = str(e)[:500] if isinstance(e, ValueError) else f"{type(e).__name__}: test failed"
         from .providers.base import Outcome
 
         outcomes = [Outcome(c.key, "error", msg) for c in p.checks]
+    if isinstance(p, InventoryProvider):
+        if inventory is None:  # the provider failed: outcomes holds nothing because inventory sources have no checks
+            log_event(session, actor, "integration_test", "Integration", integration_id, f"Tested {p.name}: error")
+            return [{"check_key": "inventory", "title": "Connection", "result": "error", "summary": msg}]
+        log_event(session, actor, "integration_test", "Integration", integration_id, f"Tested {p.name}: ok")
+        return [inventory_preview(inventory)]
     log_event(session, actor, "integration_test", "Integration", integration_id, f"Tested {p.name}: " + ", ".join(f"{o.key}={o.result}" for o in outcomes))
     return [{"check_key": o.key, "title": p.check(o.key).title, "result": o.result, "summary": o.summary} for o in outcomes]
+
+
+def inventory_preview(inv) -> dict:
+    """What a dry run of an attack surface source found. Field names only (never values), to check the mapping."""
+    props: dict[str, int] = {}
+    for d in inv.devices:
+        for k in d.props:
+            props[k] = props.get(k, 0) + 1
+    summary = (f"Found {len(inv.devices)} device(s), {len(inv.vulns)} vulnerabilit(ies), {len(inv.identities)} identit(ies) and "
+               f"{len(inv.settings)} setting(s). Properties reported: " + (", ".join(f"{k} ({n})" for k, n in sorted(props.items())) or "none"))
+    if inv.notes:
+        summary += ". " + "; ".join(inv.notes)
+    return {"check_key": "inventory", "title": "Data found (nothing saved)", "result": "pass", "summary": summary[:3000], "fields": inv.sample_fields}
 
 
 def latest_results(session: Session, integration_id: int) -> list[CheckResult]:

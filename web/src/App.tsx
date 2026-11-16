@@ -45,6 +45,7 @@ const QuestionnaireDetail = lazy(() => import("@/pages/SecurityQuestionnaires").
 const VendorPortal = lazy(() => import("@/pages/VendorPortal"));
 const Workload = lazy(() => import("@/pages/Workload"));
 const CalendarPage = lazy(() => import("@/pages/Calendar"));
+const AttackSurface = lazy(() => import("@/pages/AttackSurface"));
 
 /** Authenticated application routes. `nav` marks routes that appear in the sidebar. */
 export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] = [
@@ -63,6 +64,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/security-questionnaires", element: <SecurityQuestionnaires />, nav: true },
   { path: "/security-questionnaires/:id", element: <QuestionnaireDetail /> },
   { path: "/assets", element: <Assets />, nav: true },
+  { path: "/attack-surface", element: <AttackSurface />, nav: true },
   { path: "/vendors", element: <Vendors />, nav: true },
   { path: "/questionnaires", element: <Questionnaires />, nav: true },
   { path: "/assessments", element: <Assessments />, nav: true },

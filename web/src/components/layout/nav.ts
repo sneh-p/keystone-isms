@@ -1,5 +1,5 @@
 import {
-  Activity, AlertOctagon, CalendarDays, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Handshake, KeyRound,
+  Activity, AlertOctagon, CalendarDays, Crosshair, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Handshake, KeyRound,
   LayoutDashboard, ListChecks, Mail, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, Settings, ShieldCheck, Siren, Sparkles, UserCog, Users, Wrench,
 } from "lucide-react";
 
@@ -51,6 +51,7 @@ export const NAV: NavSection[] = [
     items: [
       { label: "Risk register", to: "/risks", icon: Gauge },
       { label: "Assets", to: "/assets", icon: Boxes },
+      { label: "Attack surface", to: "/attack-surface", icon: Crosshair },
     ],
   },
   {

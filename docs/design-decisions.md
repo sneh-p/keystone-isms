@@ -124,6 +124,25 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   The container layout was checked by running the app from a copy of exactly the files the
   Dockerfile copies.
 
+## Attack surface management
+
+- **Keystone calls Microsoft APIs directly (read-only) for attack surface management** (decision human:sneh,
+  2026-11-16). This reverses the original rule that only the PowerShell collector talks to Microsoft Graph; the Entra
+  exposure module still uses the collector. Fixed hosts: login.microsoftonline.com, graph.microsoft.com,
+  api.securitycenter.microsoft.com. Application permissions are read-only; Keystone makes no changes.
+- **Connectors are built from vendor documentation, not tested against live tenants.** Each states how its field
+  mapping was verified (`mapping_note`): Microsoft, CrowdStrike, SentinelOne, Sophos, Datto, N-central, Tenable and
+  Qualys from the vendors' API references; NinjaOne's patch and anti-malware fields, ConnectWise Automate's computer
+  fields and Rapid7 InsightVM's v4 schema partly from community libraries and third-party integrations (Rapid7's
+  published schema couldn't be retrieved). Test connection lists the field names a real API returns so mappings can be
+  confirmed or corrected with a read-only key.
+- **Null is not compliant.** A property no tool reports is "no data"; baselines choose whether that counts as a gap
+  (coverage baselines do). Partial or failed runs never retire devices, vulnerabilities, accounts or settings.
+- **Matching** uses the source's own id, then serial (placeholder serials ignored), Entra device id, then a host name
+  only when exactly one device has it, so two devices sharing a name aren't merged.
+- Inventory data (devices, accounts, vulnerabilities, settings) is derived and refreshed each run, so it isn't audited
+  row by row; baselines, exceptions and findings are.
+
 ## AI features
 
 - **Optional and off by default.** Without a key, questionnaires are answered by hand or from

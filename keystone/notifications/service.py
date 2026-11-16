@@ -27,6 +27,7 @@ from .models import Notification, NotificationPrefs, SmtpSettings
 
 _LOG = logging.getLogger(__name__)
 NOTIFY_WITHIN_DAYS = 14
+EVENT_KINDS = ("mention", "asm")  # one-off notifications; the hourly refresh never resolves these
 EMAIL = r"^[^@\s]{1,64}@[^@\s]{1,255}$"
 
 
@@ -67,7 +68,7 @@ def refresh(session: Session, user: User, on: date | None = None, routed: dict |
     now = datetime.now()
     items = {i["key"]: i for i in items_for(session, user, on, routed)}
     # Only derived items resolve themselves; event notifications (mentions) stay until read.
-    existing = {n.key: n for n in session.scalars(select(Notification).where(Notification.user_id == user.id, Notification.resolved_at.is_(None), Notification.kind != "mention"))}
+    existing = {n.key: n for n in session.scalars(select(Notification).where(Notification.user_id == user.id, Notification.resolved_at.is_(None), Notification.kind.not_in(EVENT_KINDS)))}
     for k, n in existing.items():
         if k not in items:
             n.resolved_at = now

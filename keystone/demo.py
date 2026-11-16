@@ -157,7 +157,51 @@ def seed(session: Session, admin) -> dict:
     reviews.update_review(session, mia, rv.id, discussion="Phishing incident and MFA gap discussed.", decisions="Approve budget for phishing-resistant MFA.", actions="Lena Fischer: FIDO2 for all staff by end of Q1.")
     _seed_workflows(session, people, fab, nw)
     _seed_trend_history(session)
+    _seed_attack_surface(session, admin)
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
+
+
+def _seed_attack_surface(session: Session, admin) -> None:
+    """Fictional devices, accounts and settings so the attack surface screens have something to show."""
+    from keystone.asm import baselines as asm_baselines
+    from keystone.asm.ingest import ingest
+    from keystone.asm.vocabulary import DeviceObs, IdentityObs, Inventory, SettingObs, VulnObs
+
+    now = datetime.now()
+    d = lambda ext, name, cat, os_, kind, owner, days, props: DeviceObs(external_id=ext, name=name, category=cat, hostname=name.lower(), serial=f"ASH{ext[-3:].upper()}",
+                                                                       os=os_, device_type=kind, owner_email=owner, last_seen=now - timedelta(days=days), props=props)
+    rmm = [
+        d("rmm-001", "ASH-LT-001", "rmm", "Windows 11", "workstation", "mia.isms@alpineskihouse.example", 0, {"disk_encrypted": True, "av_up_to_date": True, "patches_pending": 0}),
+        d("rmm-002", "ASH-LT-002", "rmm", "Windows 11", "workstation", "raj.risk@alpineskihouse.example", 1, {"disk_encrypted": False, "av_up_to_date": True, "patches_pending": 3}),
+        d("rmm-003", "ASH-LT-003", "rmm", "Windows 10", "workstation", "lena.ctl@alpineskihouse.example", 0, {"disk_encrypted": True, "av_up_to_date": False, "patches_pending": 1}),
+        d("rmm-004", "ASH-MB-004", "rmm", "macOS 15", "workstation", "sam.view@alpineskihouse.example", 2, {"disk_encrypted": True}),
+        d("rmm-005", "ASH-SRV-BOOK", "rmm", "Windows Server 2022", "server", None, 0, {"av_up_to_date": True, "patches_pending": 0}),
+        d("rmm-006", "ASH-SRV-FILE", "rmm", "Windows Server 2016", "server", None, 0, {"av_up_to_date": True, "patches_pending": 7}),
+        d("rmm-007", "ASH-KIOSK-01", "rmm", "Windows 10", "workstation", None, 23, {"disk_encrypted": False}),
+    ]
+    ingest(session, None, "Demo data", "demo", Inventory(devices=rmm), recompute_after=False)
+    edr = [d(f"edr-{n[-3:]}", n, "edr", None, k, None, 0, {"edr_active": ok}) for n, k, ok in
+           (("ASH-LT-001", "workstation", True), ("ASH-LT-002", "workstation", True), ("ASH-LT-003", "workstation", False), ("ASH-MB-004", "workstation", True), ("ASH-SRV-BOOK", "server", True))]
+    edr.append(d("edr-web", "ASH-WEB-01", "edr", "Ubuntu 22.04", "server", None, 0, {"edr_active": True}))
+    ingest(session, None, "Demo data", "demo", Inventory(devices=edr), recompute_after=False)
+    scan = [d("vuln-book", "ASH-SRV-BOOK", "vuln", "Windows Server 2022", "server", None, 1, {}), d("vuln-web", "ASH-WEB-01", "vuln", "Ubuntu 22.04", "server", None, 1, {}),
+            d("vuln-file", "ASH-SRV-FILE", "vuln", "Windows Server 2016", "server", None, 1, {})]
+    vulns = [VulnObs("vuln-web", "openssl-2026-01", "OpenSSL remote code execution", "critical", cve="CVE-2026-0001", cvss=9.8, exploitable=True, first_seen=(now - timedelta(days=12)).date()),
+             VulnObs("vuln-file", "smb-signing", "SMB signing not required", "medium", first_seen=(now - timedelta(days=90)).date()),
+             VulnObs("vuln-file", "ms-2026-10", "Windows cumulative update missing (October 2026)", "high", cve="CVE-2026-2002", cvss=8.1, first_seen=(now - timedelta(days=41)).date()),
+             VulnObs("vuln-book", "tls10", "TLS 1.0 enabled", "medium", first_seen=(now - timedelta(days=5)).date())]
+    ingest(session, None, "Demo data", "demo", Inventory(devices=scan, vulns=vulns), recompute_after=False)
+    ids = [IdentityObs(f"{u}@alpineskihouse.example", n, {"mfa_registered": mfa, "is_admin": adm, "account_enabled": True, "is_guest": False, "last_sign_in_days": days})
+           for u, n, mfa, adm, days in (("mia.isms", "Mia Novak", True, True, 0), ("raj.risk", "Raj Patel", True, False, 1), ("lena.ctl", "Lena Fischer", True, True, 0),
+                                       ("sam.view", "Sam Jones", False, False, 4), ("svc.backup", "Backup service", False, True, 140))]
+    ids.append(IdentityObs("contractor_partner.example#ext#@alpineskihouse.example", "Contractor (guest)", {"mfa_registered": False, "is_admin": False, "account_enabled": True, "is_guest": True, "last_sign_in_days": 200}))
+    settings = [SettingObs("demo:mfa-admins", "Require MFA for administrative roles", True, "Identity", "Score 10 of 10"),
+                SettingObs("demo:legacy-auth", "Block legacy authentication", False, "Identity", "Score 0 of 8"),
+                SettingObs("demo:user-consent", "Do not allow users to grant consent to unreliable applications", False, "Apps", "Score 0 of 4"),
+                SettingObs("demo:audit-log", "Turn on audit log search", True, "Data", "Score 1 of 1")]
+    ingest(session, None, "Demo data", "demo", Inventory(identities=ids, settings=settings))
+    asm_baselines.add_recommended(session, admin)
+    asm_baselines.evaluate(session)
 
 
 def _seed_trend_history(session: Session, weeks: int = 11) -> None:
