@@ -250,3 +250,25 @@ def needs_attention(risks: list[Risk], on: date | None = None) -> dict[str, list
         if any(a.status in ("open", "in_progress") and a.due_date and a.due_date < on for a in r.actions):
             out["actions_overdue"].append(r)
     return out
+
+
+# ---- risk library (content/risk_library.yaml) ----------------------------------------------------------
+
+def library() -> list[dict]:
+    """Keystone-written risk scenarios with suggested ratings and treating controls."""
+    import yaml
+
+    with open(PROJECT_ROOT / "content" / "risk_library.yaml", encoding="utf-8") as f:
+        return yaml.safe_load(f)["scenarios"]
+
+
+def add_from_library(session: Session, actor, key: str, owner_id: int | None = None) -> Risk:
+    """Create a risk from a library scenario; it then follows the normal assessment and treatment workflow."""
+    authorize(session, actor, "risk.write")
+    sc = next((s for s in library() if s["key"] == key), None)
+    if sc is None:
+        raise LookupError("Unknown library scenario")
+    controls = list(session.scalars(select(CommonControl).where(CommonControl.code.in_(sc.get("controls", [])))))
+    return save_risk(session, actor, title=sc["title"], category=sc["category"], threat=sc["threat"], vulnerability=sc["vulnerability"],
+                     consequence=sc["consequence"], inherent_likelihood=sc["likelihood"], inherent_impact=sc["impact"], owner_id=owner_id,
+                     control_ids=[c.id for c in controls])

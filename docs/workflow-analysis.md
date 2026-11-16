@@ -46,14 +46,16 @@ Tests: `tests/test_workflows.py` (coverage of every attention category, owner vs
 duties for approvals and verification, employees and expired accounts excluded, task hand-over rules, emailed links
 including rollback on failure and the public-address requirement, incident to risk).
 
-## Recommended next (not built)
+## Second round (built 2026-11-16)
 
-| Idea | Why | Notes |
+| Item | What it does | Decision taken |
 |---|---|---|
-| Comments and @mentions on records | Discussion happens outside Keystone today | Needs a decision on who may comment on what (a permission-model change) |
-| Workload view per person | Managers can't see who is overloaded | Read-only; uses the routing above |
-| Saved views for registers | Filters are in the address, not saved per user | Small |
-| Control testing calendar | Plan who tests what, when | Builds on tasks |
-| Board report (one page) | Management asks for a summary | Reuses the dashboard and trends |
-| Risk library and scenario templates | Faster, more consistent risk identification | Content work |
-| "SSO required" setting | Not decided in the SSO sign-off | Needs a break-glass decision |
+| Comments and @mentions | A Discussion on risks, controls, tasks, incidents, policies, vendors, nonconformities and audits. Typing @ suggests people; a mention puts a notification in that person's inbox (it stays until read). Comments are append-only and audited; shown as plain text | Any staff member who can read the record may comment; employees can't. Uses the existing `read` permission, so the role table is unchanged |
+| Workload | Per person: open, overdue and due-soon tasks, items routed to them, controls and risks owned; an Unassigned row | Read-only for all staff |
+| Saved views | Name and reuse filter sets on Controls and Tasks; personal, up to 50; only filter parameters are stored | — |
+| Calendar | Month view of task due dates, control, policy, risk and vendor reviews, contract ends, evidence expiry and audits, filterable by person and kind; a list on phones | Dates come from the records (nothing stored); categorical colours from the validated dataviz palette, never colour alone |
+| Board summary | One-page Word report: headline figures with the change over the trend window, readiness per framework, top 5 risks, what needs attention. Export audited | — |
+| Risk library | 24 Keystone-written scenarios with threat, weakness, consequence, suggested rating and treating controls; "Add from library" creates an assessed risk | Content is original; codes validated by a test |
+| SSO required | Turns password sign-in off for everyone except administrators (break-glass); only while a provider is on; the last provider can't be turned off while it applies. A refused password sign-in is audited and only explained after the correct password | Administrators are the break-glass accounts |
+
+Tests: `tests/test_collaboration.py`.

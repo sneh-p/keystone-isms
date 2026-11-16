@@ -128,6 +128,10 @@ more). For Google, approved domains must be Google Workspace domains (checked wi
 
 The client secret is encrypted and write-only. Each SSO sign-in and each refusal is in the audit log.
 
+**Require single sign-on** turns password sign-in off for everyone except administrators, who keep their password as
+the emergency route if the provider is down; keep administrators few and their passwords strong. It can only be turned
+on while a provider is on, and the last provider can't be turned off while it applies.
+
 ## Email (notification digests)
 
 **Settings → Email.** Enter the SMTP relay (port 587 STARTTLS, 465 TLS, or 25/2525), sender and,

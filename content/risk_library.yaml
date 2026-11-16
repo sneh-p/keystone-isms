@@ -1,0 +1,221 @@
+# Keystone risk library: common information security risk scenarios, written for Keystone.
+# Ratings are starting points on the default 5x5 matrix (config/risk_matrix.yaml); adjust them to your context.
+# controls: Keystone common control codes that typically treat the scenario.
+version: 1
+scenarios:
+  - key: ransomware
+    title: Ransomware encrypts business systems and backups
+    category: technology
+    threat: Criminal group deploys ransomware after gaining a foothold (phishing, exposed remote access, unpatched system)
+    vulnerability: Backups reachable from the main network; slow patching; broad admin rights
+    consequence: Systems unavailable for days, data loss, recovery costs, possible extortion over stolen data
+    likelihood: 3
+    impact: 5
+    controls: [KC-TEC-13, KC-TEC-07, KC-TEC-08, KC-TEC-02, KC-ORG-30, KC-ORG-26]
+  - key: account-takeover
+    title: Staff account taken over through phishing or password reuse
+    category: technology
+    threat: Attacker steals or guesses credentials, or tricks a user into approving a sign-in
+    vulnerability: Passwords alone or push-approval MFA; no sign-in risk monitoring
+    consequence: Mailbox and file access, fraud from a trusted account, onward compromise
+    likelihood: 4
+    impact: 4
+    controls: [KC-TEC-05, KC-ORG-17, KC-PPL-03, KC-TEC-16]
+  - key: business-email-compromise
+    title: Payment fraud through a spoofed or compromised supplier email
+    category: operational
+    threat: Fraudster impersonates a supplier or executive and asks for a change of bank details
+    vulnerability: Payment changes accepted by email without an out-of-band check
+    consequence: Direct financial loss, often unrecoverable
+    likelihood: 3
+    impact: 4
+    controls: [KC-PPL-03, KC-ORG-14, KC-ORG-37]
+  - key: unpatched-internet-facing
+    title: Exploitation of an unpatched internet-facing system
+    category: technology
+    threat: Automated scanning finds and exploits a known vulnerability within days of disclosure
+    vulnerability: No asset inventory of exposed services; patches applied irregularly
+    consequence: Initial access for ransomware or data theft
+    likelihood: 3
+    impact: 4
+    controls: [KC-TEC-08, KC-ORG-09, KC-TEC-20, KC-TEC-09]
+  - key: cloud-misconfiguration
+    title: Data exposed through a misconfigured cloud service
+    category: technology
+    threat: Storage bucket, database or file share left publicly accessible
+    vulnerability: No configuration baseline or automated checks; manual changes
+    consequence: Personal or confidential data published; regulatory notification
+    likelihood: 3
+    impact: 4
+    controls: [KC-ORG-23, KC-TEC-09, KC-TEC-32, KC-TEC-16]
+  - key: supplier-breach
+    title: Breach at a supplier that holds or can reach our data
+    category: third_party
+    threat: Attacker compromises a SaaS provider or integrator with access to our systems or data
+    vulnerability: Suppliers not tiered or assessed; broad standing access granted to apps
+    consequence: Data breach we must notify; service disruption
+    likelihood: 3
+    impact: 4
+    controls: [KC-ORG-19, KC-ORG-20, KC-ORG-22, KC-ORG-21]
+  - key: oauth-consent
+    title: Malicious or over-permissioned app granted access to the tenant
+    category: third_party
+    threat: User or admin consents to an app that reads mail and files tenant-wide
+    vulnerability: Users can consent to apps; no review of app permissions
+    consequence: Silent, persistent data access by a third party
+    likelihood: 3
+    impact: 4
+    controls: [KC-ORG-15, KC-ORG-21, KC-TEC-03, KC-ORG-22]
+  - key: leaver-access
+    title: Former staff or contractors keep access after leaving
+    category: people
+    threat: Leaver (or someone using their account) keeps using systems
+    vulnerability: Offboarding depends on manual tickets; shared accounts; no access reviews
+    consequence: Data theft, sabotage, licence cost
+    likelihood: 3
+    impact: 3
+    controls: [KC-ORG-18, KC-PPL-05, KC-ORG-11, KC-ORG-16]
+  - key: privileged-misuse
+    title: Misuse of privileged administrator access
+    category: people
+    threat: Administrator account is abused deliberately or after compromise
+    vulnerability: Standing admin rights for daily work; no logging of admin actions
+    consequence: Wide-ranging damage, hidden changes, data exfiltration
+    likelihood: 2
+    impact: 5
+    controls: [KC-TEC-02, KC-ORG-03, KC-TEC-15, KC-TEC-18]
+  - key: lost-device
+    title: Laptop or phone with company data lost or stolen
+    category: physical
+    threat: Device lost while travelling or stolen from a car or office
+    vulnerability: Unencrypted disks; no remote wipe; local copies of data
+    consequence: Data breach notification; device replacement
+    likelihood: 4
+    impact: 2
+    controls: [KC-TEC-01, KC-PHY-09, KC-PPL-07, KC-TEC-24]
+  - key: insider-data-leak
+    title: Confidential data sent outside the company by an employee
+    category: people
+    threat: Employee uploads files to personal storage or emails them out, by mistake or on purpose
+    vulnerability: No classification guidance; no data leakage controls
+    consequence: Loss of confidential or personal data; contractual breach
+    likelihood: 3
+    impact: 3
+    controls: [KC-ORG-12, KC-TEC-12, KC-ORG-10, KC-PPL-06]
+  - key: misdirected-email
+    title: Personal data emailed to the wrong recipient
+    category: privacy
+    threat: Autocomplete or copy error sends a file with personal data to the wrong person
+    vulnerability: Attachments sent unencrypted; no sending checks
+    consequence: Personal data breach, possible notification to the regulator
+    likelihood: 4
+    impact: 2
+    controls: [KC-ORG-14, KC-ORG-34, KC-PPL-03]
+  - key: privacy-noncompliance
+    title: Personal data processed without a lawful basis or beyond retention
+    category: privacy
+    threat: Regulator investigation or data subject complaint
+    vulnerability: No record of processing; retention rules not applied; no DPAs with processors
+    consequence: Fines, orders to stop processing, reputational damage
+    likelihood: 2
+    impact: 4
+    controls: [KC-ORG-34, KC-ORG-31, KC-TEC-10, KC-ORG-20]
+  - key: ddos
+    title: Denial of service takes the public website or booking platform offline
+    category: technology
+    threat: Volumetric or application-layer attack, sometimes with extortion
+    vulnerability: No upstream protection; single hosting location
+    consequence: Lost sales during the outage; customer frustration
+    likelihood: 2
+    impact: 3
+    controls: [KC-TEC-14, KC-TEC-21, KC-TEC-06]
+  - key: cloud-outage
+    title: Prolonged outage of a critical cloud or SaaS provider
+    category: third_party
+    threat: Provider suffers a regional outage or account suspension
+    vulnerability: No tested fallback; no data export; single region
+    consequence: Business stops for hours or days
+    likelihood: 2
+    impact: 4
+    controls: [KC-ORG-30, KC-TEC-14, KC-ORG-29, KC-ORG-23]
+  - key: failed-restore
+    title: Backups fail when they are needed
+    category: operational
+    threat: Restore after an incident or mistake doesn't work or takes too long
+    vulnerability: Backups never test-restored; backup jobs not monitored
+    consequence: Permanent data loss; recovery far beyond tolerance
+    likelihood: 3
+    impact: 4
+    controls: [KC-TEC-13, KC-ORG-30]
+  - key: insecure-code
+    title: Vulnerability in our own software exploited
+    category: technology
+    threat: Attacker finds an injection, access-control or dependency flaw in an application we build
+    vulnerability: No secure coding standard, code review or dependency scanning
+    consequence: Data breach or fraud through our product
+    likelihood: 3
+    impact: 4
+    controls: [KC-TEC-25, KC-TEC-28, KC-TEC-29, KC-TEC-26, KC-TEC-04]
+  - key: secrets-leak
+    title: Credentials or keys leaked in code, tickets or chat
+    category: technology
+    threat: Secrets committed to a repository or pasted into a shared channel are found and used
+    vulnerability: No secret scanning; long-lived keys; no secrets manager
+    consequence: Access to cloud accounts and data
+    likelihood: 3
+    impact: 4
+    controls: [KC-ORG-17, KC-TEC-04, KC-TEC-24, KC-TEC-28]
+  - key: unlogged-attack
+    title: Attack goes unnoticed for weeks
+    category: technology
+    threat: Intruder operates quietly in the environment
+    vulnerability: Logs not collected or not reviewed; no alerting
+    consequence: Larger breach, higher cost, inability to investigate
+    likelihood: 3
+    impact: 4
+    controls: [KC-TEC-15, KC-TEC-16, KC-ORG-25, KC-TEC-17]
+  - key: office-intrusion
+    title: Unauthorised physical access to offices or equipment
+    category: physical
+    threat: Intruder or visitor reaches equipment, documents or network ports
+    vulnerability: Weak entry control; unattended screens and documents
+    consequence: Theft of equipment or information; rogue devices on the network
+    likelihood: 2
+    impact: 3
+    controls: [KC-PHY-02, KC-PHY-03, KC-PHY-07, KC-PHY-01]
+  - key: key-person
+    title: Loss of a key person with unique knowledge or access
+    category: people
+    threat: Sudden departure or long absence of the only person who runs a critical system
+    vulnerability: Undocumented procedures; no deputy; personal accounts used for admin
+    consequence: Inability to operate or recover systems
+    likelihood: 3
+    impact: 3
+    controls: [KC-ORG-37, KC-ORG-02, KC-GOV-07]
+  - key: untrained-staff
+    title: Staff don't recognise or report security threats
+    category: people
+    threat: Phishing, social engineering and unsafe handling of data
+    vulnerability: No regular awareness training; no simple reporting route
+    consequence: Incidents start and spread unnoticed
+    likelihood: 4
+    impact: 3
+    controls: [KC-PPL-03, KC-PPL-08, KC-GOV-08]
+  - key: regulatory-change
+    title: New legal or contractual security requirements are missed
+    category: compliance
+    threat: New regulation or customer contract clause applies to us
+    vulnerability: No register of legal and contractual requirements; no owner
+    consequence: Non-compliance, lost contracts, fines
+    likelihood: 3
+    impact: 3
+    controls: [KC-ORG-31, KC-GOV-01, KC-ORG-36]
+  - key: change-outage
+    title: An unplanned or untested change causes an outage or opens a gap
+    category: operational
+    threat: Change made directly in production without review or rollback
+    vulnerability: No change process or separation of environments
+    consequence: Service outage; security controls silently disabled
+    likelihood: 3
+    impact: 3
+    controls: [KC-TEC-32, KC-TEC-31, KC-TEC-09]

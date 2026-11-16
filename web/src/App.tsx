@@ -43,6 +43,8 @@ const AiSettings = lazy(() => import("@/pages/Settings").then((m) => ({ default:
 const SecurityQuestionnaires = lazy(() => import("@/pages/SecurityQuestionnaires"));
 const QuestionnaireDetail = lazy(() => import("@/pages/SecurityQuestionnaires").then((m) => ({ default: m.QuestionnaireDetail })));
 const VendorPortal = lazy(() => import("@/pages/VendorPortal"));
+const Workload = lazy(() => import("@/pages/Workload"));
+const CalendarPage = lazy(() => import("@/pages/Calendar"));
 
 /** Authenticated application routes. `nav` marks routes that appear in the sidebar. */
 export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] = [
@@ -71,6 +73,8 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/audits", element: <Audits />, nav: true },
   { path: "/reviews", element: <Reviews />, nav: true },
   { path: "/reports", element: <Reports />, nav: true },
+  { path: "/calendar", element: <CalendarPage />, nav: true },
+  { path: "/workload", element: <Workload />, nav: true },
   { path: "/settings/organisation", element: <Organisation />, nav: true },
   { path: "/settings/users", element: <Users />, nav: true },
   { path: "/settings/audit-log", element: <AuditLog />, nav: true },

@@ -15,6 +15,7 @@ import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { clean, EnumSelect, OwnerSelect, TriSelect } from "@/components/forms";
+import { Comments } from "@/components/Comments";
 
 const CATS = ["phishing", "malware", "ransomware", "account_compromise", "data_breach", "unauthorised_access", "denial_of_service", "lost_or_stolen_device", "misconfiguration", "vendor_incident", "physical", "policy_violation", "other"];
 const SEV = ["low", "medium", "high", "critical"];
@@ -129,6 +130,7 @@ function IncidentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
             {ed && <Button className="mt-4" loading={save.isPending} onClick={() => save.mutate({ ...clean(f), asset_ids: f.asset_ids.map(Number) })}>Save details</Button>}
             <p className="mt-3 text-xs text-muted-foreground">Personal data: {tri(data.personal_data_involved)} · notification required: {tri(data.notification_required)}</p>
           </Section>
+          <Comments kind="incident" id={id} />
         </div>
       )}
     </Sheet>

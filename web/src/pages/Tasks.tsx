@@ -15,6 +15,8 @@ import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { Select } from "@/components/ui/select";
 import { DateInput, EnumSelect, OwnerSelect } from "@/components/forms";
+import { Comments } from "@/components/Comments";
+import { SavedViews } from "@/components/SavedViews";
 
 const COLS = [
   { key: "todo", label: "To do" },
@@ -102,6 +104,7 @@ export default function Tasks() {
         <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-44"><Select value={framework} onChange={setFramework} allowEmpty emptyLabel="All frameworks" placeholder="Framework" ariaLabel="Framework" options={frameworks.map((f) => ({ value: f, label: f.replace(/_/g, " ") }))} /></div>
         <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-56"><Select value={control} onChange={setControl} allowEmpty emptyLabel="All controls" placeholder="Control" ariaLabel="Control" options={(controls.data ?? []).map((c) => ({ value: String(c.id), label: `${c.code} ${c.title}` }))} /></div>
         <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-44"><Select value={due} onChange={setDue} allowEmpty emptyLabel="Any due date" placeholder="Due" ariaLabel="Due" options={DUE} /></div>
+        <SavedViews page="tasks" filters={["assignee", "framework", "control", "due"]} />
         {filtered && <Button variant="ghost" size="sm" onClick={() => setParams((p) => { const n = new URLSearchParams(p); ["assignee", "framework", "control", "due"].forEach((k) => n.delete(k)); return n; })}><X /> Clear filters</Button>}
       </div>
       {data.length === 0 ? <Empty icon={ListChecks} title="No tasks yet" action={<Link to="/onboarding"><Button>Run setup to generate tasks</Button></Link>}>The setup wizard schedules recurring evidence tasks for your controls.</Empty> : view === "board" ? (
@@ -231,6 +234,7 @@ function TaskDrawer({ id, onClose }: { id: number; onClose: () => void }) {
         )}
         {data.status === "done" && <p className="text-sm text-muted-foreground">Approved {fmtDate(data.approved_at, true)} by {name(data.approved_by_id)}{data.review_comment ? `: ${data.review_comment}` : "."}</p>}
         {data.status === "not_relevant" && <p className="text-sm text-muted-foreground">Not relevant: {data.not_relevant_reason}</p>}
+        <Comments kind="task" id={id} />
       </div>
     </Sheet>
   );

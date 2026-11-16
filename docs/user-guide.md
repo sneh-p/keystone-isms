@@ -43,6 +43,18 @@ read. If an
 administrator has set up email, you also get a daily digest of unread items; turn it off under
 **My account**.
 
+## Working together
+
+- **Discussion:** risks, controls, tasks, incidents, policies, vendors, nonconformities and audits have a discussion.
+  Type @ and choose a person to mention them; they get a notification.
+- **Calendar** (Compliance → Calendar): what is due when (tasks, reviews, contract ends, expiring evidence, audits),
+  by person and kind. Change the record to move an entry.
+- **Workload** (Operations → Workload): open and overdue work per person, and what nobody owns yet.
+- **Saved views:** on Controls and Tasks, set filters and choose **Views → Save current filters**.
+- **Board summary:** Reports → Board summary (Word), one page for management.
+- **Risk library:** Risk register → **Add from library** starts a risk from a common scenario with a suggested
+  rating and treating controls; adjust both to your situation.
+
 ## Getting started (ISMS manager)
 
 1. **Onboarding wizard**: after the first sign-in, describe the company (size, where systems are

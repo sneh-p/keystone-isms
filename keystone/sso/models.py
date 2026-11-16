@@ -45,3 +45,13 @@ class OidcLogin(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
     used_at: Mapped[datetime | None] = mapped_column(DateTime)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+
+
+class SsoPolicy(Audited, TimestampMixin, Base):
+    """Single row. required=True turns password sign-in off for everyone except administrators (break-glass)."""
+
+    __tablename__ = "sso_policy"
+    REF_PREFIX = "SSOP"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

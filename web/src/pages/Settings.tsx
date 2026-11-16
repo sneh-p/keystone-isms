@@ -181,6 +181,10 @@ export function Reports() {
   return (
     <div className="animate-fade-in">
       <PageHeader icon={Activity} title="Reports & exports" description="Spreadsheet exports are written to the audit log and protected against formula injection. Treat them as confidential." />
+      <Card className="mb-4"><CardBody className="flex flex-wrap items-center justify-between gap-3">
+        <div><div className="font-medium">Board summary</div><div className="text-sm text-muted-foreground">One page for management: readiness, how the headline figures moved over the last 12 weeks, top risks and what needs a decision.</div></div>
+        <a href={downloadUrl("/reports/board.docx")}><Button><Download /> Word</Button></a>
+      </CardBody></Card>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {(data ?? []).map((n) => (
           <Card key={n}><CardBody className="flex items-center justify-between"><span className="font-medium">{n}</span><a href={downloadUrl(`/reports/${encodeURIComponent(n)}.xlsx`)}><Button variant="outline" size="sm"><Download /> Excel</Button></a></CardBody></Card>
@@ -328,6 +332,7 @@ export function SsoSettings() {
     <div className="animate-fade-in">
       <PageHeader icon={KeyRound} title="Single sign-on" description="Let people sign in with their Microsoft or Google work account." />
       {!data[0]?.public_url_set && <p role="alert" className="mb-4 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">Set KEYSTONE_PUBLIC_URL on the server first: the provider redirects back to that address, and sign-in can't be turned on without it.</p>}
+      <SsoRequired />
       <div className="grid gap-5 lg:grid-cols-2">{data.map((p) => <SsoCard key={p.kind} p={p} />)}</div>
       <Card className="mt-5"><CardHeader title="How accounts are matched" /><CardBody className="space-y-2 text-sm text-muted-foreground">
         <p><span className="font-medium text-foreground">Accounts you create:</span> add the user (tick “single sign-on only” if they won't have a password) with the email they use at the provider. Their first SSO sign-in links and activates the account; after that Keystone recognises them by the provider's user ID, not their email.</p>
@@ -335,6 +340,18 @@ export function SsoSettings() {
         <p>Microsoft sign-in only accepts accounts from your tenant. Google sign-in requires a verified email, and approved domains must be Google Workspace domains.</p>
       </CardBody></Card>
     </div>
+  );
+}
+
+function SsoRequired() {
+  const { data } = useApi<{ required: boolean; providers_on: string[] }>("/settings/sso-policy");
+  const save = useAction((required: boolean) => api("/settings/sso-policy", { method: "PUT", body: { required } }), { success: (r: any) => (r.required ? "Single sign-on is now required." : "Password sign-in is allowed again."), invalidate: ["/settings/sso"] });
+  if (!data) return null;
+  return (
+    <Card className="mb-5"><CardBody className="space-y-2">
+      <div><Switch checked={data.required} onChange={(v) => save.mutate(v)} label="Require single sign-on" disabled={!data.required && data.providers_on.length === 0} /></div>
+      <p className="text-sm text-muted-foreground">Everyone except administrators must sign in with Microsoft or Google. Administrators keep their password as the emergency route if the provider is unavailable, so keep their passwords strong and their number small.{data.providers_on.length === 0 && " Turn on a sign-in provider first."}</p>
+    </CardBody></Card>
   );
 }
 

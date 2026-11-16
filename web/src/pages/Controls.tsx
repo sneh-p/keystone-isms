@@ -15,6 +15,8 @@ import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { ViewAttachment } from "@/components/DocumentViewer";
+import { Comments } from "@/components/Comments";
+import { SavedViews } from "@/components/SavedViews";
 
 export const CONTROL_STATUS = [
   { value: "not_started", label: "Not started" },
@@ -73,6 +75,7 @@ export default function Controls() {
             <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-48"><Select value={status} onChange={setStatus} allowEmpty emptyLabel="All statuses" placeholder="All statuses" options={CONTROL_STATUS} ariaLabel="Status" /></div>
             <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-44"><Select value={owner} onChange={setOwner} allowEmpty emptyLabel="Any owner" placeholder="Any owner" options={[{ value: "none", label: "No owner" }, ...people.map((p) => ({ value: String(p.id), label: p.display_name }))]} ariaLabel="Owner" /></div>
             <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-48"><Select value={flag} onChange={setFlag} allowEmpty emptyLabel="Any attention" placeholder="Needs attention" options={FLAGS} ariaLabel="Needs attention" /></div>
+            <SavedViews page="controls" filters={["domain", "status", "owner", "flag"]} />
           </>
         }
         columns={[
@@ -214,6 +217,7 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
               <div className="flex flex-wrap gap-2">{data.risks.map((r: any) => <Link key={r.id} to={`/risks?open=${r.id}`}><Badge tone="outline">{r.ref} {r.title}</Badge></Link>)}</div>
             </Section>
           )}
+          <Comments kind="control" id={id} />
         </div>
       )}
     </Sheet>

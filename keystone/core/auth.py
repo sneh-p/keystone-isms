@@ -166,6 +166,13 @@ def authenticate(session: Session, username: str, password: str) -> User:
         session.flush()
         log_event(session, user, "login_failed", "User", user.id, "Wrong password")
         raise AuthError("Invalid username or password.")
+    from keystone.sso.service import password_sign_in_allowed  # lazy: avoids an import cycle
+
+    if not password_sign_in_allowed(session, user):
+        # Only reached with the right password, so it reveals nothing to someone guessing usernames.
+        session.flush()
+        log_event(session, user, "login_failed", "User", user.id, "Password sign-in refused: single sign-on is required")
+        raise AuthError("Sign in with your Microsoft or Google work account.")
     if _hasher.check_needs_rehash(user.password_hash):
         user.password_hash = hash_password(password)
     user.failed_logins = 0

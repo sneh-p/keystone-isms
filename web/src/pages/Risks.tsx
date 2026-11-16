@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Calculator, CheckCircle2, Gauge, Pencil, Plus, ShieldAlert } from "lucide-react";
+import { BookOpen, Calculator, CheckCircle2, Gauge, Pencil, Plus, ShieldAlert } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi, usePeople, useUnsavedGuard } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -19,6 +19,7 @@ import { DataTable } from "@/components/ui/table";
 import { HeatMap } from "@/components/viz/HeatMap";
 import { clean, DateInput, EnumSelect, OwnerSelect, RangeInput } from "@/components/forms";
 import { ImportButton } from "@/components/ImportDialog";
+import { Comments } from "@/components/Comments";
 
 const LossCurve = lazy(() => import("@/components/viz/LossCurve"));
 
@@ -41,7 +42,7 @@ export default function Risks() {
   return (
     <div className="animate-fade-in">
       <PageHeader icon={Gauge} title="Risk register" description={`Risk appetite: residual risk up to ${matrix.data.appetite_max_level}. Matrix and appetite are calibration starting points in config/risk_matrix.yaml.`}
-        actions={can("risk.write") && <><ImportButton register="risks" noun="risks" invalidate={["/risks", "/dashboard"]} /><Button onClick={() => setParams({ open: "new" })}><Plus /> New risk</Button></>} />
+        actions={can("risk.write") && <><ImportButton register="risks" noun="risks" invalidate={["/risks", "/dashboard"]} /><RiskLibrary onAdded={(id) => setParams({ open: String(id) })} /><Button onClick={() => setParams({ open: "new" })}><Plus /> New risk</Button></>} />
       <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label="Open risks" value={data.risks.filter((r: any) => r.status !== "closed").length} />
         <Stat label="Above appetite, untreated" value={att.above_appetite_untreated.length} tone={att.above_appetite_untreated.length ? "critical" : undefined} />
@@ -84,6 +85,45 @@ export default function Risks() {
   );
 }
 
+/** Start a risk from a Keystone library scenario (threat, weakness, consequence, suggested rating, treating controls). */
+function RiskLibrary({ onAdded }: { onAdded: (id: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [owner, setOwner] = useState<number | null>(null);
+  const lib = useApi<any[]>(open ? "/risk-library" : null);
+  const add = useAction((key: string) => api<{ id: number; ref: string }>("/risks/from-library", { body: { key, owner_id: owner } }), {
+    success: (r) => `${r.ref} added; review the rating for your context.`, invalidate: ["/risks", "/dashboard"], onSuccess: (r) => { setOpen(false); onAdded(r.id); },
+  });
+  const shown = (lib.data ?? []).filter((x) => `${x.title} ${x.threat} ${x.category}`.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)}><BookOpen /> Add from library</Button>
+      <Dialog open={open} onOpenChange={setOpen} title="Risk library" description="Common scenarios written for Keystone. Each comes with a suggested starting rating and the controls that usually treat it; adjust both to your context." extraWide>
+        <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_16rem]">
+          <Input aria-label="Search the library" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <OwnerSelect value={owner} onChange={setOwner} emptyLabel="Owner: decide later" ariaLabel="Risk owner" />
+        </div>
+        {!lib.data ? <Skeleton className="h-64" /> : (
+          <ul className="divide-y rounded-md border">
+            {shown.map((x) => (
+              <li key={x.key} className="flex flex-wrap items-start gap-3 px-3 py-2.5 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">{x.title}</div>
+                  <div className="text-xs text-muted-foreground">{titleCase(x.category)} · {x.threat}</div>
+                  <div className="mt-1 flex flex-wrap gap-1">{x.controls.map((c: string) => <Badge key={c} tone="outline" className="font-mono text-[10px]">{c}</Badge>)}</div>
+                </div>
+                <span className="text-xs text-muted-foreground">L{x.likelihood} × I{x.impact}</span>
+                <Button size="sm" variant="outline" loading={add.isPending && add.variables === x.key} onClick={() => add.mutate(x.key)}><Plus /> Add</Button>
+              </li>
+            ))}
+            {shown.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted-foreground">No scenario matches.</li>}
+          </ul>
+        )}
+      </Dialog>
+    </>
+  );
+}
+
 function RiskDrawer({ id, matrix, onClose, onCreated }: { id: string; matrix: any; onClose: () => void; onCreated: (id: number) => void }) {
   const isNew = id === "new";
   const { data } = useApi<any>(isNew ? null : `/risks/${id}`);
@@ -102,6 +142,7 @@ function RiskDrawer({ id, matrix, onClose, onCreated }: { id: string; matrix: an
             : <RiskView risk={data} matrix={matrix} /> },
           { value: "treat", label: `Treatment (${data.actions.length})`, content: <Treatment risk={data} /> },
           { value: "fair", label: "FAIR", content: <Fair risk={data} /> },
+          { value: "discussion", label: "Discussion", content: <Comments kind="risk" id={Number(id)} /> },
         ]} />
       )}
     </Sheet>

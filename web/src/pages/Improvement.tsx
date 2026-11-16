@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { clean, DateInput, EnumSelect, OwnerSelect } from "@/components/forms";
+import { Comments } from "@/components/Comments";
 
 const NC_SOURCES = ["internal_audit", "external_audit", "incident", "management_review", "self_identified", "complaint", "monitoring"];
 const SEV_TONE: Record<string, any> = { major: "critical", minor: "warning", observation: "neutral" };
@@ -120,6 +121,7 @@ function NcDrawer({ nc, onClose }: { nc: any; onClose: () => void }) {
             )}
           </div>
         </Section>
+        <Comments kind="nonconformity" id={nc.id} />
       </div>
     </Sheet>
   );
@@ -209,6 +211,7 @@ function AuditDrawer({ id, audits, onClose, onCreated }: { id: string; audits: a
           </Section>
         )}
         {a && <AuditRequests audit={a} controls={controls.data ?? []} />}
+        {a && <Comments kind="audit" id={a.id} />}
       </div>
     </Sheet>
   );

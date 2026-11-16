@@ -140,3 +140,22 @@ def update_sso(kind: str, body: SsoIn, user=Depends(perm("users.manage")), db: S
     from keystone.sso import service as sso
 
     return sso.view(sso.update(db, user, kind, **body.model_dump(exclude_unset=True)))
+
+
+@router.get("/settings/sso-policy")
+def sso_policy(user=Depends(perm("users.manage")), db: Session = Depends(get_db)):
+    from keystone.sso import service as sso
+
+    return {"required": sso.policy(db).required, "providers_on": sso.enabled_providers(db)}
+
+
+class SsoPolicyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    required: bool
+
+
+@router.put("/settings/sso-policy")
+def set_sso_policy(body: SsoPolicyIn, user=Depends(perm("users.manage")), db: Session = Depends(get_db)):
+    from keystone.sso import service as sso
+
+    return {"required": sso.set_required(db, user, body.required).required, "providers_on": sso.enabled_providers(db)}

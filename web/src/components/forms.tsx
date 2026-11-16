@@ -18,9 +18,9 @@ export function clean<T extends Record<string, any>>(o: T): T {
   return out;
 }
 
-export function OwnerSelect({ value, onChange, disabled, emptyLabel = "Unassigned" }: { value: number | null | undefined; onChange: (v: number | null) => void; disabled?: boolean; emptyLabel?: string }) {
+export function OwnerSelect({ value, onChange, disabled, emptyLabel = "Unassigned", ariaLabel }: { value: number | null | undefined; onChange: (v: number | null) => void; disabled?: boolean; emptyLabel?: string; ariaLabel?: string }) {
   const { people } = usePeople();
-  return <Select value={value ? String(value) : null} onChange={(v) => onChange(v ? Number(v) : null)} allowEmpty emptyLabel={emptyLabel} options={people.map((p) => ({ value: String(p.id), label: p.display_name }))} disabled={disabled} />;
+  return <Select value={value ? String(value) : null} onChange={(v) => onChange(v ? Number(v) : null)} allowEmpty emptyLabel={emptyLabel} options={people.map((p) => ({ value: String(p.id), label: p.display_name }))} disabled={disabled} ariaLabel={ariaLabel} />;
 }
 
 export function EnumSelect({ value, onChange, values, allowEmpty, disabled, labels }: { value: string | null | undefined; onChange: (v: any) => void; values: readonly string[]; allowEmpty?: boolean; disabled?: boolean; labels?: Record<string, string> }) {

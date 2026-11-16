@@ -17,6 +17,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
 import { clean, DateInput, EnumSelect, OwnerSelect } from "@/components/forms";
 import { ImportButton } from "@/components/ImportDialog";
+import { Comments } from "@/components/Comments";
 
 const TIER_TONE: Record<number, any> = { 1: "critical", 2: "serious", 3: "warning", 4: "neutral" };
 
@@ -88,6 +89,7 @@ function VendorDrawer({ id, tiers, onClose, onCreated }: { id: string; tiers: an
               )}
             </Section>
           ) },
+          { value: "discussion", label: "Discussion", content: <Comments kind="vendor" id={Number(id)} /> },
         ]} />
       )}
     </Sheet>

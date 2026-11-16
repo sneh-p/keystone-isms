@@ -39,7 +39,7 @@ from keystone.core.rbac import Role
 from keystone.core.services import authorize
 from keystone.core.settings import get_settings
 
-from .models import JIT_ROLES, PROVIDERS, OidcLogin, SsoProvider
+from .models import JIT_ROLES, PROVIDERS, OidcLogin, SsoPolicy, SsoProvider  # SsoPolicy is also used by the auth router
 
 LOGIN_TTL = timedelta(minutes=10)
 GUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
@@ -143,6 +143,9 @@ def update(session: Session, actor, kind: str, **fields) -> SsoProvider:
         p.client_secret_enc = secrets.encrypt(fields["client_secret"])
     if "enabled" in fields:
         p.enabled = bool(fields["enabled"])
+        pol_ = session.scalar(select(SsoPolicy))
+        if not p.enabled and pol_ and pol_.required and not [k for k in enabled_providers(session) if k != p.kind]:
+            raise ValueError("Single sign-on is required: turn that off before turning off the last sign-in provider.")
     if p.jit_enabled and not p.allowed_domains:
         raise ValueError("Automatic accounts need at least one approved domain.")
     if p.enabled:
@@ -152,6 +155,34 @@ def update(session: Session, actor, kind: str, **fields) -> SsoProvider:
         redirect_uri(p.kind)
     session.flush()
     return p
+
+
+def policy(session: Session) -> SsoPolicy:
+    p = session.scalar(select(SsoPolicy))
+    if p is None:
+        p = SsoPolicy(required=False)
+        session.add(p)
+        session.flush()
+    return p
+
+
+def set_required(session: Session, actor, required: bool) -> SsoPolicy:
+    """Require SSO for everyone except administrators, who keep password sign-in as the break-glass route
+    (decision 2026-11-16). Only possible while a sign-in provider is on."""
+    authorize(session, actor, "users.manage")
+    if required and not enabled_providers(session):
+        raise ValueError("Turn on Microsoft or Google sign-in first.")
+    p = policy(session)
+    p.required = bool(required)
+    session.flush()
+    return p
+
+
+def password_sign_in_allowed(session: Session, user: User) -> bool:
+    if user.role == Role.ADMIN.value:
+        return True
+    p = session.scalar(select(SsoPolicy))
+    return not (p and p.required and enabled_providers(session))
 
 
 def enabled_providers(session: Session) -> list[str]:

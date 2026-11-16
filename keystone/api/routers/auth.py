@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from keystone.core import auth, sessions
@@ -55,7 +56,9 @@ def _set_cookie(request: Request, response: Response, token: str) -> None:
 def status(db: Session = Depends(get_db)):
     from keystone.sso import service as sso
 
-    return {"needs_bootstrap": auth.needs_bootstrap(db), "session_timeout_minutes": get_settings().session_timeout_minutes, "sso": sso.enabled_providers(db)}
+    p = db.scalar(select(sso.SsoPolicy))
+    return {"needs_bootstrap": auth.needs_bootstrap(db), "session_timeout_minutes": get_settings().session_timeout_minutes, "sso": sso.enabled_providers(db),
+            "sso_required": bool(p and p.required and sso.enabled_providers(db))}
 
 
 # ---- single sign-on (OIDC); design and controls in keystone/sso/service.py ------------------------------

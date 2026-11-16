@@ -18,6 +18,7 @@ import { DataTable } from "@/components/ui/table";
 import { Markdown } from "@/components/Markdown";
 import { PolicyAssistant } from "@/components/PolicyAssistant";
 import { EnumSelect, OwnerSelect } from "@/components/forms";
+import { Comments } from "@/components/Comments";
 
 const TYPES = ["policy", "standard", "procedure", "guideline", "plan"];
 
@@ -182,6 +183,7 @@ function DocumentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
               {data.ack ? <div className="max-w-sm"><Progress label="Acknowledgement progress" value={data.ack.pct} tone={data.ack.pct === 100 ? "good" : "primary"} /><p className="mt-2 text-sm">{data.ack.acknowledged} of {data.ack.total} active users ({data.ack.pct}%)</p></div> : <p className="text-sm text-muted-foreground">Not required, or no approved version yet.</p>}
             </Section>
           ) },
+          { value: "discussion", label: "Discussion", content: <Comments kind="policy" id={id} /> },
         ]} />
       )}
     </Sheet>

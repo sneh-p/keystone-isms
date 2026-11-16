@@ -66,7 +66,8 @@ def refresh(session: Session, user: User, on: date | None = None, routed: dict |
     """Add new items to the user's inbox and resolve ones that no longer apply. Returns the number added."""
     now = datetime.now()
     items = {i["key"]: i for i in items_for(session, user, on, routed)}
-    existing = {n.key: n for n in session.scalars(select(Notification).where(Notification.user_id == user.id, Notification.resolved_at.is_(None)))}
+    # Only derived items resolve themselves; event notifications (mentions) stay until read.
+    existing = {n.key: n for n in session.scalars(select(Notification).where(Notification.user_id == user.id, Notification.resolved_at.is_(None), Notification.kind != "mention"))}
     for k, n in existing.items():
         if k not in items:
             n.resolved_at = now
