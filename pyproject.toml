@@ -22,6 +22,8 @@ dependencies = [
   "boto3>=1.34",
   "httpx>=0.27",
   "defusedxml>=0.7.1",  # SC-FILE-004: openpyxl uses it to parse untrusted .xlsx safely
+  "authlib>=1.9.5,<2",  # SC-AUTHN-004: OIDC single sign-on (PKCE helpers, ID token verification)
+  "joserfc>=1.8.0",  # Authlib's JOSE backend; versions before 1.8.0 have advisories GHSA-9pg5-8c7x-5hfx, GHSA-jpxq-7h8p-2q76
 ]
 
 [project.optional-dependencies]

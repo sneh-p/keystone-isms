@@ -1,6 +1,6 @@
 import {
   Activity, AlertOctagon, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Handshake, KeyRound,
-  LayoutDashboard, ListChecks, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, Settings, ShieldCheck, Siren, Sparkles, UserCog, Users, Wrench,
+  LayoutDashboard, ListChecks, Mail, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, Settings, ShieldCheck, Siren, Sparkles, UserCog, Users, Wrench,
 } from "lucide-react";
 
 export type NavItem = { label: string; to: string; icon: any; perm?: string; also?: string[] };
@@ -24,6 +24,7 @@ export const AREAS: { name: string; tabs: AreaTab[] }[] = [
     { label: "Users", to: "/settings/users", perm: "users.manage" },
     { label: "Audit log", to: "/settings/audit-log", perm: "audit_log.view" },
     { label: "AI", to: "/settings/ai", perm: "ai.manage" },
+    { label: "Email", to: "/settings/email", perm: "users.manage" },
     { label: "My account", to: "/settings/account" },
   ] },
 ];
@@ -80,7 +81,7 @@ export const NAV: NavSection[] = [
 /** Every screen, for the command palette: sidebar entries plus the tabs inside areas. */
 export const PAGES: { section: string; label: string; to: string; icon: any; perm?: string }[] = (() => {
   const icons: Record<string, any> = { "/questionnaires": ClipboardList, "/assessments": Handshake, "/audits": Wrench, "/reviews": Wrench,
-    "/settings/users": UserCog, "/settings/audit-log": AlertOctagon, "/settings/ai": Sparkles, "/settings/account": KeyRound, "/settings/organisation": Building2 };
+    "/settings/users": UserCog, "/settings/audit-log": AlertOctagon, "/settings/ai": Sparkles, "/settings/email": Mail, "/settings/account": KeyRound, "/settings/organisation": Building2 };
   const out: { section: string; label: string; to: string; icon: any; perm?: string }[] = [];
   for (const s of NAV) for (const it of s.items) {
     const area = AREAS.find((a) => a.tabs.some((t) => t.to === it.to));

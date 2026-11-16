@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Menu } from "@/components/ui/dropdown";
+import { NotificationBell } from "@/components/NotificationBell";
 import { AREAS, BUILT, NAV, PAGES, type NavItem } from "./nav";
 
 function Logo({ collapsed }: { collapsed?: boolean }) {
@@ -194,6 +195,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <kbd className="hidden rounded border bg-muted px-1.5 text-[10px] font-medium sm:inline">⌘K</kbd>
           </button>
           <div className="ml-auto flex items-center gap-1">
+            <NotificationBell />
             <Menu
               trigger={<button className="rounded-md p-2 hover:bg-muted" aria-label="Theme"><ThemeIcon className="size-4" /></button>}
               items={[

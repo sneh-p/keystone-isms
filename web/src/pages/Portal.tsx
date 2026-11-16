@@ -15,6 +15,7 @@ import { Field, Input } from "@/components/ui/input";
 import { Progress, Skeleton } from "@/components/ui/misc";
 import { Select } from "@/components/ui/select";
 import { Markdown } from "@/components/Markdown";
+import { NotificationBell } from "@/components/NotificationBell";
 
 function PortalShell({ children }: { children: any }) {
   const { me, logout } = useAuth();
@@ -27,6 +28,7 @@ function PortalShell({ children }: { children: any }) {
           <span className="font-semibold">Employee portal</span>
           <div className="ml-auto flex items-center gap-3 text-sm">
             {me?.permissions.includes("read") && <Link to="/" className="text-primary hover:underline">Back to Keystone</Link>}
+            <NotificationBell />
             <span className="hidden text-muted-foreground sm:inline">{me?.display_name}</span>
             <Button size="sm" variant="ghost" onClick={() => logout().then(() => nav("/login"))}><LogOut /> Sign out</Button>
           </div>

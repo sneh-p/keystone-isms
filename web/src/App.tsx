@@ -36,6 +36,7 @@ const Organisation = lazy(() => import("@/pages/Settings").then((m) => ({ defaul
 const Users = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Users })));
 const AuditLog = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.AuditLog })));
 const Account = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Account })));
+const EmailSettings = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.EmailSettings })));
 const Reports = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Reports })));
 const AiSettings = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.AiSettings })));
 const SecurityQuestionnaires = lazy(() => import("@/pages/SecurityQuestionnaires"));
@@ -73,6 +74,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/settings/audit-log", element: <AuditLog />, nav: true },
   { path: "/settings/account", element: <Account />, nav: true },
   { path: "/settings/ai", element: <AiSettings />, nav: true },
+  { path: "/settings/email", element: <EmailSettings />, nav: true },
 ];
 APP_ROUTES.filter((r) => r.nav).forEach((r) => BUILT.add(r.path));
 

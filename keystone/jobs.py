@@ -31,3 +31,14 @@ def snapshot_metrics() -> None:
 
     with db.session_scope() as s:
         dashboard.take_snapshot(s)
+
+
+@register("notifications", minutes=60)
+def refresh_notifications() -> None:
+    """Refresh every user's inbox, then send the daily email digest once the configured hour has passed."""
+    from keystone.notifications import service as ntf
+
+    with db.session_scope() as s:
+        ntf.refresh_all(s)
+    with db.session_scope() as s:  # mail errors are caught inside and recorded in smtp_settings.last_error
+        ntf.send_digests(s)

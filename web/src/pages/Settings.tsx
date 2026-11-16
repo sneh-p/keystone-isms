@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertOctagon, Building2, CheckCircle2, Download, KeyRound, Plus, ShieldAlert, Sparkles, Stamp, Trash2, UserCog, Activity } from "lucide-react";
+import { AlertOctagon, Building2, CheckCircle2, Download, KeyRound, Plus, ShieldAlert, Sparkles, Stamp, Trash2, UserCog, Activity, Mail } from "lucide-react";
 import { api, downloadUrl } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +14,7 @@ import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
 import { clean, DateInput, EnumSelect, OwnerSelect } from "@/components/forms";
+import { DigestPreference } from "@/components/NotificationBell";
 
 export function Organisation() {
   const { can } = useAuth();
@@ -161,6 +162,7 @@ export function Account() {
           <Field label="Confirm"><Input type="password" value={f.confirm} onChange={(e) => setF({ ...f, confirm: e.target.value })} autoComplete="new-password" /></Field>
           <Button disabled={!f.next || f.next !== f.confirm} loading={change.isPending} onClick={() => change.mutate(undefined)}>Change password</Button>
         </CardBody></Card>
+        <DigestPreference />
       </div>
     </div>
   );
@@ -251,6 +253,61 @@ export function AiSettings() {
           { key: "r", header: "Result", cell: (r: any) => r.ok ? <Badge tone="good">OK</Badge> : <Badge tone="critical">{r.error ?? "Failed"}</Badge> },
         ]} />
       </Card>
+    </div>
+  );
+}
+
+export function EmailSettings() {
+  const { data } = useApi<any>("/settings/email");
+  const [f, setF] = useState<any>(null);
+  const [pw, setPw] = useState("");
+  const [to, setTo] = useState("");
+  const loaded = data ? JSON.stringify(data) : null;
+  const [formKey, setFormKey] = useState<string | null>(null);
+  if (data && loaded !== formKey) { setFormKey(loaded); setF({ enabled: data.enabled, host: data.host ?? "", port: data.port, security: data.security, username: data.username ?? "", from_address: data.from_address ?? "", from_name: data.from_name, digest_hour_utc: data.digest_hour_utc }); }
+  const save = useAction((extra: any) => api("/settings/email", { method: "PUT", body: { ...f, host: f.host || null, username: f.username || null, from_address: f.from_address || null, ...(pw ? { password: pw } : {}), ...extra } }), { success: "Email settings saved.", invalidate: ["/settings/email"], onSuccess: () => setPw("") });
+  const test = useAction(() => api<{ sent_to: string }>("/settings/email/test", { body: to ? { to } : {} }), { success: (r) => `Test message sent to ${r.sent_to}.`, invalidate: ["/settings/email"] });
+  if (!data || !f) return <Skeleton className="h-96" />;
+  return (
+    <div className="animate-fade-in">
+      <PageHeader icon={Mail} title="Email" description="The SMTP relay Keystone uses for the daily notification digest." />
+      <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
+        <Card>
+          <CardHeader title="SMTP relay" description="Encrypted connections only (STARTTLS or TLS), with the certificate checked." />
+          <CardBody className="space-y-4">
+            <Switch checked={f.enabled} onChange={(v) => setF({ ...f, enabled: v })} label={f.enabled ? "Daily digests are on" : "Daily digests are off"} />
+            <div className="grid gap-4 sm:grid-cols-[1fr_7rem_9rem]">
+              <Field label="Relay host" hint="For example smtp.office365.com or smtp.gmail.com."><Input value={f.host} onChange={(e) => setF({ ...f, host: e.target.value })} autoComplete="off" /></Field>
+              <Field label="Port"><Select value={String(f.port)} onChange={(v) => setF({ ...f, port: Number(v) })} options={[587, 465, 25, 2525].map((p) => ({ value: String(p), label: String(p) }))} /></Field>
+              <Field label="Security"><Select value={f.security} onChange={(v) => setF({ ...f, security: v })} options={[{ value: "starttls", label: "STARTTLS" }, { value: "tls", label: "TLS (implicit)" }]} /></Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="User name" hint="Leave empty if the relay doesn't need sign-in."><Input value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} autoComplete="off" /></Field>
+              <Field label="Password" hint={data.password_set ? "Stored (encrypted, write-only). Leave empty to keep it. Changing the host removes it." : "Not set."}>
+                <Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" placeholder={data.password_set ? "•••••••• (set)" : ""} />
+              </Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-[1fr_1fr_9rem]">
+              <Field label="Sender address"><Input value={f.from_address} onChange={(e) => setF({ ...f, from_address: e.target.value })} placeholder="isms@example.com" /></Field>
+              <Field label="Sender name"><Input value={f.from_name} onChange={(e) => setF({ ...f, from_name: e.target.value })} /></Field>
+              <Field label="Send at (UTC)"><Select value={String(f.digest_hour_utc)} onChange={(v) => setF({ ...f, digest_hour_utc: Number(v) })} options={Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, "0")}:00` }))} /></Field>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button loading={save.isPending} onClick={() => save.mutate({})}>Save</Button>
+              {data.password_set && <Button variant="ghost" onClick={() => { if (confirm("Remove the stored SMTP password?")) save.mutate({ clear_password: true }); }}><Trash2 /> Remove password</Button>}
+            </div>
+            {data.last_error && <p role="alert" className="text-sm text-critical">Last attempt failed: {data.last_error}</p>}
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="Send a test" description="Save first. The test goes to your account's address unless you enter another." />
+          <CardBody className="space-y-3">
+            <Field label="Send to (optional)"><Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="you@example.com" /></Field>
+            <Button variant="outline" loading={test.isPending} disabled={!data.host} onClick={() => test.mutate(undefined)}><Mail /> Send test message</Button>
+            <p className="text-xs text-muted-foreground">Keystone connects only to public addresses. An internal relay must be allowed by the server operator (KEYSTONE_SMTP_PRIVATE_HOSTS){data.private_hosts_allowed.length ? `; allowed now: ${data.private_hosts_allowed.join(", ")}` : ""}.</p>
+          </CardBody>
+        </Card>
+      </div>
     </div>
   );
 }
