@@ -42,7 +42,9 @@ def test_concept_trust_fields(path):
     assert meta.get("status") in ("draft", "stable", "deprecated")
     assert "by" in meta.get("generated", {}) and "at" in meta.get("generated", {})
     if meta["status"] == "stable":  # human sign-off is what makes a concept stable
-        assert any(str(v.get("by", "")).startswith("human:") for v in (meta.get("verified") or [meta.get("verified") or {}]) if isinstance(v, dict)), path.name
+        verified = meta.get("verified") or []
+        entries = verified if isinstance(verified, list) else [verified]
+        assert any(isinstance(v, dict) and str(v.get("by", "")).startswith("human:") and v.get("at") for v in entries), f"{path.name}: stable needs a human verified entry"
     if meta.get("rule_prefix"):
         assert isinstance(meta.get("applies_to"), list) and meta["applies_to"], "applies_to globs tell the agent when to load it"
         assert isinstance(meta.get("load_when"), list) and meta["load_when"]

@@ -6,7 +6,8 @@ tags: [security, secrets, configuration]
 rule_prefix: SC-SEC
 applies_to: ["**/*"]
 load_when: ["API key, password, token or connection string", "settings or environment variables", "integration credentials", "Dockerfile, compose or CI", "web environment variables", "test fixtures"]
-status: draft
+status: stable
+verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---

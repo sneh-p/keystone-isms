@@ -6,7 +6,8 @@ tags: [security, agent, process]
 rule_prefix: SC-AGT
 applies_to: ["**/*"]
 load_when: ["every task"]
-status: draft
+status: stable
+verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---

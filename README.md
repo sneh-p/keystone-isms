@@ -112,7 +112,8 @@ Changes to this repository, by people or coding agents, follow the secure coding
 `scripts/security-check.sh all` runs the gates that prove compliance (ruff, ESLint, Semgrep, gitleaks, pip-audit,
 npm audit, the suppression check and the tests). CI runs the same gates (`.github/workflows/security.yml`), and
 `.github/CODEOWNERS` requires AppSec review for the controls themselves. Exceptions to a MUST rule exist only in the
-[exception register](.knowledge/secure-coding/exceptions.md). Every concept is a draft until AppSec signs it off.
+[exception register](.knowledge/secure-coding/exceptions.md). AppSec (`@Sneh/appsec`) signed off every concept on
+2026-11-16; changes to the standard and its controls need their review.
 
 ## Configuration
 

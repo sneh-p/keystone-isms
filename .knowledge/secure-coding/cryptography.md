@@ -6,7 +6,8 @@ tags: [security, cryptography, tls]
 rule_prefix: SC-CRY
 applies_to: ["keystone/**/*.py", "scripts/**/*.py", "web/src/**/*.ts", "web/src/**/*.tsx"]
 load_when: ["secrets, hashlib, hmac or cryptography", "random token or ID", "encrypt, hash or sign", "httpx, boto3 or anthropic client options", "storing sensitive data"]
-status: draft
+status: stable
+verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---

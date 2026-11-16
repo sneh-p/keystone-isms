@@ -3,7 +3,8 @@ type: Playbook
 title: Verification Gates
 description: The commands that must pass before a commit or PR, what each one catches, and the security report every PR includes.
 tags: [security, verification, ci]
-status: draft
+status: stable
+verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---

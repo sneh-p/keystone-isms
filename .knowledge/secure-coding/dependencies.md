@@ -6,7 +6,8 @@ tags: [security, supply-chain, dependencies, ci]
 rule_prefix: SC-DEP
 applies_to: ["pyproject.toml", "requirements.lock", "web/package.json", "web/package-lock.json", "web/.npmrc", ".github/workflows/**", "Dockerfile*", "docker-compose*.yml", "collector/**/*.ps1"]
 load_when: ["pip install", "npm install", "importing a new external package", "Install-Module", "upgrading packages", "editing CI, Dockerfile or compose"]
-status: draft
+status: stable
+verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---

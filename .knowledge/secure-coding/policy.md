@@ -3,7 +3,8 @@ type: Policy
 title: Secure Coding Policy
 description: How to read and apply this standard - keywords, severities, rule IDs, precedence and exceptions.
 tags: [security, policy]
-status: draft
+status: stable
+verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 sources:

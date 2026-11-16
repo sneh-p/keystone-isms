@@ -6,7 +6,8 @@ tags: [security, backend, authentication, sessions]
 rule_prefix: SC-AUTHN
 applies_to: ["keystone/core/auth.py", "keystone/core/sessions.py", "keystone/api/routers/auth.py", "keystone/api/deps.py", "keystone/people/**", "keystone/trust/**", "**/*session*", "**/*login*", "**/*token*", "**/*password*", "web/src/lib/auth.tsx", "web/src/pages/Auth.tsx"]
 load_when: ["login or setup", "passwords", "sessions or cookies", "invitation links", "Trust Center access links", "API keys or tokens", "MFA or SSO"]
-status: draft
+status: stable
+verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---

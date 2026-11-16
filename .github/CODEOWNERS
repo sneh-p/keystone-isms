@@ -1,40 +1,40 @@
 # Changes to security controls and security-sensitive code require AppSec approval.
-# Replace @your-org/appsec with your team, and enable "Require review from Code Owners" on main.
+# AppSec team: @Sneh/appsec. Enable "Require review from Code Owners" in branch protection on main.
 
 # The standard and its enforcement (SC-AGT-002)
-/.knowledge/secure-coding/              @your-org/appsec
-/AGENTS.md                              @your-org/appsec
-/CLAUDE.md                              @your-org/appsec
-/ruff.toml                              @your-org/appsec
-/.semgrep/                              @your-org/appsec
-/.semgrepignore                         @your-org/appsec
-/.gitleaks.toml                         @your-org/appsec
-/web/eslint.config.js                   @your-org/appsec
-/web/.npmrc                             @your-org/appsec
-/web/tsconfig*.json                     @your-org/appsec
-/scripts/check-suppressions.sh          @your-org/appsec
-/scripts/security-check.sh              @your-org/appsec
-/.github/                               @your-org/appsec
+/.knowledge/secure-coding/              @Sneh/appsec
+/AGENTS.md                              @Sneh/appsec
+/CLAUDE.md                              @Sneh/appsec
+/ruff.toml                              @Sneh/appsec
+/.semgrep/                              @Sneh/appsec
+/.semgrepignore                         @Sneh/appsec
+/.gitleaks.toml                         @Sneh/appsec
+/web/eslint.config.js                   @Sneh/appsec
+/web/.npmrc                             @Sneh/appsec
+/web/tsconfig*.json                     @Sneh/appsec
+/scripts/check-suppressions.sh          @Sneh/appsec
+/scripts/security-check.sh              @Sneh/appsec
+/.github/                               @Sneh/appsec
 
 # Supply chain (SC-DEP)
-/requirements.lock                      @your-org/appsec
-/web/package-lock.json                  @your-org/appsec
-/Dockerfile                             @your-org/appsec
-/docker-compose.yml                     @your-org/appsec
-/deploy/                                @your-org/appsec
+/requirements.lock                      @Sneh/appsec
+/web/package-lock.json                  @Sneh/appsec
+/Dockerfile                             @Sneh/appsec
+/docker-compose.yml                     @Sneh/appsec
+/deploy/                                @Sneh/appsec
 
 # Security-sensitive code (SC-AGT-006 escalation areas)
-/keystone/core/auth.py                  @your-org/appsec
-/keystone/core/sessions.py              @your-org/appsec
-/keystone/core/rbac.py                  @your-org/appsec
-/keystone/core/audit.py                 @your-org/appsec
-/keystone/core/secrets.py               @your-org/appsec
-/keystone/core/attachments.py           @your-org/appsec
-/keystone/core/safe_files.py            @your-org/appsec
-/keystone/api/deps.py                   @your-org/appsec
-/keystone/api/app.py                    @your-org/appsec
-/keystone/api/routers/auth.py           @your-org/appsec
-/keystone/integrations/providers/       @your-org/appsec
-/keystone/ai/                           @your-org/appsec
-/collector/                             @your-org/appsec
-/tests/test_api.py                      @your-org/appsec
+/keystone/core/auth.py                  @Sneh/appsec
+/keystone/core/sessions.py              @Sneh/appsec
+/keystone/core/rbac.py                  @Sneh/appsec
+/keystone/core/audit.py                 @Sneh/appsec
+/keystone/core/secrets.py               @Sneh/appsec
+/keystone/core/attachments.py           @Sneh/appsec
+/keystone/core/safe_files.py            @Sneh/appsec
+/keystone/api/deps.py                   @Sneh/appsec
+/keystone/api/app.py                    @Sneh/appsec
+/keystone/api/routers/auth.py           @Sneh/appsec
+/keystone/integrations/providers/       @Sneh/appsec
+/keystone/ai/                           @Sneh/appsec
+/collector/                             @Sneh/appsec
+/tests/test_api.py                      @Sneh/appsec

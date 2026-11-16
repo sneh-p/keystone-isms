@@ -6,7 +6,8 @@ tags: [security, backend, http, configuration]
 rule_prefix: SC-CFG
 applies_to: ["keystone/api/app.py", "keystone/api/deps.py", "keystone/core/settings.py", "deploy/**", "Dockerfile", "docker-compose.yml", "web/vite.config.ts"]
 load_when: ["app or middleware setup", "CORS", "cookies", "headers", "nginx or systemd config", "new setting or feature flag", "production settings"]
-status: draft
+status: stable
+verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---

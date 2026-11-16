@@ -6,7 +6,8 @@ tags: [security, backend, authorization]
 rule_prefix: SC-AUTHZ
 applies_to: ["keystone/**/*.py", "tests/test_api.py"]
 load_when: ["new or changed endpoint", "new or changed service function", "scheduled job acting for a user", "query by ID", "create or update from request data", "public endpoint"]
-status: draft
+status: stable
+verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---

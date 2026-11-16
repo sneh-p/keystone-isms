@@ -3,7 +3,8 @@ type: Exception Register
 title: Security Exception Register
 description: Human-approved, time-limited exceptions to MUST rules. Code may only reference exception IDs listed here.
 tags: [security, exceptions]
-status: draft
+status: stable
+verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 ---
 

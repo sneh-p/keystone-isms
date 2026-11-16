@@ -33,7 +33,7 @@ Semgrep baseline refer to.
 | SC-LLM-005 | AI calls have token limits, timeouts and per-user accounting, but no per-user rate limit or cost budget | Hourly per-user limit and a monthly token budget in **Settings → AI** |
 | SC-CFG-006 | The evaluation server is served over plain HTTP on port 80 | TLS at the proxy before real use (see the admin guide) |
 
-## Baseline decisions to confirm (AppSec)
+## Baseline decisions (confirmed by AppSec, human:sneh, 2026-11-16)
 
 - `.semgrep/baseline-commit` holds back the one Semgrep registry finding present at adoption
   (`request-host-used` in `deploy/nginx/keystone-proxy.conf`, above).
@@ -58,10 +58,11 @@ Semgrep baseline refer to.
   `npm audit signatures` through a pinned npm 11.21.2 because npm 9.2 can't verify the registry's rotated keys.
 - **Python type checking**: no mypy gate yet.
 
-## Before switching it on
+## Switching it on
 
-1. AppSec reviews each concept, replaces `@your-org/appsec` in `.github/CODEOWNERS`, adds
-   `verified: { by: human:<id>, at: <timestamp> }`, sets `status: stable`, and records it in `log.md`.
-2. Branch protection: make `security-check` a required status check and require Code Owner review on `main`.
-3. Confirm or change the baseline decisions above, and schedule the escalations.
+1. Done 2026-11-16: AppSec (human:sneh) signed off every concept (`status: stable`, `verified` recorded in each file
+   and in `log.md`); Code Owner team is `@Sneh/appsec`.
+2. Branch protection (when the repository is on GitHub): make `security-check` a required status check and
+   require Code Owner review on `main`.
+3. Done 2026-11-16: baseline decisions confirmed. The escalations above remain open until fixed.
 4. ASVS mappings are chapter-level; verify them against ASVS 5.0 before audit use.

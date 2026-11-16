@@ -6,7 +6,8 @@ tags: [security, backend, injection, database]
 rule_prefix: SC-INJ
 applies_to: ["keystone/**/*.py", "scripts/**/*.py", "migrations/**/*.py", "collector/**/*.ps1"]
 load_when: ["database query", "sqlalchemy text()", "subprocess", "PowerShell Invoke-Expression", "eval or exec", "template rendering", "deserialization or YAML"]
-status: draft
+status: stable
+verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---
