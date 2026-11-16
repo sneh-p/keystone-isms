@@ -1,0 +1,28 @@
+key: data-handling
+title: Handling data and privacy
+version: 1
+minutes: 6
+summary: How to handle information according to its classification and respect personal data.
+body: |
+  ## Classification
+  Information is **Public**, **Internal**, **Confidential** or **Restricted**. If you are not sure, treat it as Confidential.
+
+  ## Everyday rules
+  - Share Confidential and Restricted information only with people who need it, through approved company services.
+  - Double-check recipients before sending; turn off autocomplete for sensitive emails if you can.
+  - Do not copy company data to USB drives or personal devices.
+  - Delete information when it is no longer needed, following the retention schedule.
+
+  ## Personal data
+  Personal data (about customers, colleagues or anyone else) must be used only for the purpose it was collected for. If personal data is sent to the wrong person or lost, it may have to be reported to a regulator within 72 hours, so report it at once.
+quiz:
+  - q: You are unsure how sensitive a document is. How should you treat it?
+    options: ["As Public", "As Confidential", "As Internal"]
+    answer: 1
+  - q: You emailed a customer list to the wrong person. What should you do?
+    options: ["Nothing, they will delete it", "Report it immediately", "Send an apology and move on"]
+    answer: 1
+  - q: Which is an approved way to share a confidential file with a colleague?
+    options: ["The company file-sharing service with access limited to them", "Personal email", "A public link anyone can open"]
+    answer: 0
+pass_mark: 2

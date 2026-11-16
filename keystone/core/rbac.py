@@ -12,6 +12,7 @@ class Role(StrEnum):
     CONTROL_OWNER = "control_owner"
     AUDITOR = "auditor"
     VIEWER = "viewer"
+    EMPLOYEE = "employee"
 
 
 ROLE_LABELS = {
@@ -21,6 +22,7 @@ ROLE_LABELS = {
     Role.CONTROL_OWNER: "Control owner",
     Role.AUDITOR: "Auditor",
     Role.VIEWER: "Viewer",
+    Role.EMPLOYEE: "Employee (portal only)",
 }
 
 ALL_PERMISSIONS = frozenset(
@@ -51,10 +53,12 @@ ALL_PERMISSIONS = frozenset(
         "review.write",
         "task.write",
         "task.approve",
+        "people.write",
+        "portal",
     }
 )
 
-_BASE = {"read", "policy.acknowledge"}
+_BASE = {"read", "policy.acknowledge", "portal"}
 
 ROLE_PERMISSIONS: dict[Role, frozenset[str]] = {
     Role.ADMIN: ALL_PERMISSIONS,
@@ -63,6 +67,8 @@ ROLE_PERMISSIONS: dict[Role, frozenset[str]] = {
     Role.CONTROL_OWNER: frozenset(_BASE | {"control.write", "evidence.write", "incident.write", "nc.write", "task.write"}),
     Role.AUDITOR: frozenset(_BASE | {"audit.findings", "audit_log.view"}),
     Role.VIEWER: frozenset(_BASE),
+    # Employees use only their own portal: no access to ISMS records.
+    Role.EMPLOYEE: frozenset({"portal", "policy.acknowledge"}),
 }
 
 

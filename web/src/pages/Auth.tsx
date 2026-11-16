@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -37,6 +37,7 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: s
 export function Login() {
   const { login } = useAuth();
   const nav = useNavigate();
+  const loc = useLocation();
   const [u, setU] = useState("");
   const [p, setP] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,7 +48,7 @@ export function Login() {
     setErr(null);
     try {
       await login(u, p);
-      nav("/");
+      nav((loc.state as any)?.from ?? "/");
     } catch (x: any) {
       setErr(x.message);
     } finally {

@@ -1,0 +1,24 @@
+key: remote-work
+title: Working remotely and securing your device
+version: 1
+minutes: 5
+summary: Keeping company devices and information safe at home and on the move.
+body: |
+  ## Your device
+  - Keep disk encryption, the screen lock and anti-malware turned on.
+  - Install operating system and app updates promptly.
+  - Do not let family or friends use your work device.
+
+  ## Networks
+  Use your home network or a trusted mobile hotspot. On public Wi-Fi, use the company VPN and avoid sensitive work.
+
+  ## Out and about
+  Be aware of people looking at your screen or listening to calls. Never leave devices unattended in public or visible in a car.
+quiz:
+  - q: You are working in a café. What is safest?
+    options: ["Use public Wi-Fi without VPN", "Use the company VPN or a personal hotspot", "Turn off the firewall to connect faster"]
+    answer: 1
+  - q: Can a family member use your work laptop for homework?
+    options: ["Yes, if you watch them", "No", "Only at weekends"]
+    answer: 1
+pass_mark: 2

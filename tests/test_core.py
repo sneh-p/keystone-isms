@@ -96,9 +96,11 @@ def test_role_permissions(users):
         require(users["viewer"], "org.write")
 
 
-def test_every_role_has_read():
+def test_every_staff_role_has_read_and_employees_do_not():
     from keystone.core.rbac import ROLE_PERMISSIONS
-    assert all("read" in perms for perms in ROLE_PERMISSIONS.values())
+    assert all("read" in perms for r, perms in ROLE_PERMISSIONS.items() if r is not Role.EMPLOYEE)
+    assert ROLE_PERMISSIONS[Role.EMPLOYEE] == frozenset({"portal", "policy.acknowledge"})
+    assert all("portal" in perms for perms in ROLE_PERMISSIONS.values())
 
 
 # ---- audit log ----------------------------------------------------------------------

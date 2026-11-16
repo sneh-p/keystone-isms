@@ -1,0 +1,22 @@
+key: incident-reporting
+title: Reporting incidents
+version: 1
+minutes: 4
+summary: What to report, how, and why fast reporting matters.
+body: |
+  ## What to report
+  Anything that might affect the security of our information or systems: suspicious messages, lost or stolen devices, data sent to the wrong person, strange system behaviour, unauthorised people in the office, or a policy you think is being broken.
+
+  ## How to report
+  Tell the security team or IT helpdesk straight away using the reporting channel your organisation has set up. Include what happened, when, and what you have done so far. Do not try to investigate yourself.
+
+  ## Why speed matters
+  Containing an incident in its first hour is far easier than days later, and some incidents carry legal reporting deadlines. Reporting quickly is always the right call, even if it turns out to be nothing.
+quiz:
+  - q: Your laptop was stolen from your car. What do you do first?
+    options: ["Buy a new one", "Report it to security/IT immediately", "Wait until Monday"]
+    answer: 1
+  - q: You are not sure whether something counts as an incident. Should you report it?
+    options: ["Yes, report it", "No, only report confirmed incidents", "Only if your manager agrees"]
+    answer: 0
+pass_mark: 2

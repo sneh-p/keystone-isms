@@ -15,6 +15,10 @@ const Evidence = lazy(() => import("@/pages/Evidence"));
 const Risks = lazy(() => import("@/pages/Risks"));
 const Tasks = lazy(() => import("@/pages/Tasks"));
 const Onboarding = lazy(() => import("@/pages/Onboarding"));
+const People = lazy(() => import("@/pages/People"));
+const Portal = lazy(() => import("@/pages/Portal"));
+const TrainingModule = lazy(() => import("@/pages/Portal").then((m) => ({ default: m.TrainingModule })));
+const AcceptInvite = lazy(() => import("@/pages/Portal").then((m) => ({ default: m.AcceptInvite })));
 const Assets = lazy(() => import("@/pages/Assets"));
 const Vendors = lazy(() => import("@/pages/Vendors"));
 const Questionnaires = lazy(() => import("@/pages/Questionnaires"));
@@ -42,6 +46,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/risks", element: <Risks />, nav: true },
   { path: "/tasks", element: <Tasks />, nav: true },
   { path: "/onboarding", element: <Onboarding /> },
+  { path: "/people", element: <People />, nav: true },
   { path: "/assets", element: <Assets />, nav: true },
   { path: "/vendors", element: <Vendors />, nav: true },
   { path: "/questionnaires", element: <Questionnaires />, nav: true },
@@ -77,16 +82,27 @@ function Private({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/** Staff-only area: employees are sent to their portal. */
+function Staff({ children }: { children: ReactNode }) {
+  const { me } = useAuth();
+  if (me && !me.permissions.includes("read")) return <Navigate to="/portal" replace />;
+  return <>{children}</>;
+}
+
 export default function App() {
   const { me, needsBootstrap } = useAuth();
   return (
     <Routes>
       <Route path="/login" element={me ? <Navigate to="/" replace /> : needsBootstrap ? <Navigate to="/setup" replace /> : <Login />} />
       <Route path="/setup" element={needsBootstrap ? <Setup /> : <Navigate to="/" replace />} />
+      <Route path="/invite/:token" element={<Suspense fallback={<Loading />}><AcceptInvite /></Suspense>} />
+      <Route path="/portal" element={<Private><Suspense fallback={<Loading />}><Portal /></Suspense></Private>} />
+      <Route path="/portal/training/:key" element={<Private><Suspense fallback={<Loading />}><TrainingModule /></Suspense></Private>} />
       <Route
         path="/*"
         element={
           <Private>
+            <Staff>
             <AppShell>
               <Suspense fallback={<Loading />}>
                 <Routes>
@@ -95,6 +111,7 @@ export default function App() {
                 </Routes>
               </Suspense>
             </AppShell>
+            </Staff>
           </Private>
         }
       />

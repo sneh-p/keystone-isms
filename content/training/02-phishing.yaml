@@ -1,0 +1,32 @@
+key: phishing
+title: Phishing and social engineering
+version: 1
+minutes: 7
+summary: How to spot messages and calls designed to trick you, and what to do about them.
+body: |
+  ## What phishing looks like
+  Phishing messages try to make you act fast: open an attachment, sign in on a fake page, pay an invoice or share data. They arrive by email, text, chat and phone.
+
+  ## Warning signs
+  - Urgency or pressure ("your account will be closed today").
+  - A sender address or link that does not quite match the real organisation. Hover over links before clicking.
+  - Requests to change bank details, buy gift cards, or bypass a normal process.
+  - Unexpected attachments, especially archives, macros or "invoice" documents.
+  - A sign-in page reached from a link rather than from your bookmark.
+
+  ## What to do
+  Do not click or reply. Use the **Report** button in your mail client or forward the message to the security team. If you already clicked or entered your password, report immediately so we can reset it: speed matters more than embarrassment.
+
+  ## Phone and chat
+  Callers may pretend to be IT support or a senior manager. Verify through a number or channel you already know before acting.
+quiz:
+  - q: A supplier emails asking you to update their bank details urgently. What do you do?
+    options: ["Update them, it is urgent", "Verify with the supplier using contact details you already have", "Reply asking if they are sure"]
+    answer: 1
+  - q: You entered your password on a page you now think was fake. What next?
+    options: ["Wait and see", "Report it immediately", "Change the password next month"]
+    answer: 1
+  - q: Which is a warning sign of phishing?
+    options: ["Pressure to act quickly", "A message from a known colleague about a planned meeting", "A newsletter you subscribed to"]
+    answer: 0
+pass_mark: 2

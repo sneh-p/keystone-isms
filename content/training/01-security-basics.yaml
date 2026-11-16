@@ -1,0 +1,29 @@
+key: security-basics
+title: Security basics
+version: 1
+minutes: 6
+summary: Why information security matters here, and the five habits that prevent most problems.
+body: |
+  ## Why it matters
+  Most security incidents start with an everyday action: a click on a convincing link, a reused password, a laptop left unlocked. Attackers rely on people being busy. A few habits make you a much harder target.
+
+  ## Five habits
+  1. **Lock your screen** every time you step away (Windows + L, or Ctrl + Cmd + Q on a Mac).
+  2. **Use the password manager** and a different password for every account.
+  3. **Approve only the MFA prompts you started.** An unexpected prompt means someone else has your password: deny it and report it.
+  4. **Keep your device updated.** Install updates when asked; restart when prompted.
+  5. **Report anything odd quickly.** Early reports turn incidents into near misses. Nobody gets in trouble for reporting.
+
+  ## Where data may live
+  Keep company information in approved company services only, never in personal email, personal cloud storage or unapproved AI tools.
+quiz:
+  - q: You get an MFA prompt on your phone that you did not trigger. What do you do?
+    options: ["Approve it so it stops", "Deny it and report it", "Ignore it"]
+    answer: 1
+  - q: Where may you store customer data?
+    options: ["Personal Google Drive if it is password protected", "Approved company services only", "Anywhere, as long as it is encrypted"]
+    answer: 1
+  - q: Which of these prevents most opportunistic attacks?
+    options: ["Locking your screen, unique passwords, timely updates", "Using incognito mode", "Changing your password every week"]
+    answer: 0
+pass_mark: 2

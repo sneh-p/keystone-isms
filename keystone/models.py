@@ -17,3 +17,4 @@ from keystone.improvement.models import CorrectiveAction, Nonconformity  # noqa:
 from keystone.audits.models import Audit, AuditFinding, ManagementReview  # noqa: F401
 from keystone.tasks.models import Task  # noqa: F401
 from keystone.onboarding.models import OnboardingProfile  # noqa: F401
+from keystone.people.models import DeviceAttestation, Invitation, Person, TrainingCompletion  # noqa: F401
