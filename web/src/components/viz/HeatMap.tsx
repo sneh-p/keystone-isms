@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-const FILL: Record<string, string> = { Low: "bg-good text-white", Medium: "bg-warning text-[#0b0b0b]", High: "bg-serious text-[#0b0b0b]", Critical: "bg-critical text-white" };
+const FILL: Record<string, string> = { Low: "bg-good text-[#0b0b0b]", Medium: "bg-warning text-[#0b0b0b]", High: "bg-serious text-[#0b0b0b]", Critical: "bg-critical text-white" };
 
 /** 5x5 risk heat map. grid[impact-1][likelihood-1] = count; levels[impact-1][likelihood-1] = level.
  *  Each cell carries the count and the level initial, plus a tooltip, so colour is never the only cue. */
@@ -29,7 +29,7 @@ export function HeatMap({ grid, levels, title, likelihood, impact, onCell }: { g
                       className={cn("relative grid aspect-square place-items-center rounded-[4px] text-sm font-semibold transition-transform hover:scale-[1.04]", FILL[lv], !onCell && "cursor-default")}
                     >
                       {n || ""}
-                      <span className="absolute bottom-0.5 right-1 text-[9px] font-medium opacity-80">{lv[0]}</span>
+                      <span className="absolute bottom-0.5 right-1 text-[10px] font-semibold">{lv[0]}</span>
                     </button>
                   );
                 })}

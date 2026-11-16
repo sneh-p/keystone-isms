@@ -46,7 +46,7 @@ export default function SecurityQuestionnaires() {
         ) : (
           <DataTable rows={data} rowKey={(q: any) => q.id} onRowClick={(q: any) => nav(`/security-questionnaires/${q.id}`)} search={(q: any) => `${q.title} ${q.requester ?? ""}`} columns={[
             { key: "t", header: "Questionnaire", cell: (q: any) => <div><div className="font-medium">{q.title}</div><div className="text-xs text-muted-foreground">{q.requester ?? "—"}</div></div>, sort: (q: any) => q.title },
-            { key: "p", header: "Approved", cell: (q: any) => <div className="w-40"><Progress value={q.progress.pct} tone={q.progress.pct === 100 ? "good" : "primary"} /><div className="mt-1 text-xs text-muted-foreground">{q.progress.approved} of {q.progress.total}</div></div>, sort: (q: any) => q.progress.pct },
+            { key: "p", header: "Approved", cell: (q: any) => <div className="w-40"><Progress label={`${q.title}: answers approved`} value={q.progress.pct} tone={q.progress.pct === 100 ? "good" : "primary"} /><div className="mt-1 text-xs text-muted-foreground">{q.progress.approved} of {q.progress.total}</div></div>, sort: (q: any) => q.progress.pct },
             { key: "d", header: "Due", cell: (q: any) => fmtDate(q.due_date), sort: (q: any) => q.due_date ?? "" },
             { key: "s", header: "Status", cell: (q: any) => q.job_status === "running" ? <Badge tone="primary"><Sparkles className="size-3" /> Drafting</Badge> : <StatusBadge status={q.status} /> },
           ]} />
@@ -139,12 +139,12 @@ export function QuestionnaireDetail() {
       {running && (
         <div className="mb-4 rounded-lg border border-primary/30 bg-accent/40 px-4 py-3" role="status" aria-live="polite">
           <div className="flex items-center gap-2 text-sm font-medium"><Sparkles className="size-4 animate-pulse text-primary" /> Drafting answers from your approved policies and knowledge base… {d.job_progress} of {d.job_total}</div>
-          <Progress className="mt-2" value={d.job_total ? (100 * d.job_progress) / d.job_total : 0} />
+          <Progress label="AI drafting progress" className="mt-2" value={d.job_total ? (100 * d.job_progress) / d.job_total : 0} />
         </div>
       )}
       {d.job_status === "failed" && <div className="mb-4 rounded-lg border border-critical/30 bg-critical/5 px-4 py-3 text-sm">AI drafting stopped: {d.job_error}</div>}
       <div className="mb-5 grid gap-4 sm:grid-cols-4">
-        <Stat label="Approved" value={`${d.progress.approved} / ${d.progress.total}`} tone={d.progress.pct === 100 ? "good" : undefined} hint={<Progress value={d.progress.pct} tone="good" />} />
+        <Stat label="Approved" value={`${d.progress.approved} / ${d.progress.total}`} tone={d.progress.pct === 100 ? "good" : undefined} hint={<Progress label="Answers approved" value={d.progress.pct} tone="good" />} />
         <Stat label="Need review" value={d.progress.drafted} />
         <Stat label="Need an answer" value={d.progress.open} tone={d.progress.open ? "warning" : undefined} />
         <Stat label="Weak or no source" value={weak} tone={weak ? "critical" : undefined} />

@@ -59,7 +59,7 @@ export default function Portal() {
       <p className="mt-1 text-muted-foreground">A few things keep you and the company secure. Here's what's left.</p>
       <Card className="mt-6"><CardBody>
         <div className="flex items-center justify-between text-sm"><span className="font-medium">Your progress</span><span className="tabular-nums text-muted-foreground">{done} of {total} done</span></div>
-        <Progress className="mt-2" value={(100 * done) / total} tone={s.complete ? "good" : "primary"} />
+        <Progress label="Your progress" className="mt-2" value={(100 * done) / total} tone={s.complete ? "good" : "primary"} />
         {s.complete && <p className="mt-3 flex items-center gap-2 text-sm text-[#0a7a0a] dark:text-good"><CheckCircle2 className="size-4" /> You're all set. Thank you!</p>}
       </CardBody></Card>
 

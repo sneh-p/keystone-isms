@@ -70,7 +70,7 @@ export default function Controls() {
 
 function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   const { can } = useAuth();
-  const { people, name } = usePeople();
+  const { people } = usePeople();
   const { data } = useApi<any>(`/controls/${id}`);
   const ready = useApi<any>(`/controls/${id}/readiness`);
   const [f, setF] = useState<any>(null);
@@ -112,7 +112,7 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
                 <Button variant="outline" loading={review.isPending} onClick={() => review.mutate(undefined)}><CheckCircle2 /> Record review</Button>
               </div>
             )}
-            <div className="mt-4"><KeyValue items={[["Last reviewed", fmtDate(data.last_reviewed_at)], ["Next review", fmtDate(data.next_review_date)], ["Owner", name(data.owner_id)]]} /></div>
+            <div className="mt-4"><KeyValue items={[["Last reviewed", fmtDate(data.last_reviewed_at)], ["Next review", fmtDate(data.next_review_date)]]} /></div>
           </Section>
           <Section title="Satisfies">
             <div className="space-y-3">

@@ -164,3 +164,42 @@ def test_security_questionnaire_manual_mode(demo_server, open_page, tmp_path):
         p.get_by_role("menuitem", name="Approved answers (.xlsx)").click()
     out = load_workbook(io.BytesIO(open(d.value.path(), "rb").read())).active
     assert out.cell(row=2, column=2).value.startswith("Yes.") and out.cell(row=3, column=2).value in (None, "")
+
+
+A11Y_ROUTES = STAFF_ROUTES + ["/frameworks/ISO27001_2022", "/onboarding"]
+AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"]
+
+
+def _axe(page) -> list[dict]:
+    page.add_script_tag(path=str(ROOT / "web" / "node_modules" / "axe-core" / "axe.min.js"))
+    return page.evaluate("async (tags) => (await axe.run(document, {runOnly: {type: 'tag', values: tags}})).violations"
+                         ".map(v => ({id: v.id, impact: v.impact, nodes: v.nodes.slice(0, 3).map(n => n.target.join(' '))}))", AXE_TAGS)
+
+
+def test_accessibility_wcag21_aa(demo_server, browser):
+    """WCAG 2.1 AA + axe best practices on every screen, in light and dark mode, plus the public pages.
+    The test browser bypasses the app's CSP only to inject axe; the app itself is unchanged."""
+    problems = {}
+    for scheme in ("light", "dark"):
+        ctx = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme=scheme, bypass_csp=True)
+        page = ctx.new_page()
+        page.goto(demo_server + "/login", wait_until="networkidle")
+        if scheme == "light":
+            problems["/login"] = _axe(page)
+        page.get_by_label("Username").fill("admin")
+        page.locator("input[type=password]").fill("Demo-Password-2026!")
+        page.get_by_role("button", name="Sign in").click()
+        page.wait_for_url(lambda u: "/login" not in u)
+        for route in A11Y_ROUTES:
+            page.goto(demo_server + route, wait_until="networkidle")
+            found = _axe(page)
+            if found:
+                problems[f"{scheme} {route}"] = found
+        ctx.close()
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900}, bypass_csp=True)
+    page = ctx.new_page()
+    page.goto(demo_server + "/trust/alpine-ski-house", wait_until="networkidle")
+    problems["/trust/alpine-ski-house"] = _axe(page)
+    ctx.close()
+    problems = {k: v for k, v in problems.items() if v}
+    assert not problems, problems

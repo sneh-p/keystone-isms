@@ -48,7 +48,7 @@ export function Frameworks() {
                   </div>
                   <div className="text-right text-xs text-muted-foreground">{f.coverage.progress_pct}% incl. partial</div>
                 </div>
-                <Progress className="mt-3" value={f.coverage.progress_pct} tone={f.coverage.implemented_pct >= 80 ? "good" : "primary"} />
+                <Progress label={`${f.name} readiness`} className="mt-3" value={f.coverage.progress_pct} tone={f.coverage.implemented_pct >= 80 ? "good" : "primary"} />
                 <div className="mt-4 flex items-center justify-between">
                   <Link to={`/frameworks/${f.code}`} className="text-sm font-medium text-primary hover:underline">View requirements</Link>
                   {can("framework.write") && <Switch checked={f.enabled} onChange={(v) => toggle.mutate({ code: f.code, enabled: v })} label={<span className="text-xs text-muted-foreground">In use</span>} />}

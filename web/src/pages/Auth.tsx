@@ -11,7 +11,7 @@ import { Field, Input } from "@/components/ui/input";
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <div className="grid min-h-full lg:grid-cols-2">
-      <div className="relative hidden overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-10 text-white lg:flex lg:flex-col lg:justify-between">
+      <aside aria-label="About Keystone" className="relative hidden overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-10 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-2.5">
           <div className="grid size-9 place-items-center rounded-lg bg-white/15 font-bold backdrop-blur">K</div>
           <span className="text-lg font-semibold">Keystone ISMS</span>
@@ -23,14 +23,14 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: s
         </div>
         <p className="text-sm text-white/60">Self-hosted. Your data stays on your infrastructure.</p>
         <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-white/10 blur-3xl" />
-      </div>
-      <div className="flex items-center justify-center p-6">
+      </aside>
+      <main className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm animate-fade-in">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
           <div className="mt-6">{children}</div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

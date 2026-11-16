@@ -141,10 +141,10 @@ export function Audits() {
         <Card><CardBody>
           <div className="text-sm text-muted-foreground">Controls audited in the last 36 months</div>
           <div className="mt-1 text-3xl font-semibold">{data.coverage.pct}%</div>
-          <Progress className="mt-3" value={data.coverage.pct} />
+          <Progress label="Audit coverage" className="mt-3" value={data.coverage.pct} />
           <div className="mt-2 text-xs text-muted-foreground">{data.coverage.audited} of {data.coverage.applicable} applicable controls</div>
         </CardBody></Card>
-        <Card><CardHeader title="Not yet audited" description="Plan these into the programme." /><CardBody className="flex max-h-40 flex-wrap gap-1 overflow-auto">{data.coverage.not_audited.map((c: string) => <Badge key={c} tone="outline">{c}</Badge>)}</CardBody></Card>
+        <Card><CardHeader title="Not yet audited" description="Plan these into the programme." /><CardBody tabIndex={0} aria-label="Controls not yet audited" className="flex max-h-40 flex-wrap gap-1 overflow-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">{data.coverage.not_audited.map((c: string) => <Badge key={c} tone="outline">{c}</Badge>)}</CardBody></Card>
       </div>
       <DataTable rows={data.audits} rowKey={(a: any) => a.id} onRowClick={(a: any) => setParams({ open: String(a.id) })} search={(a: any) => a.title} columns={[
         { key: "t", header: "Audit", cell: (a: any) => <div><div className="font-medium">{a.title}</div><div className="text-xs text-muted-foreground">{titleCase(a.audit_type)} · lead {name(a.lead_auditor_id)}</div></div> },

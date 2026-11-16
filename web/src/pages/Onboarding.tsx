@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Cloud, Code2, Building, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
+import { fmtDate } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,14 @@ export default function Onboarding() {
 
   return (
     <div className="mx-auto max-w-3xl animate-fade-in">
-      <div className="mb-6 flex items-center gap-2 text-sm text-muted-foreground"><Sparkles className="size-4 text-primary" /> Setup · about 3 minutes</div>
+      <h1 className="mb-2 flex items-center gap-2 text-sm font-normal text-muted-foreground"><Sparkles className="size-4 text-primary" /> Set up Keystone · about 3 minutes</h1>
+      {data?.completed && (
+        <p className="mb-6 rounded-lg border bg-muted/40 px-4 py-3 text-sm">
+          Setup was completed{data.completed_at ? ` on ${fmtDate(data.completed_at)}` : ""}. Running it again keeps everything you have: it only adds
+          policies and tasks that don't exist yet. It does turn on the frameworks you choose (and off the others) and update the organisation details.
+        </p>
+      )}
+      {!data?.completed && <div className="mb-6" />}
       <ol className="mb-8 flex items-center gap-2">
         {STEPS.map((s, i) => (
           <li key={s} className="flex flex-1 items-center gap-2">

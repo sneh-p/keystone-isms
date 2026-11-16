@@ -5,10 +5,11 @@ import type { ReactNode } from "react";
 import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function Progress({ value, className, tone = "primary" }: { value: number; className?: string; tone?: "primary" | "good" | "warning" | "critical" }) {
+/** `label` names what the bar measures for screen readers (WCAG 4.1.2), e.g. "ISO 27001 readiness". */
+export function Progress({ value, label, className, tone = "primary" }: { value: number; label: string; className?: string; tone?: "primary" | "good" | "warning" | "critical" }) {
   const color = { primary: "bg-primary", good: "bg-good", warning: "bg-warning", critical: "bg-critical" }[tone];
   return (
-    <ProgressP.Root value={value} className={cn("relative h-2 w-full overflow-hidden rounded-full bg-secondary", className)}>
+    <ProgressP.Root value={value} aria-label={label} className={cn("relative h-2 w-full overflow-hidden rounded-full bg-secondary", className)}>
       <ProgressP.Indicator className={cn("h-full rounded-full transition-all", color)} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
     </ProgressP.Root>
   );

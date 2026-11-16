@@ -23,7 +23,7 @@ function Compliance({ c }: { c: any }) {
   const done = c.policies_done + c.training_done + (c.device_ok ? 1 : 0);
   return (
     <div className="w-40">
-      <Progress value={(100 * done) / total} tone={c.complete ? "good" : "primary"} />
+      <Progress label="Onboarding progress" value={(100 * done) / total} tone={c.complete ? "good" : "primary"} />
       <div className="mt-1 flex gap-2 text-[11px] text-muted-foreground"><span>Policies {c.policies_done}/{c.policies_total}</span><span>Training {c.training_done}/{c.training_total}</span><span>Device {c.device_ok === null ? "—" : c.device_ok ? "✓" : "✗"}</span></div>
     </div>
   );

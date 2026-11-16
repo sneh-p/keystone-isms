@@ -49,7 +49,7 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
               {columns.map((c) => (
                 <th key={c.key} className={cn("whitespace-nowrap px-3 py-2.5 font-medium", c.sort && "cursor-pointer select-none hover:text-foreground", c.className)} onClick={() => c.sort && setSort((s) => (s?.key === c.key ? { key: c.key, dir: (s.dir * -1) as 1 | -1 } : { key: c.key, dir: 1 }))}>
                   <span className="inline-flex items-center gap-1">
-                    {c.header}
+                    {c.header === "" ? <span className="sr-only">Actions</span> : c.header}
                     {sort?.key === c.key && (sort.dir === 1 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
                   </span>
                 </th>

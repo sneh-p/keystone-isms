@@ -11,7 +11,7 @@ Textarea.displayName = "Textarea";
 
 export function Field({ label, hint, children, className, required }: { label: ReactNode; hint?: ReactNode; children: ReactNode; className?: string; required?: boolean }) {
   return (
-    <label className={cn("grid gap-1.5 text-sm", className)}>
+    <label className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5 text-sm", className)}>
       <span className="font-medium">
         {label}
         {required && <span className="text-critical"> *</span>}

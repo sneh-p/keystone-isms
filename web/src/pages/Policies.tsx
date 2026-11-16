@@ -70,7 +70,7 @@ export default function Policies() {
         { key: "c", header: "Code", cell: (d: any) => <span className="font-mono text-xs">{d.code}</span>, sort: (d: any) => d.code, className: "w-24" },
         { key: "t", header: "Document", cell: (d: any) => <div><div className="font-medium">{d.title}</div><div className="text-xs text-muted-foreground">{titleCase(d.doc_type)} · {name(d.owner_id)}</div></div>, sort: (d: any) => d.title },
         { key: "s", header: "Status", cell: (d: any) => <div className="flex flex-col items-start gap-1"><StatusBadge status={d.status} label={d.current_version ? `${titleCase(d.status)} v${d.current_version}` : undefined} />{d.open_version && <span className="text-xs text-muted-foreground">v{d.open_version.label} {d.open_version.status.replace("_", " ")}</span>}</div> },
-        { key: "a", header: "Acknowledged", cell: (d: any) => (d.ack ? <div className="w-36"><Progress value={d.ack.pct} tone={d.ack.pct === 100 ? "good" : "primary"} /><div className="mt-1 text-xs text-muted-foreground">{d.ack.acknowledged}/{d.ack.total}</div></div> : <span className="text-muted-foreground">n/a</span>) },
+        { key: "a", header: "Acknowledged", cell: (d: any) => (d.ack ? <div className="w-36"><Progress label={`${d.code} acknowledgement`} value={d.ack.pct} tone={d.ack.pct === 100 ? "good" : "primary"} /><div className="mt-1 text-xs text-muted-foreground">{d.ack.acknowledged}/{d.ack.total}</div></div> : <span className="text-muted-foreground">n/a</span>) },
         { key: "r", header: "Next review", cell: (d: any) => <span className={att.review_overdue.includes(d.id) ? "font-medium text-critical" : ""}>{fmtDate(d.next_review_date)}</span>, sort: (d: any) => d.next_review_date ?? "" },
       ]} />
       {create && <NewDocument onClose={() => setCreate(false)} onCreated={(id) => { setCreate(false); setParams({ open: String(id) }); }} />}
@@ -179,7 +179,7 @@ function DocumentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
           ) },
           { value: "ack", label: "Acknowledgement", content: (
             <Section title="Staff acknowledgement">
-              {data.ack ? <div className="max-w-sm"><Progress value={data.ack.pct} tone={data.ack.pct === 100 ? "good" : "primary"} /><p className="mt-2 text-sm">{data.ack.acknowledged} of {data.ack.total} active users ({data.ack.pct}%)</p></div> : <p className="text-sm text-muted-foreground">Not required, or no approved version yet.</p>}
+              {data.ack ? <div className="max-w-sm"><Progress label="Acknowledgement progress" value={data.ack.pct} tone={data.ack.pct === 100 ? "good" : "primary"} /><p className="mt-2 text-sm">{data.ack.acknowledged} of {data.ack.total} active users ({data.ack.pct}%)</p></div> : <p className="text-sm text-muted-foreground">Not required, or no approved version yet.</p>}
             </Section>
           ) },
         ]} />

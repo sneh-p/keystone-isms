@@ -46,7 +46,7 @@ export default function Dashboard() {
                   <span className="font-medium">{c.name}</span>
                   <span className="tabular-nums text-muted-foreground"><span className="font-semibold text-foreground">{c.implemented_pct}%</span> implemented · {c.applicable} requirements</span>
                 </div>
-                <Progress value={c.progress_pct} tone={c.implemented_pct >= 80 ? "good" : "primary"} />
+                <Progress label={`${c.name} readiness`} value={c.progress_pct} tone={c.implemented_pct >= 80 ? "good" : "primary"} />
               </div>
             ))}
             <div className="border-t pt-4">
