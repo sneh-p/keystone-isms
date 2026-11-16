@@ -83,10 +83,13 @@ def test_device_attestation(users, session):
     u = users["viewer"]
     d = ppl.attest_device(session, u, device_name="Laptop", os="macos", checks={**ALL_OK, "firewall": False})
     assert not ppl.device_compliant(d)
+    assert ppl.device_issues(d) == ["Not confirmed: Firewall is on"]  # T2: say which check failed
     d2 = ppl.attest_device(session, u, device_name="Laptop", os="macos", checks=ALL_OK)
     assert d2.id == d.id and ppl.device_compliant(d2)
+    assert ppl.device_issues(d2) == []
     d2.attested_at = utcnow() - timedelta(days=181)
     assert not ppl.device_compliant(d2)
+    assert "more than 180 days ago" in ppl.device_issues(d2)[0]
     with pytest.raises(ValueError, match="Unknown"):
         ppl.attest_device(session, u, device_name="x", os="macos", checks={"telepathy": True})
 

@@ -36,7 +36,7 @@ export function Nonconformities() {
     <div className="animate-fade-in">
       <PageHeader icon={Wrench} title="Nonconformities & corrective actions" description="React, find the root cause, act, and check the action worked (ISO 27001 10.2)."
         actions={(can("nc.write") || can("audit.findings")) && <Button onClick={() => setRaise({ title: "", source: "self_identified", severity: "minor", description: "", common_control_id: null, due_date: null })}><Plus /> Raise nonconformity</Button>} />
-      <div className="mb-5 grid gap-4 sm:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <Stat label="Open" value={data.items.filter((n: any) => n.status !== "closed").length} />
         <Stat label="Overdue" value={att.overdue.length} tone={att.overdue.length ? "critical" : undefined} />
         <Stat label="Actions overdue" value={att.actions_overdue.length} tone={att.actions_overdue.length ? "warning" : undefined} />

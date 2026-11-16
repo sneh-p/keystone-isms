@@ -23,6 +23,8 @@ date for open tasks (list view). Every changed record gets its own audit entry, 
 nothing changes. Control and risk details open read-only; choose **Edit** to change them. Keystone asks before
 discarding unsaved edits.
 
+On a phone, registers show one card per record, and dialogs open full screen.
+
 **Import from CSV.** Assets, Risks, Vendors and People have **Import CSV**. Download the template, fill it in (one row
 per record; owners by username or email; dates as YYYY-MM-DD; yes/no for flags), and choose the file. Keystone checks
 every row with the same rules as the forms and lists the problems by row number. Nothing is saved until every row is
@@ -55,10 +57,15 @@ next occurrence is scheduled. Overdue tasks make their controls not ready.
 Add people under **People**, create an invitation link and send it to them. In the portal,
 employees accept the policies that need acknowledgement, complete short training modules with a
 quiz, and confirm their device checklist (disk encryption, screen lock, anti-malware, updates,
-firewall, password manager). The People page shows who is complete. When someone leaves, work
+firewall, password manager). A device marked "Needs attention" lists the checks still to confirm. The People
+page shows who is complete. When someone leaves, work
 through the offboarding checklist; completing it disables their account.
 
 ## Trust Center
+
+Frameworks appear on the public page under **Frameworks we align to**, which says that alignment is not a
+certification. In **Settings**, set each framework to *Aligned*, *Certified* (only if you hold a current certificate
+or attestation report; certified frameworks are shown separately at the top) or *Hidden*.
 
 Publish a public page for customers at `/trust/<your-slug>`: an overview, the frameworks you
 work to, controls that are passing, published policies, subprocessors and FAQs. Reports and

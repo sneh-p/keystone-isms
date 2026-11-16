@@ -143,7 +143,7 @@ export function QuestionnaireDetail() {
         </div>
       )}
       {d.job_status === "failed" && <div className="mb-4 rounded-lg border border-critical/30 bg-critical/5 px-4 py-3 text-sm">AI drafting stopped: {d.job_error}</div>}
-      <div className="mb-5 grid gap-4 sm:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <Stat label="Approved" value={`${d.progress.approved} / ${d.progress.total}`} tone={d.progress.pct === 100 ? "good" : undefined} hint={<Progress label="Answers approved" value={d.progress.pct} tone="good" />} />
         <Stat label="Need review" value={d.progress.drafted} />
         <Stat label="Need an answer" value={d.progress.open} tone={d.progress.open ? "warning" : undefined} />

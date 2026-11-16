@@ -107,7 +107,7 @@ def portal(user=Depends(perm("portal")), db: Session = Depends(get_db)):
         "status": ppl.status_for_user(db, user).as_dict(),
         "policies": [ser(v, ("id", "version_label", "body", "attachment_id"), code=v.document.code, title=v.document.title) for v in pol.pending_for(db, user)],
         "training": ppl.my_training(db, user),
-        "devices": [ser(d, ("id", "device_name", "os", "checks", "attested_at"), compliant=ppl.device_compliant(d)) for d in ppl.my_devices(db, user)],
+        "devices": [ser(d, ("id", "device_name", "os", "checks", "attested_at"), compliant=ppl.device_compliant(d), issues=ppl.device_issues(d)) for d in ppl.my_devices(db, user)],
         "device_checks": DEVICE_CHECKS,
     }
 

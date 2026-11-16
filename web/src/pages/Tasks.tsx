@@ -98,10 +98,10 @@ export default function Tasks() {
         <Stat label="Due in 30 days" value={open.filter((t) => dueMatch(t, "30")).length} to="/tasks?due=30" />
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="w-44"><Select value={assignee} onChange={setAssignee} allowEmpty emptyLabel="Anyone" placeholder="Assignee" ariaLabel="Assignee" options={[{ value: "me", label: "Me" }, { value: "none", label: "Unassigned" }, ...people.map((p) => ({ value: String(p.id), label: p.display_name }))]} /></div>
-        <div className="w-44"><Select value={framework} onChange={setFramework} allowEmpty emptyLabel="All frameworks" placeholder="Framework" ariaLabel="Framework" options={frameworks.map((f) => ({ value: f, label: f.replace(/_/g, " ") }))} /></div>
-        <div className="w-56"><Select value={control} onChange={setControl} allowEmpty emptyLabel="All controls" placeholder="Control" ariaLabel="Control" options={(controls.data ?? []).map((c) => ({ value: String(c.id), label: `${c.code} ${c.title}` }))} /></div>
-        <div className="w-44"><Select value={due} onChange={setDue} allowEmpty emptyLabel="Any due date" placeholder="Due" ariaLabel="Due" options={DUE} /></div>
+        <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-44"><Select value={assignee} onChange={setAssignee} allowEmpty emptyLabel="Anyone" placeholder="Assignee" ariaLabel="Assignee" options={[{ value: "me", label: "Me" }, { value: "none", label: "Unassigned" }, ...people.map((p) => ({ value: String(p.id), label: p.display_name }))]} /></div>
+        <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-44"><Select value={framework} onChange={setFramework} allowEmpty emptyLabel="All frameworks" placeholder="Framework" ariaLabel="Framework" options={frameworks.map((f) => ({ value: f, label: f.replace(/_/g, " ") }))} /></div>
+        <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-56"><Select value={control} onChange={setControl} allowEmpty emptyLabel="All controls" placeholder="Control" ariaLabel="Control" options={(controls.data ?? []).map((c) => ({ value: String(c.id), label: `${c.code} ${c.title}` }))} /></div>
+        <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-44"><Select value={due} onChange={setDue} allowEmpty emptyLabel="Any due date" placeholder="Due" ariaLabel="Due" options={DUE} /></div>
         {filtered && <Button variant="ghost" size="sm" onClick={() => setParams((p) => { const n = new URLSearchParams(p); ["assignee", "framework", "control", "due"].forEach((k) => n.delete(k)); return n; })}><X /> Clear filters</Button>}
       </div>
       {data.length === 0 ? <Empty icon={ListChecks} title="No tasks yet" action={<Link to="/onboarding"><Button>Run setup to generate tasks</Button></Link>}>The setup wizard schedules recurring evidence tasks for your controls.</Empty> : view === "board" ? (
@@ -157,7 +157,7 @@ function BulkTasks({ ids, rows, onDone }: { ids: number[]; rows: any[]; onDone: 
   if (due) body.due_date = due;
   return (
     <>
-      <div className="w-48"><Select value={assignee} onChange={setAssignee} allowEmpty emptyLabel="Keep assignee" placeholder="Set assignee…" ariaLabel="Set assignee for selected tasks" options={[{ value: "none", label: "Unassign" }, ...people.map((p) => ({ value: String(p.id), label: p.display_name }))]} /></div>
+      <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-48"><Select value={assignee} onChange={setAssignee} allowEmpty emptyLabel="Keep assignee" placeholder="Set assignee…" ariaLabel="Set assignee for selected tasks" options={[{ value: "none", label: "Unassign" }, ...people.map((p) => ({ value: String(p.id), label: p.display_name }))]} /></div>
       <div className="w-44"><DateInput value={due} onChange={setDue} ariaLabel="Set due date for selected tasks" /></div>
       <Button size="sm" disabled={(!assignee && !due) || closed > 0} loading={run.isPending} onClick={() => run.mutate(body)}>Apply to {ids.length}</Button>
       {closed > 0 && <span className="text-xs text-muted-foreground">{closed} completed task{closed === 1 ? " is" : "s are"} selected; completed tasks can't change.</span>}

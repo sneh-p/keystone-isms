@@ -32,7 +32,7 @@ export default function Incidents() {
     <div className="animate-fade-in">
       <PageHeader icon={Siren} title="Incidents" description="Report early, work it through containment and recovery, and learn from it." actions={can("incident.write") && <Button onClick={() => setReport(true)}><Plus /> Report incident</Button>} />
       {att.notification_overdue.length > 0 && <div className="mb-4 flex items-center gap-2 rounded-lg border border-critical/30 bg-critical/5 px-4 py-3 text-sm"><AlertTriangle className="size-4 text-critical" /> Regulator notification deadline passed for {att.notification_overdue.length} incident(s).</div>}
-      <div className="mb-5 grid gap-4 sm:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <Stat label="Open" value={att.open.length} />
         <Stat label="Notification pending" value={att.notification_due.length} tone={att.notification_due.length ? "warning" : undefined} />
         <Stat label="Notification overdue" value={att.notification_overdue.length} tone={att.notification_overdue.length ? "critical" : undefined} />

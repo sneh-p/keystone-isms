@@ -43,7 +43,7 @@ export default function People() {
     <div className="animate-fade-in">
       <PageHeader icon={UsersIcon} title="People" description="Everyone in scope: invite them to the employee portal to accept policies, complete training and confirm their device is secure."
         actions={can("people.write") && <><ImportButton register="people" noun="people" invalidate={["/people", "/dashboard"]} /><Button onClick={() => setNp({ full_name: "", email: "", job_title: "", department: "", employment_type: "employee", start_date: null })}><Plus /> Add person</Button></>} />
-      <div className="mb-5 grid gap-4 sm:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <Stat label="People" value={ppl.length} />
         <Stat label="Fully compliant" value={withC.filter((p: any) => p.compliance.complete).length} tone="good" hint={`of ${withC.length} with portal access`} />
         <Stat label="Not invited yet" value={ppl.filter((p: any) => !p.user_id).length} />

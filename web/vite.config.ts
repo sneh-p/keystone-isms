@@ -6,6 +6,18 @@ export default defineConfig({
   plugins: [react()],
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
   server: { proxy: { "/api": "http://127.0.0.1:8000" } },
-  build: { outDir: "dist", sourcemap: false, chunkSizeWarningLimit: 1500 },
+  build: {
+    outDir: "dist", sourcemap: false, chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        // Long-lived vendor chunks: app releases don't invalidate the cached libraries.
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          ui: ["@radix-ui/react-checkbox", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-popover", "@radix-ui/react-progress", "@radix-ui/react-select", "@radix-ui/react-switch", "@radix-ui/react-tabs", "@radix-ui/react-tooltip", "cmdk", "sonner"],
+          query: ["@tanstack/react-query"],
+        },
+      },
+    },
+  },
   test: { environment: "node" },
 });

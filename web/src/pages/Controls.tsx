@@ -68,10 +68,10 @@ export default function Controls() {
         bulkBar={(ids) => <BulkControls ids={ids as number[]} people={people} onDone={() => setSelected(new Set())} />}
         toolbar={
           <>
-            <div className="w-44"><Select value={domain} onChange={setDomain} allowEmpty emptyLabel="All domains" placeholder="All domains" options={domains.map((d) => ({ value: d, label: d }))} ariaLabel="Domain" /></div>
-            <div className="w-48"><Select value={status} onChange={setStatus} allowEmpty emptyLabel="All statuses" placeholder="All statuses" options={CONTROL_STATUS} ariaLabel="Status" /></div>
-            <div className="w-44"><Select value={owner} onChange={setOwner} allowEmpty emptyLabel="Any owner" placeholder="Any owner" options={[{ value: "none", label: "No owner" }, ...people.map((p) => ({ value: String(p.id), label: p.display_name }))]} ariaLabel="Owner" /></div>
-            <div className="w-48"><Select value={flag} onChange={setFlag} allowEmpty emptyLabel="Any attention" placeholder="Needs attention" options={FLAGS} ariaLabel="Needs attention" /></div>
+            <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-44"><Select value={domain} onChange={setDomain} allowEmpty emptyLabel="All domains" placeholder="All domains" options={domains.map((d) => ({ value: d, label: d }))} ariaLabel="Domain" /></div>
+            <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-48"><Select value={status} onChange={setStatus} allowEmpty emptyLabel="All statuses" placeholder="All statuses" options={CONTROL_STATUS} ariaLabel="Status" /></div>
+            <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-44"><Select value={owner} onChange={setOwner} allowEmpty emptyLabel="Any owner" placeholder="Any owner" options={[{ value: "none", label: "No owner" }, ...people.map((p) => ({ value: String(p.id), label: p.display_name }))]} ariaLabel="Owner" /></div>
+            <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-48"><Select value={flag} onChange={setFlag} allowEmpty emptyLabel="Any attention" placeholder="Needs attention" options={FLAGS} ariaLabel="Needs attention" /></div>
           </>
         }
         columns={[
@@ -106,8 +106,8 @@ function BulkControls({ ids, people, onDone }: { ids: number[]; people: { id: nu
   if (status) body.status = status;
   return (
     <>
-      <div className="w-48"><Select value={owner} onChange={setOwner} allowEmpty emptyLabel="Keep owner" placeholder="Set owner…" options={[{ value: "none", label: "Remove owner" }, ...people.map((p) => ({ value: String(p.id), label: p.display_name }))]} ariaLabel="Set owner for selected controls" /></div>
-      <div className="w-48"><Select value={status} onChange={setStatus} allowEmpty emptyLabel="Keep status" placeholder="Set status…" options={CONTROL_STATUS.filter((s) => s.value !== "not_applicable")} ariaLabel="Set status for selected controls" /></div>
+      <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-48"><Select value={owner} onChange={setOwner} allowEmpty emptyLabel="Keep owner" placeholder="Set owner…" options={[{ value: "none", label: "Remove owner" }, ...people.map((p) => ({ value: String(p.id), label: p.display_name }))]} ariaLabel="Set owner for selected controls" /></div>
+      <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-48"><Select value={status} onChange={setStatus} allowEmpty emptyLabel="Keep status" placeholder="Set status…" options={CONTROL_STATUS.filter((s) => s.value !== "not_applicable")} ariaLabel="Set status for selected controls" /></div>
       <Button size="sm" disabled={!owner && !status} loading={run.isPending} onClick={() => run.mutate(body)}>Apply to {ids.length}</Button>
     </>
   );

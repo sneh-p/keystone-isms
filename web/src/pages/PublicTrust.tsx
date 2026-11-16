@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { CheckCircle2, ChevronDown, Download, FileText, Lock, Mail, ShieldCheck } from "lucide-react";
+import { BadgeCheck, CheckCircle2, ChevronDown, Download, FileText, Lock, Mail, ShieldCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, fragmentParam, saveDownload } from "@/lib/api";
@@ -47,6 +47,8 @@ export default function PublicTrust() {
   if (isError) return <div className="grid min-h-full place-items-center p-6 text-center"><div><ShieldCheck className="mx-auto mb-3 size-10 text-muted-foreground" /><p className="text-muted-foreground">{(error as Error).message}</p></div></div>;
   if (!data) return <div className="mx-auto max-w-5xl p-8"><Skeleton className="h-64" /></div>;
   const brand = data.brand_color;
+  const certified = (data.frameworks ?? []).filter((f: any) => f.status === "certified");
+  const aligned = (data.frameworks ?? []).filter((f: any) => f.status !== "certified");
   const access = grant.data && (!grant.data.nda_required || grant.data.nda_ok);
   const request = async (e: FormEvent) => {
     e.preventDefault();
@@ -62,11 +64,18 @@ export default function PublicTrust() {
           <div className="flex items-center gap-2 text-sm text-white/80"><ShieldCheck className="size-4" /> Trust Center</div>
           <h1 className="mt-3 text-3xl font-semibold sm:text-4xl">{data.headline || `${data.company} Trust Center`}</h1>
           <p className="mt-2 max-w-2xl text-white/85">How {data.company} protects your data. Updated {fmtDate(data.updated_at)}.</p>
-          {data.frameworks?.length > 0 && <div className="mt-6 flex flex-wrap gap-2">{data.frameworks.map((f: any) => <span key={f.code} className="rounded-full bg-white/15 px-3 py-1 text-sm backdrop-blur">{f.name}</span>)}</div>}
+          {certified.length > 0 && <div className="mt-6 flex flex-wrap gap-2">{certified.map((f: any) => <span key={f.code} className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm backdrop-blur"><BadgeCheck className="size-4" aria-hidden />Certified: {f.name}</span>)}</div>}
         </div>
       </header>
       <main className="mx-auto -mt-8 max-w-5xl space-y-6 px-6 pb-16">
         {data.overview && <section className="rounded-xl border bg-card p-6 shadow-sm"><Markdown>{data.overview}</Markdown></section>}
+        {aligned.length > 0 && (
+          <section className="rounded-xl border bg-card p-6 shadow-sm">
+            <h2 className="text-lg font-semibold">Frameworks we align to</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Our controls are mapped to these frameworks. Alignment is not a certification{certified.length ? "; certifications are shown at the top of this page" : ""}.</p>
+            <ul className="mt-4 flex flex-wrap gap-2">{aligned.map((f: any) => <li key={f.code} className="rounded-full border px-3 py-1 text-sm">{f.name}</li>)}</ul>
+          </section>
+        )}
         {data.controls && Object.keys(data.controls).length > 0 && (
           <section className="rounded-xl border bg-card p-6 shadow-sm">
             <h2 className="text-lg font-semibold">Security controls in place</h2>

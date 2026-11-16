@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from "recharts";
 import { Calculator, CheckCircle2, Gauge, Pencil, Plus, ShieldAlert } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi, usePeople, useUnsavedGuard } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
-import { fmtDate, fmtMoney, fmtNum, titleCase } from "@/lib/utils";
+import { fmtDate, fmtMoney, titleCase } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -20,6 +19,8 @@ import { DataTable } from "@/components/ui/table";
 import { HeatMap } from "@/components/viz/HeatMap";
 import { clean, DateInput, EnumSelect, OwnerSelect, RangeInput } from "@/components/forms";
 import { ImportButton } from "@/components/ImportDialog";
+
+const LossCurve = lazy(() => import("@/components/viz/LossCurve"));
 
 const CATEGORIES = ["strategic", "operational", "technology", "third_party", "compliance", "people", "physical", "privacy"];
 const TREATMENTS = ["mitigate", "accept", "transfer", "avoid"];
@@ -41,7 +42,7 @@ export default function Risks() {
     <div className="animate-fade-in">
       <PageHeader icon={Gauge} title="Risk register" description={`Risk appetite: residual risk up to ${matrix.data.appetite_max_level}. Matrix and appetite are calibration starting points in config/risk_matrix.yaml.`}
         actions={can("risk.write") && <><ImportButton register="risks" noun="risks" invalidate={["/risks", "/dashboard"]} /><Button onClick={() => setParams({ open: "new" })}><Plus /> New risk</Button></>} />
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label="Open risks" value={data.risks.filter((r: any) => r.status !== "closed").length} />
         <Stat label="Above appetite, untreated" value={att.above_appetite_untreated.length} tone={att.above_appetite_untreated.length ? "critical" : undefined} />
         <Stat label="Reviews overdue" value={att.review_overdue.length} tone={att.review_overdue.length ? "warning" : undefined} />
@@ -296,15 +297,7 @@ function Fair({ risk }: { risk: any }) {
             <div className="mt-4 text-sm font-medium">Loss exceedance curve</div>
             <p className="text-xs text-muted-foreground">Chance that annual loss reaches at least each amount.</p>
             <div className="mt-2 h-56">
-              <ResponsiveContainer>
-                <AreaChart data={curve} margin={{ left: 8, right: 8, top: 8 }}>
-                  <CartesianGrid strokeDasharray="0" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="loss" tickFormatter={fmtNum} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--border))" />
-                  <YAxis unit="%" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--border))" width={40} />
-                  <RTooltip formatter={(v: any) => [`${v}%`, "Probability"]} labelFormatter={(l: any) => `Loss ≥ ${fmtMoney(l)}`} contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
-                  <Area type="monotone" dataKey="p" stroke="hsl(var(--primary))" strokeWidth={2} fill="hsl(var(--primary))" fillOpacity={0.12} />
-                </AreaChart>
-              </ResponsiveContainer>
+              <Suspense fallback={<Skeleton className="h-full" />}><LossCurve data={curve} /></Suspense>
             </div>
             <KeyValue items={[["Loss events / year", res.lef_mean.toFixed(2)], ["Chance of any loss in a year", `${Math.round(res.prob_any_loss * 100)}%`], ["Iterations", res.iterations.toLocaleString()], ["Run", fmtDate(risk.fair_run_at, true)]]} />
           </CardBody>

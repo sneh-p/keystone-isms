@@ -44,7 +44,7 @@ export default function Soa() {
         } />
       {data && (
         <>
-          <div className="mb-5 grid gap-4 sm:grid-cols-4">
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
             <Stat label="Requirements" value={rows.length} />
             <Stat label="Applicable" value={rows.filter((r: any) => r.applicable).length} />
             <Stat label="Implemented" value={rows.filter((r: any) => r.applicable && r.implementation === "implemented").length} tone="good" />

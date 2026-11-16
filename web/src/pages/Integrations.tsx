@@ -30,7 +30,7 @@ export default function Integrations() {
   return (
     <div className="animate-fade-in">
       <PageHeader icon={Plug} title="Integrations" description="Read-only connections that test your controls automatically. Passing checks become evidence; failing, erroring or unknown checks never count as passing." />
-      <div className="mb-5 grid gap-4 sm:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <Stat label="Connected" value={data.integrations.length} />
         <Stat label="Checks passing" value={all.filter((r: any) => r.result === "pass").length} tone="good" />
         <Stat label="Checks failing" value={failing} tone={failing ? "critical" : undefined} />

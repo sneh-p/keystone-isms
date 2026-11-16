@@ -93,9 +93,14 @@ export default function Portal() {
           action={<Button size="sm" variant="outline" onClick={() => setDev({ device_name: "", os: "windows", checks: Object.fromEntries(Object.keys(data.device_checks).map((k) => [k, false])), file: null })}>Add device</Button>} />
         <CardBody className="space-y-2">
           {data.devices.length === 0 ? <p className="text-sm text-muted-foreground">No devices yet.</p> : data.devices.map((d: any) => (
-            <button key={d.id} onClick={() => setDev({ device_name: d.device_name, os: d.os, checks: d.checks, file: null })} className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm hover:bg-muted/50">
-              <span>{d.device_name} <span className="text-muted-foreground">· {d.os} · {fmtDate(d.attested_at)}</span></span>
-              {d.compliant ? <Badge tone="good"><ShieldCheck className="size-3" /> Secure</Badge> : <Badge tone="warning">Needs attention</Badge>}
+            <button key={d.id} onClick={() => setDev({ device_name: d.device_name, os: d.os, checks: d.checks, file: null })} className="w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-muted/50">
+              <span className="flex items-center justify-between gap-2">
+                <span>{d.device_name} <span className="text-muted-foreground">· {d.os} · {fmtDate(d.attested_at)}</span></span>
+                {d.compliant ? <Badge tone="good"><ShieldCheck className="size-3" /> Secure</Badge> : <Badge tone="warning">Needs attention</Badge>}
+              </span>
+              {!d.compliant && d.issues?.length > 0 && (
+                <ul className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">{d.issues.map((i: string) => <li key={i}>• {i}</li>)}</ul>
+              )}
             </button>
           ))}
         </CardBody>

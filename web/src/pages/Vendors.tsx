@@ -30,7 +30,7 @@ export default function Vendors() {
   return (
     <div className="animate-fade-in">
       <PageHeader icon={Handshake} title="Vendors" description="Suppliers and service providers, tiered by the data they handle and the access they have." actions={can("vendor.write") && <><ImportButton register="vendors" noun="vendors" invalidate={["/vendors", "/dashboard"]} /><Button onClick={() => setParams({ open: "new" })}><Plus /> New vendor</Button></>} />
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <Stat label="Reviews overdue" value={a.review_overdue.length} tone={a.review_overdue.length ? "warning" : undefined} />
         <Stat label="Contracts ending soon" value={a.contract_ending.length} />
         <Stat label="Tier 1-2 need assessment" value={a.needs_assessment.length} tone={a.needs_assessment.length ? "critical" : undefined} />

@@ -3,7 +3,8 @@ import { ArrowDown, ArrowUp, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "./input";
 
-export type Column<T> = { key: string; header: ReactNode; cell: (row: T) => ReactNode; sort?: (row: T) => string | number | null; className?: string };
+/** `mobile`: on phones each row becomes a card; the first two columns form its heading unless set otherwise. */
+export type Column<T> = { key: string; header: ReactNode; cell: (row: T) => ReactNode; sort?: (row: T) => string | number | null; className?: string; mobile?: "heading" | "field" | "hide" };
 
 type Key = string | number;
 
@@ -63,7 +64,7 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
       {(search || toolbar) && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {search && (
-            <div className="relative w-full max-w-xs">
+            <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
               <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="pl-8" aria-label="Search table" />
             </div>
@@ -79,7 +80,7 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
           {bulkBar([...selected!])}
         </div>
       )}
-      <div className="overflow-x-auto rounded-lg border bg-card">
+      <div className="hidden overflow-x-auto rounded-lg border bg-card sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -126,6 +127,39 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
           </tbody>
         </table>
       </div>
+      {selectable && shown.length > 0 && (
+        <label className="mb-2 flex items-center gap-2 px-1 text-sm sm:hidden">
+          <input type="checkbox" className={box} checked={allShown} ref={(el) => { if (el) el.indeterminate = someShown && !allShown; }} onChange={toggleAll} />
+          Select all shown
+        </label>
+      )}
+      <ul className="space-y-2 sm:hidden" aria-label="Records">
+        {shown.length === 0 && <li className="rounded-lg border bg-card px-3 py-8 text-center text-sm text-muted-foreground">{empty}</li>}
+        {shown.map((r) => {
+          const k = rowKey(r);
+          const role = (c: Column<T>, i: number) => c.mobile ?? (i < 2 ? "heading" : "field");
+          return (
+            <li key={k} onClick={onRowClick ? () => onRowClick(r) : undefined} tabIndex={onRowClick ? 0 : undefined}
+              onKeyDown={onRowClick ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onRowClick(r); } } : undefined}
+              className={cn("rounded-lg border bg-card p-3 text-sm shadow-sm", onRowClick && "cursor-pointer active:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", selectable && selected!.has(k) && "border-primary/50 bg-primary/5")}>
+              <div className="flex items-start gap-3">
+                {selectable && <span onClick={(e) => e.stopPropagation()}><input type="checkbox" className={cn(box, "mt-0.5")} checked={selected!.has(k)} onChange={() => toggle(k)} aria-label={`Select ${rowLabel ? rowLabel(r) : k}`} /></span>}
+                <div className="min-w-0 flex-1 space-y-0.5">{columns.filter((c, i) => role(c, i) === "heading").map((c) => <div key={c.key} className="min-w-0 break-words">{c.cell(r)}</div>)}</div>
+              </div>
+              <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
+                {columns.filter((c, i) => role(c, i) === "field").map((c) => (
+                  c.header === "" ? <dd key={c.key} className="col-span-2" onClick={(e) => e.stopPropagation()}>{c.cell(r)}</dd> : (
+                    <div key={c.key} className="contents">
+                      <dt className="text-xs text-muted-foreground">{c.header}</dt>
+                      <dd className="min-w-0 break-words">{c.cell(r)}</dd>
+                    </div>
+                  )
+                ))}
+              </dl>
+            </li>
+          );
+        })}
+      </ul>
       {search && q && <p className="mt-2 text-xs text-muted-foreground">{shown.length} of {rows.length} shown</p>}
     </div>
   );

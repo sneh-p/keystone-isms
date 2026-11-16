@@ -228,9 +228,17 @@ def _current_completions(session: Session, user_id: int, on: date) -> dict[str, 
     return out
 
 
-def device_compliant(d: DeviceAttestation, on: date | None = None) -> bool:
+def device_issues(d: DeviceAttestation, on: date | None = None) -> list[str]:
+    """What stops a device counting as secure, in words the employee can act on."""
     on = on or today()
-    return all(d.checks.get(k) is True for k in DEVICE_CHECKS) and d.attested_at.date() >= on - timedelta(days=DEVICE_VALID_DAYS)
+    out = [f"Not confirmed: {label.rstrip('.')}" for k, label in DEVICE_CHECKS.items() if d.checks.get(k) is not True]
+    if d.attested_at.date() < on - timedelta(days=DEVICE_VALID_DAYS):
+        out.append(f"Last confirmed more than {DEVICE_VALID_DAYS} days ago; confirm the checks again")
+    return out
+
+
+def device_compliant(d: DeviceAttestation, on: date | None = None) -> bool:
+    return not device_issues(d, on)
 
 
 def status_for_user(session: Session, user: auth.User, on: date | None = None) -> PersonStatus:

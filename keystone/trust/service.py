@@ -53,7 +53,8 @@ def settings(session: Session) -> TrustSettings:
     return s
 
 
-SETTINGS_FIELDS = {"published", "slug", "headline", "overview", "contact_email", "brand_color", "show_frameworks", "show_controls", "show_policies", "show_subprocessors", "nda_required", "nda_text", "access_days"}
+FRAMEWORK_STATUSES = ("aligned", "certified", "hidden")
+SETTINGS_FIELDS = {"published", "slug", "headline", "overview", "contact_email", "brand_color", "show_frameworks", "framework_status", "show_controls", "show_policies", "show_subprocessors", "nda_required", "nda_text", "access_days"}
 
 
 def update_settings(session: Session, actor, **fields) -> TrustSettings:
@@ -74,6 +75,12 @@ def update_settings(session: Session, actor, **fields) -> TrustSettings:
         raise ValueError("Enter a valid contact email.")
     if not 1 <= int(merged["access_days"]) <= 365:
         raise ValueError("Access must last 1-365 days.")
+    if "framework_status" in fields:
+        codes = {f.code for f in fw.frameworks(session, enabled_only=False)}
+        st = fields["framework_status"] or {}
+        if not isinstance(st, dict) or set(st) - codes or set(st.values()) - set(FRAMEWORK_STATUSES):
+            raise ValueError(f"Framework status must map known frameworks to one of {', '.join(FRAMEWORK_STATUSES)}.")
+        fields["framework_status"] = {k: v for k, v in st.items() if v != "aligned"}  # aligned is the default
     nda_changed = "nda_text" in fields and fields["nda_text"] != s.nda_text
     apply_fields(s, fields, SETTINGS_FIELDS)
     if nda_changed:
@@ -156,7 +163,8 @@ def public_view(session: Session, slug: str) -> dict:
     o = get_org(session)
     view: dict = {"company": o.name if o else "", "headline": s.headline, "overview": s.overview, "contact_email": s.contact_email, "brand_color": s.brand_color, "nda_required": s.nda_required, "updated_at": utcnow().date().isoformat()}
     if s.show_frameworks:
-        view["frameworks"] = [{"name": f"{f.name} {f.version}", "code": f.code, "implemented_pct": fw.coverage_summary(fw.coverage(session, f.id))["implemented_pct"]} for f in fw.frameworks(session)]
+        status = s.framework_status or {}
+        view["frameworks"] = [{"name": f"{f.name} {f.version}", "code": f.code, "status": status.get(f.code, "aligned")} for f in fw.frameworks(session) if status.get(f.code) != "hidden"]
     if s.show_controls:
         view["controls"] = passing_controls(session)
     if s.show_policies:

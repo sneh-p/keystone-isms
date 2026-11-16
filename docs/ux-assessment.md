@@ -13,7 +13,7 @@ policies, portal, Trust Center).
 | Accessibility and bugs | A1–A7, B1–B2 | Done (commit "UX phase 1"); axe-core WCAG 2.1 AA check in the e2e suite |
 | Navigation and naming | N1–N4 | Done (commit "UX phase 2") |
 | Dashboard and registers | D1–D3, R1–R5 | Done (commit "UX phase 3"). Also: two-column KPI grid on phones (part of M1), keyboard-operable table rows |
-| Phones, Trust Center, speed | M1–M3, T1–T2, P1 | Next |
+| Phones, Trust Center, speed | M1–M3, T1–T2, P1 | Done (commit "UX phase 4"): two-column KPIs, card lists below 640 px, full-screen dialogs; "Frameworks we align to" with per-framework aligned/certified/hidden; device checks name what failed; main bundle 428 KB → 80 KB, chart library loads with the FAIR tab |
 | Features | Notifications, vendor portal, auditor workspace, SSO | Planned, each with a security design note (SC-AGT-006) |
 
 ## Summary

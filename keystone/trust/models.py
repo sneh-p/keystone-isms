@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from keystone.core.db import Audited, Base, OwnedMixin, TimestampMixin
@@ -20,6 +20,9 @@ class TrustSettings(Audited, TimestampMixin, Base):
     contact_email: Mapped[str | None] = mapped_column(String(320))
     brand_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#4f46e5")
     show_frameworks: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Per framework code: "aligned" (default), "certified" (the organisation states it holds the certificate) or
+    # "hidden". Alignment is never presented as certification on the public page.
+    framework_status: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     show_controls: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     show_policies: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     show_subprocessors: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

@@ -135,3 +135,21 @@ def test_access_token_never_needs_to_be_in_a_url(api, published, ready_users, db
     public = TestClient(api.app)
     nda = published["nda_doc"]
     assert public.get(f"/api/public/trust/alpine/documents/{nda}?token=anything").status_code in (403, 404)
+
+
+def test_frameworks_are_aligned_unless_stated_and_can_be_hidden(published, db, users):
+    """T1: frameworks show as 'aligned' by default; certification is an explicit statement; hidden ones disappear."""
+    with db.session_scope() as s:
+        v = trust.public_view(s, "alpine")
+        assert v["frameworks"] and {f["status"] for f in v["frameworks"]} == {"aligned"}
+        assert all("implemented_pct" not in f for f in v["frameworks"])
+        codes = [f["code"] for f in v["frameworks"]]
+        trust.update_settings(s, users["admin"], framework_status={codes[0]: "certified", codes[1]: "hidden", codes[2]: "aligned"})
+        assert trust.settings(s).framework_status == {codes[0]: "certified", codes[1]: "hidden"}
+        v = {f["code"]: f["status"] for f in trust.public_view(s, "alpine")["frameworks"]}
+        assert v[codes[0]] == "certified" and codes[1] not in v and v[codes[2]] == "aligned"
+        for bad in ({"NOPE": "aligned"}, {codes[0]: "accredited"}):
+            with pytest.raises(ValueError):
+                trust.update_settings(s, users["admin"], framework_status=bad)
+        with pytest.raises(PermissionDenied):
+            trust.update_settings(s, users["control_owner"], framework_status={codes[0]: "hidden"})

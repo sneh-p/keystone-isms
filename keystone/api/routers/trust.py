@@ -14,7 +14,7 @@ from ..serialize import ser
 from .common import In, public_link
 
 router = APIRouter(tags=["trust center"])
-SET = ("published", "slug", "headline", "overview", "contact_email", "brand_color", "show_frameworks", "show_controls", "show_policies", "show_subprocessors", "nda_required", "nda_text", "nda_version", "access_days")
+SET = ("published", "slug", "headline", "overview", "contact_email", "brand_color", "show_frameworks", "framework_status", "show_controls", "show_policies", "show_subprocessors", "nda_required", "nda_text", "nda_version", "access_days")
 
 
 def _ip(request: Request) -> str | None:
@@ -42,6 +42,7 @@ class SettingsIn(In):
     contact_email: str | None = None
     brand_color: str | None = None
     show_frameworks: bool | None = None
+    framework_status: dict[str, str] | None = Field(default=None, max_length=50)
     show_controls: bool | None = None
     show_policies: bool | None = None
     show_subprocessors: bool | None = None

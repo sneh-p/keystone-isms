@@ -13,6 +13,7 @@ import { Field, Input, Textarea } from "@/components/ui/input";
 import { PageHeader, Skeleton, Stat, Switch } from "@/components/ui/misc";
 import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
+import { Select } from "@/components/ui/select";
 import { EnumSelect } from "@/components/forms";
 
 export default function TrustCenterAdmin() {
@@ -20,6 +21,7 @@ export default function TrustCenterAdmin() {
   const { name } = usePeople();
   const { data } = useApi<any>("/trust-center");
   const vendors = useApi<any>("/vendors");
+  const frameworks = useApi<any[]>("/frameworks");
   const [s, setS] = useState<any>(null);
   const [doc, setDoc] = useState<any>(null);
   const [faq, setFaq] = useState<any>(null);
@@ -45,7 +47,7 @@ export default function TrustCenterAdmin() {
     <div className="animate-fade-in">
       <PageHeader icon={Globe2} title="Trust Center" description="A public page that shows customers how you protect their data. Only controls that are implemented with current evidence appear, and they drop off automatically if they stop passing."
         actions={<><a href={`/trust/${data.settings.slug}`} target="_blank" rel="noreferrer"><Button variant="outline"><ExternalLink /> Open public page</Button></a>{ed && <Switch checked={data.settings.published} onChange={(v) => save.mutate({ published: v })} label={data.settings.published ? "Published" : "Not published"} />}</>} />
-      <div className="mb-5 grid gap-4 sm:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <Stat label="Status" value={data.settings.published ? "Live" : "Draft"} tone={data.settings.published ? "good" : undefined} />
         <Stat label="Controls shown as passing" value={passing} />
         <Stat label="Access requests pending" value={pending.length} tone={pending.length ? "warning" : undefined} />
@@ -80,6 +82,21 @@ export default function TrustCenterAdmin() {
               <div className="text-sm font-medium">Sections to show</div>
               <div className="flex flex-wrap gap-6">{[["show_frameworks", "Frameworks"], ["show_controls", "Passing controls"], ["show_policies", "Policy list"], ["show_subprocessors", "Subprocessors"], ["nda_required", "Require NDA for gated documents"]].map(([k, l]) => <Switch key={k} checked={s[k]} onChange={(v) => setS({ ...s, [k]: v })} label={l} disabled={!ed} />)}</div>
             </div>
+            {s.show_frameworks && (
+              <div className="space-y-2 sm:col-span-2">
+                <div className="text-sm font-medium">Frameworks on the public page</div>
+                <p className="text-xs text-muted-foreground">Frameworks appear under "Frameworks we align to". Choose "Certified" only if you hold a current certificate or attestation report; it is shown separately.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(frameworks.data ?? []).map((f: any) => (
+                    <div key={f.code} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
+                      <span className="min-w-0 truncate">{f.name} {f.version}</span>
+                      <div className="w-36 shrink-0"><Select value={s.framework_status?.[f.code] ?? "aligned"} onChange={(v) => setS({ ...s, framework_status: { ...(s.framework_status ?? {}), [f.code]: v ?? "aligned" } })}
+                        options={[{ value: "aligned", label: "Aligned" }, { value: "certified", label: "Certified" }, { value: "hidden", label: "Hidden" }]} disabled={!ed} ariaLabel={`${f.name} on the public page`} /></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {s.nda_required && <Field label={`NDA text (version ${s.nda_version}; editing it requires everyone to accept again)`} className="sm:col-span-2"><Textarea className="min-h-32" value={s.nda_text ?? ""} onChange={(e) => setS({ ...s, nda_text: e.target.value })} disabled={!ed} /></Field>}
             {ed && <div><Button loading={save.isPending} onClick={() => { const { nda_version: _v, ref: _r, ...rest } = s; save.mutate({ ...rest, contact_email: rest.contact_email || null }); }}>Save settings</Button></div>}
           </CardBody></Card>
