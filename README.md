@@ -83,6 +83,8 @@ All screenshots show the fictional demo organisation, Alpine Ski House.
 
 ## Quick start
 
+Needs Python 3.12 and Node.js 22.
+
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install --require-hashes -r requirements.lock && .venv/bin/pip install --no-deps -e ".[test]"
@@ -257,4 +259,5 @@ TanStack Query; PowerShell 7 for the Entra collector.
 | [docs/workflow-analysis.md](docs/workflow-analysis.md) | Workflow analysis and the improvements made |
 | [docs/ux-assessment.md](docs/ux-assessment.md) | UI/UX assessment and what changed |
 | [docs/secure-coding-adoption.md](docs/secure-coding-adoption.md) | How the secure coding standard was adopted |
+| [docs/secure-coding-proposed-updates.md](docs/secure-coding-proposed-updates.md) | Changes to the (protected) secure coding standard waiting for AppSec review |
 | [collector/README.md](collector/README.md) | The read-only Entra exposure collector |

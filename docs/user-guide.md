@@ -10,6 +10,9 @@ The sidebar groups screens by area; click a group heading to fold it away (Keyst
 **Improvement** (nonconformities, audits, management review) and **Settings** each have tabs across the top.
 Press Ctrl+K (⌘K on a Mac) to jump to any screen by name.
 
+If your organisation has turned on single sign-on, choose **Sign in with Microsoft** or **Sign in with Google** on the
+sign-in page; your first sign-in activates the account an administrator created for you.
+
 The **Overview** starts with **Next steps**: up to four gaps worth closing next, worked out from your data (scope not
 approved, controls without an owner, draft policies, approvals waiting, implemented controls without evidence, no
 integration connected, employees with portal tasks open, Trust Center not published). Each links to a filtered list.
@@ -88,7 +91,8 @@ next occurrence is scheduled. Overdue tasks make their controls not ready.
 
 ## People and the employee portal
 
-Add people under **People**, create an invitation link and send it to them. In the portal,
+Add people under **People** and choose **Email invitation** (when email is set up) or create an
+invitation link and send it yourself. In the portal,
 employees accept the policies that need acknowledgement, complete short training modules with a
 quiz, and confirm their device checklist (disk encryption, screen lock, anti-malware, updates,
 firewall, password manager). A device marked "Needs attention" lists the checks still to confirm. The People
@@ -104,12 +108,14 @@ or attestation report; certified frameworks are shown separately at the top) or 
 Publish a public page for customers at `/trust/<your-slug>`: an overview, the frameworks you
 work to, controls that are passing, published policies, subprocessors and FAQs. Reports and
 other documents can be public or require an approved request and a signed NDA. Review requests
-under **Trust Center → Requests**; approving produces a private link to send to the requester.
+under **Trust Center → Requests**; approving produces a private link, emailed to the requester when
+email is set up (otherwise copy it to them).
 
 ## Integrations
 
 Connect a website, GitHub, AWS or the imported Entra data to run read-only checks on a
-schedule. **Connect** shows a setup guide with commands to copy for creating a read-only
+schedule. The **Attack surface sources** (Microsoft 365, EDR, RMM and vulnerability tools) feed
+**Attack surface** instead; see that section. **Connect** shows a setup guide with commands to copy for creating a read-only
 credential and checking that it is read-only; **Test connection** tries the settings before you
 save. Passing checks become evidence on their controls. A failing, erroring or unknown
 check shows on the control and makes it not ready.

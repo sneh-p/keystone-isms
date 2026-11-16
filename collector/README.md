@@ -6,8 +6,10 @@ how consent was given, their credentials and when they last signed in. It writes
 `collected.json` for import into Keystone ISMS (**Entra exposure → Exposure import**) plus CSVs
 for a quick look.
 
-Keystone never connects to Microsoft Graph. This script is the only part that does, and it runs
-interactively on a technician's workstation with that person's own delegated sign-in.
+For Entra exposure, Keystone itself never connects to Microsoft Graph: this script does, and it runs
+interactively on a technician's workstation with that person's own delegated sign-in. (Attack surface
+management has a separate, optional **Microsoft 365** source that the server calls read-only with an app
+registration; it doesn't use or change this collector. See the administrator guide.)
 
 ## What it will and won't do
 

@@ -2,7 +2,7 @@
 
 ## Installing
 
-**Python** (3.11 or later) and **Node.js** 22 (to build the web app once):
+**Python** 3.12 (the hashed lockfile is resolved for 3.12; the Docker image uses it) and **Node.js** 22 (to build the web app once):
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install --require-hashes -r requirements.lock && .venv/bin/pip install --no-deps -e .
@@ -55,14 +55,23 @@ plain HTTP for evaluation on a private network only.
       bind uvicorn to `127.0.0.1` or a private network.
 - [ ] Restrict who can reach the site: VPN, IP allowlist or an identity-aware proxy. If the
       Trust Center is public, allow `/trust/*`, `/api/public/*` and `/assets/*` from anywhere
-      and keep everything else restricted.
+      and keep everything else restricted. Vendors using the vendor portal also need
+      `/vendor-portal`; people accepting invitations need `/invite`.
+- [ ] Set `KEYSTONE_PUBLIC_URL` to the address people use, so emailed links and single sign-on
+      redirects are right.
+- [ ] Prefer single sign-on (**Settings → Single sign-on**) and consider **Require single sign-on**,
+      keeping a small number of administrators with strong passwords as the emergency route.
 - [ ] Put the data directory on an **encrypted** volume. It holds the database, every uploaded
-      file and `secret.key`, which encrypts integration and AI credentials.
+      file and `secret.key`, which encrypts integration, email, single sign-on and AI credentials.
 - [ ] Back up the data directory (see below) and test a restore.
 - [ ] Set `KEYSTONE_SESSION_TIMEOUT_MINUTES` to match your policy.
 - [ ] Review `config/*.yaml`. The shipped values are calibration starting points.
 - [ ] Give people the least-privileged role that fits their work. Keep two administrators.
-- [ ] Give integrations read-only credentials only (see **Integrations**).
+- [ ] Give integrations and attack surface sources read-only credentials only (see **Integrations**
+      and **Attack surface management**).
+- [ ] Give external auditors the Auditor role with an expiry date.
+- [ ] If vendors upload documents, run ClamAV (see **Virus scanning**); without it their uploads are refused.
+- [ ] Use an SMTP relay that supports TLS for email (**Settings → Email**).
 
 ## Configuration
 
@@ -72,7 +81,7 @@ plain HTTP for evaluation on a private network only.
 | `KEYSTONE_DB_URL` | SQLite in the data dir | e.g. `postgresql+psycopg://keystone:…@db/keystone` (install the driver) |
 | `KEYSTONE_SESSION_TIMEOUT_MINUTES` | 30 | Idle sign-out |
 | `KEYSTONE_MAX_UPLOAD_MB` | 25 | Per-file upload limit |
-| `KEYSTONE_SECRET_KEY` | generated in the data dir | Fernet key that encrypts integration and AI credentials. Set it to keep the key out of the data volume |
+| `KEYSTONE_SECRET_KEY` | generated in the data dir | Fernet key that encrypts integration, email (SMTP), single sign-on and AI credentials. Set it to keep the key out of the data volume |
 | `KEYSTONE_FRAME_ANCESTORS` | `'self'` | Who may embed Keystone in a frame (CSP source list), e.g. `https://intranet.example` |
 | `KEYSTONE_DISABLE_SCHEDULER` | unset | Set to `1` to stop this instance running scheduled integration checks |
 | `ANTHROPIC_API_KEY` | unset | Optional key for AI features, used when no key is stored under **Settings → AI** |
@@ -194,8 +203,9 @@ the Graph Command Line Tools consent prompt and on handling the output files.
 
 ## Employees and invitations
 
-Add people under **People** and create an invitation link (valid for seven days, single use).
-Keystone doesn't send email: copy the link to the person through your usual channel. Accepting
+Add people under **People** and create an invitation (valid for seven days, single use). When
+email is set up and `KEYSTONE_PUBLIC_URL` is set, **Email invitation** sends it to the person;
+otherwise copy the link to them through your usual channel. Accepting
 it creates an `employee` account that sees only the portal. Offboarding a person disables their
 account and ends their sessions.
 
@@ -205,7 +215,8 @@ account and ends their sessions.
 NDA text. Only controls that are implemented **and** ready (approved policies, current
 evidence, no overdue tasks, no failing checks) are listed as passing. Gated documents need an
 approved access request; approval produces a private link that expires after the configured
-number of days. Requests are rate-limited per address, and every approval, NDA signature and
+number of days (emailed to the requester when email is set up). Each framework can be shown as
+aligned, certified (only if you hold a current certificate) or hidden. Requests are rate-limited per address, and every approval, NDA signature and
 download is in the audit log. Changing the NDA text raises its version, so earlier signatures no
 longer count.
 
@@ -219,7 +230,7 @@ each one the narrowest read-only credential:
 | Website / TLS | None. Only public hosts are checked; private and local addresses are refused |
 | GitHub | Fine-grained token with read-only *Administration* and *Metadata* on the organisation |
 | AWS | An IAM user or role with the AWS-managed `SecurityAudit` policy |
-| Microsoft Entra ID | None. It reads the latest imported exposure snapshot; it never calls Microsoft Graph |
+| Microsoft Entra ID | None. It reads the latest imported exposure snapshot and doesn't call Microsoft Graph. (The separate **Microsoft 365** attack surface source does call Microsoft's APIs, read-only; see below.) |
 
 Each Connect dialog has a setup guide with copyable commands, filled in with the values you
 type, to create the credential and then verify it: for AWS, that the user has only

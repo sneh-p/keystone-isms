@@ -84,8 +84,8 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   and no failing or erroring integration checks. Only implemented controls that are ready are
   shown as passing on the Trust Center; unknown is never shown as passing.
 - **Integrations** are read-only and pull-based on an in-process scheduler (APScheduler). The
-  Entra integration derives its checks from the imported collector snapshots, so the app still
-  never connects to Microsoft Graph. Credentials are Fernet-encrypted and write-only.
+  Entra integration derives its checks from the imported collector snapshots and doesn't call Microsoft Graph; only
+  the Microsoft 365 attack surface source does (read-only, see below). Credentials are Fernet-encrypted and write-only.
 - **Email** is used for the daily notification digest only (custom SMTP relay, TLS required, IP-pinned,
   public relays unless the operator allowlists an internal one). Invitation and Trust Center links are still shown
   to copy rather than emailed.
@@ -105,8 +105,9 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
 - **SSO account matching**: by (issuer, subject) once linked; the first sign-in links a pre-created account by email
   (Entra: single tenant only; Google: verified email). Automatic accounts only for approved domains, Employee or
   Viewer role. Authlib 1.9.5 / joserfc 1.8.0; provider endpoints fixed in code, no discovery fetch.
-- **No device agent.** Device checks are self-attested by employees with an optional
-  screenshot, and expire after a set period.
+- **No device agent.** The employee portal's device checks are self-attested with an optional screenshot and expire
+  after a set period. Device posture reported by your own tools (RMM, EDR, Intune) comes in through attack surface
+  management instead; Keystone ships no agent of its own.
 - **Dashboard trends** come from a `metric_snapshots` table: one row per day (a scheduled job, idempotent per day),
   shown weekly (the last snapshot of each of the previous 11 weeks plus today's live values). Snapshots are derived
   data, so they are not audited. The demo seeds 11 weeks of fictional history.

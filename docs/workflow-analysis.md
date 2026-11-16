@@ -59,3 +59,11 @@ including rollback on failure and the public-address requirement, incident to ri
 | SSO required | Turns password sign-in off for everyone except administrators (break-glass); only while a provider is on; the last provider can't be turned off while it applies. A refused password sign-in is audited and only explained after the correct password | Administrators are the break-glass accounts |
 
 Tests: `tests/test_collaboration.py`.
+
+## Still open
+
+- A per-record activity feed (history of changes) for non-admins: the audit log has the data, but showing it more widely
+  needs a decision on who may see change history.
+- Policy e-signature and versioned PDF export.
+- Okta sign-in; Jamf, Google Workspace, Okta and HR-system connectors; Slack or Teams notifications.
+- Attack surface connectors need confirming against live tenants with read-only keys (see docs/design-decisions.md).

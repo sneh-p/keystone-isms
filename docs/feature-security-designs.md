@@ -1,7 +1,8 @@
-# Security design notes: feature expansion (for AppSec sign-off)
+# Security design notes: feature expansion (signed off; as built)
 
 Each feature below is on the secure coding standard's escalation list (SC-AGT-006). Each note lists what changes,
-the controls, and the decisions that needed a human answer (marked **Decide**).
+the controls that were planned, the decisions that needed a human answer (marked **Decide**) and, under **As built**,
+what was implemented and where it differs from the plan. Last updated 2026-11-16.
 
 ## Decisions (human:sneh, 2026-11-16) and status
 
@@ -34,6 +35,15 @@ adds a new outbound destination (the SMTP server).
 **Decide:** (a) Is email in scope now, or only the in-app inbox for the first release? (b) Is a single SMTP relay
 the only outbound host? (c) Default digest frequency: off, daily or weekly?
 
+**As built:** in-app inbox and a daily email digest (on by default; each person can turn it off). Decided: email and
+inbox, a custom SMTP relay, daily digests. Differences from the plan: the relay is configured in the app (Settings →
+Email) rather than only by environment variables, so its password is stored Fernet-encrypted, write-only and bound to
+the host it was entered for (changing the host drops it); only relays with public addresses are allowed unless the
+operator lists an internal one in `KEYSTONE_SMTP_PRIVATE_HOSTS`; connections are pinned to the checked address with
+TLS required. Later additions: attention items are routed to the owner of each record (docs/workflow-analysis.md),
+@mentions and attack surface alerts arrive in the same inbox, and invitations, vendor links and Trust Center access
+can be emailed.
+
 ## 2. Vendor self-service portal
 
 **What changes:** a new external access path (vendors without accounts), plus file uploads from outside the company.
@@ -53,6 +63,11 @@ the only outbound host? (c) Default digest frequency: off, daily or weekly?
 questionnaire). (b) Is shipping without antivirus scanning acceptable, or must a scanner (for example ClamAV) be a
 precondition? (c) Default link lifetime.
 
+**As built:** as proposed, with the decided file types and limits (PDF, PNG, JPG, DOCX, XLSX; 10 MB; 20 per
+questionnaire), ClamAV scanning required and fail-closed (scanner down: uploads refused with 503; infected: refused and
+audited), and links that never expire unless staff set a date (the organisation's decision; mitigated by revocation,
+one active link per questionnaire, read-only after submission, rate limits and audited actions).
+
 ## 3. Auditor workspace
 
 **What changes:** time-limited access for external auditors and an export (ZIP) of evidence.
@@ -69,6 +84,11 @@ precondition? (c) Default link lifetime.
 **Decide:** (a) Is account expiry acceptable, or do you want auditor access without accounts (a token link)? This
 changes the role and permission model. (b) May auditors download evidence files, or only view the list?
 (c) Size cap for the audit pack (proposal: 500 MB).
+
+**As built:** auditors get normal accounts with the Auditor role and a required expiry date; sign-in and existing
+sessions stop at expiry. They can view (in-app viewer for PDF, images and text; files are still served as downloads)
+and download evidence. Evidence request list with comments; audit pack ZIP capped at 500 MB with generated entry names
+and a SHA-256 manifest. Also fixed while building it: changing a user's role now ends their sessions.
 
 ## 4. Single sign-on (OIDC: Entra ID, Google, Okta)
 
@@ -92,3 +112,38 @@ endpoints).
 `viewer`), or admin-linked only? (c) Should "SSO required" exist, and who is the break-glass account?
 (d) Does a new authentication library need approval (for example Authlib), or should the OIDC client be written on
 `httpx` plus a JWT library? Either way it is a new dependency for SC-DEP-002 review.
+
+**As built:** Entra ID and Google (Okta not built). Accounts: an administrator creates the user and the first SSO
+sign-in links it by email (Entra single-tenant only; Google verified emails only), after which only the provider's
+issuer and subject are used; optionally, approved domains create accounts automatically with the Employee or Viewer
+role. Authlib 1.9.5 with joserfc 1.8.0 (SC-DEP-002 checks recorded in the commit). Provider endpoints are fixed in code;
+no discovery URL comes from configuration. "SSO required" was decided later: every administrator (not one named
+account) keeps password sign-in as the break-glass route; it can only be turned on while a provider is on.
+
+## 5. Attack surface management
+
+**What changes:** read-only connectors to customers' RMM, EDR, vulnerability management and Microsoft 365 tenants (new
+outbound destinations, including self-hosted servers), a device and identity inventory, baselines and findings.
+
+**Decided (human:sneh, 2026-11-16):** NinjaOne, Datto RMM, N-central, ConnectWise Automate; Microsoft Defender,
+CrowdStrike, SentinelOne, Sophos; Tenable, Qualys, Rapid7, Defender Vulnerability Management; and Keystone may call
+Microsoft APIs directly, read-only (the Entra exposure module keeps using the collector).
+
+**As built:**
+- One HTTP client for every connector (`keystone/integrations/http.py`): HTTPS only; each connector's exact hosts or its
+  vendor's domain for customer consoles; pagination links re-checked; self-hosted servers public-only unless listed in
+  `KEYSTONE_INTEGRATION_PRIVATE_HOSTS`; connections pinned to the checked address; no redirects; size, page and time
+  limits; errors never repeat response bodies.
+- Credentials encrypted and write-only; for self-hosted servers they are dropped when the server address changes.
+- Untrusted XML (Qualys) parsed with defusedxml.
+- Exceptions to baselines need risk-acceptance rights, a reason and an end date within a year, and can't be approved
+  for your own device or account.
+- Connectors were built from vendor documentation and tested with sample responses, not live tenants; each records how
+  its field mapping was verified, and Test connection lists the field names a real API returns.
+
+## 6. Smaller decisions
+
+| Decision | Detail |
+|---|---|
+| Comments | Any staff member who can read a record may comment (existing `read` permission); employees can't |
+| File downloads by number | Checked against the record a file belongs to; device screenshots, removed vendor files and unlinked files are never served through it |

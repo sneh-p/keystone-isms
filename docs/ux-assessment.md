@@ -15,6 +15,7 @@ policies, portal, Trust Center).
 | Dashboard and registers | D1–D3, R1–R5 | Done (commit "UX phase 3"). Also: two-column KPI grid on phones (part of M1), keyboard-operable table rows |
 | Phones, Trust Center, speed | M1–M3, T1–T2, P1 | Done (commit "UX phase 4"): two-column KPIs, card lists below 640 px, full-screen dialogs; "Frameworks we align to" with per-framework aligned/certified/hidden; device checks name what failed; main bundle 428 KB → 80 KB, chart library loads with the FAIR tab |
 | Features | Notifications, vendor portal, auditor workspace, SSO | Done after AppSec sign-off (docs/feature-security-designs.md) |
+| Feature expansion, tiers 2-3 | Items 5-11 below | See "Status of the feature list" at the end (updated 2026-11-16) |
 
 ## Summary
 
@@ -136,3 +137,19 @@ value for effort.
 Security notes for any of these: the vendor portal and auditor workspace are new external access paths and new
 uploads, and SSO and notifications change authentication and add outbound destinations, so each is on the
 secure coding standard's escalation list (SC-AGT-006) and gets its own design review.
+
+### Status of the feature list (updated 2026-11-16)
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Notifications and reminders | Built: inbox, daily email digest, attention routed to record owners |
+| 2 | Vendor self-service portal | Built, with ClamAV scanning |
+| 3 | Auditor workspace | Built: expiring auditor accounts, evidence requests, audit pack, document viewer |
+| 4 | Single sign-on | Built for Entra ID and Google; Okta not built |
+| 5 | Comments, @mentions, activity feed | Comments and @mentions built on eight record types; a per-record activity feed is not built (the audit log is admin-only) |
+| 6 | Bulk actions, saved views, CSV import | Built: bulk on controls and tasks, saved views on controls and tasks, CSV import for assets, risks, vendors, people and devices |
+| 7 | Trends and board reporting | Built: daily snapshots shown weekly, 12-week sparklines, one-page board summary (Word, not PDF) |
+| 8 | More integrations | Intune device compliance built (attack surface, Microsoft 365 source), with Defender, CrowdStrike, SentinelOne, Sophos, four RMMs and three scanners; Jamf, Google Workspace, Okta, HR systems and Slack/Teams not built |
+| 9 | Risk library; incidents linked to risks | Built: 24 scenarios; linking an incident brings the risk's review forward |
+| 10 | Policy e-signature and versioned PDF export | Not built |
+| 11 | Control testing calendar | Built: calendar of tasks, reviews, renewals, evidence expiry and audits |
