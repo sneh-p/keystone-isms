@@ -194,3 +194,37 @@ class VulnPolicy(Audited, TimestampMixin, Base):
     epss_refreshed_at: Mapped[datetime | None] = mapped_column(DateTime)
     epss_score_date: Mapped[date | None] = mapped_column(Date)
     last_error: Mapped[str | None] = mapped_column(String(500))
+
+
+class ExternalDomain(Audited, TimestampMixin, Base):
+    """A domain the organisation owns; checked only while its verification TXT record is in place."""
+
+    __tablename__ = "external_domains"
+    REF_PREFIX = "DOM"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(253), nullable=False, unique=True)
+    verification_token: Mapped[str] = mapped_column(String(100), nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_scan_at: Mapped[datetime | None] = mapped_column(DateTime)
+    scan_error: Mapped[str | None] = mapped_column(String(500))
+    email: Mapped[dict | None] = mapped_column(JSON)  # SPF, DMARC, CAA as found
+    issues: Mapped[list | None] = mapped_column(JSON)
+
+
+class ExternalHost(Base):
+    """A host name under a verified domain, from certificate transparency, DNS or added by hand. Derived data."""
+
+    __tablename__ = "external_hosts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    domain_id: Mapped[int] = mapped_column(ForeignKey("external_domains.id", ondelete="CASCADE"), nullable=False, index=True)
+    host: Mapped[str] = mapped_column(String(253), nullable=False, unique=True)
+    source: Mapped[str] = mapped_column(String(10), nullable=False, default="ct")  # ct | dns | manual
+    first_seen: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime)
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)  # found in the latest scan
+    facts: Mapped[dict | None] = mapped_column(JSON)
+    issues: Mapped[list | None] = mapped_column(JSON)
+    worst: Mapped[str | None] = mapped_column(String(10))

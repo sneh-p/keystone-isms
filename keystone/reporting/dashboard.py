@@ -71,6 +71,10 @@ def overview(session: Session, on: date | None = None) -> dict:
     vs = vuln_summary(session, on)
     add(vs["known_exploited"], "known-exploited vulnerability(ies) open (CISA KEV)", "/attack-surface?tab=vulnerabilities&kev=1")
     add(vs["overdue"], "vulnerability(ies) past their fix-by date", "/attack-surface?tab=vulnerabilities&overdue=1")
+    from keystone.asm.external import summary as ext_summary
+
+    es = ext_summary(session)
+    add(es["critical"] + es["high"], "critical or high issue(s) on your internet-facing domains", "/attack-surface?tab=external")
     return {
         "open_risks": len(open_risks),
         "risk_levels": levels,

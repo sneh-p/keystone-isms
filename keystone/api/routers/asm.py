@@ -8,6 +8,7 @@ from pydantic import Field
 from sqlalchemy.orm import Session
 
 from keystone.asm import baselines as bl
+from keystone.asm import external as ext
 from keystone.asm import service as asm
 from keystone.asm import vulnintel as vi
 from keystone.integrations.http import ConnectorError
@@ -148,3 +149,54 @@ def refresh_vuln_intel(user=Depends(perm("integration.manage")), db: Session = D
     except ConnectorError as e:
         db.commit()  # keep what did refresh and the recorded error
         raise HTTPException(502, str(e)) from None
+
+
+# ---- external attack surface (verified domains only; passive) -----------------------------------------------------
+
+@router.get("/external")
+def external_view(user=Depends(perm("read")), db: Session = Depends(get_db)):
+    return ext.view(db, user)
+
+
+class DomainIn(In):
+    name: str = Field(min_length=4, max_length=253)
+
+
+@router.post("/external/domains")
+def add_domain(body: DomainIn, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
+    d = ext.add_domain(db, user, body.name)
+    return {"id": d.id, "name": d.name}
+
+
+@router.delete("/external/domains/{did}")
+def remove_domain(did: int, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
+    ext.remove_domain(db, user, did)
+    return {"ok": True}
+
+
+@router.post("/external/domains/{did}/verify")
+def verify_domain(did: int, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
+    try:
+        d = ext.verify(db, user, did)
+    except ext.NotVerified as e:
+        raise HTTPException(409, str(e)) from None
+    return {"id": d.id, "verified": True}
+
+
+@router.post("/external/domains/{did}/scan")
+def scan_domain(did: int, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
+    try:
+        return ext.scan(db, user, did)
+    except ext.NotVerified as e:
+        db.commit()  # record that verification lapsed
+        raise HTTPException(409, str(e)) from None
+
+
+class HostIn(In):
+    host: str = Field(min_length=4, max_length=253)
+
+
+@router.post("/external/domains/{did}/hosts")
+def add_host(did: int, body: HostIn, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
+    h = ext.add_host(db, user, did, body.host)
+    return {"id": h.id, "host": h.host}

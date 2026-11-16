@@ -53,6 +53,17 @@ def refresh_vuln_intel() -> None:
         vulnintel.refresh(s)
 
 
+@register("external-scan", minutes=1440)
+def scan_external() -> None:
+    """Re-check ownership of each verified domain, then discover and check its hosts (passive; see asm/external.py)."""
+    from keystone.asm import external
+
+    with db.session_scope() as s:
+        out = external.scan_all(s)
+    if out["failed"]:
+        raise RuntimeError(f"{out['failed']} domain(s) lost their verification record")
+
+
 @register("backup", minutes=1440)
 def nightly_backup() -> None:
     """Back up the database and stored files, test-restore the result into a scratch database, then prune old

@@ -139,6 +139,14 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   recomputed after each import, feed refresh or policy change, so lists and the dashboard don't recompute them per
   request. The rules (P1 KEV, P2 EPSS ≥ threshold or exploit on critical/high, P3 critical/high, P4 rest) are
   deliberately simple and shown in the app; they are a starting point, not SSVC.
+- **External attack surface is passive and ownership-gated.** A domain is enumerated only while a Keystone-generated
+  TXT record is published, re-checked before every scan, so the feature can't be pointed at someone else's estate.
+  Discovery is certificate transparency (crt.sh) and DNS through the server's resolver (dnspython; no DNS-over-HTTPS
+  provider sees the queries). Probing reuses the website check: ports 443 and 80, public addresses only, pinned
+  connections. No port scanning, by decision: it's noisy, often against hosting providers' terms, and better done by a
+  dedicated scanner that can feed Keystone through the vulnerability connectors. Dangling-CNAME detection requires a
+  definite NXDOMAIN, so providers that answer NODATA for missing names produce no alert (false negatives over false
+  positives). Results are derived data; domains (and their verification) are audited.
 - **Connector client decoding bug (found 2026-11-16).** The shared client rebuilt responses from already-decompressed
   bytes but kept `Content-Encoding`, so any real API that gzips its responses failed with `DecodingError`. Mocked
   connector tests never sent compressed responses; a regression test now does. This affected every attack surface

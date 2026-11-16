@@ -133,7 +133,10 @@ nightly and test-restores each backup; copy the backups off the host and keep th
 4. **Vulnerabilities are put in fix order**: known exploited (CISA KEV) first, then likely to be exploited (FIRST
    EPSS), then by severity, each with a fix-by date from deadlines you set. Both feeds are downloaded whole, so no one
    learns which vulnerabilities you have.
-5. **Findings** open and close by themselves. New critical and high findings notify the device or account owner (or
+5. **Internet-facing domains** you prove you own (a DNS TXT record) are checked passively every day: SPF, DMARC and
+   CAA, host names from certificate transparency, dangling CNAMEs, internal addresses in public DNS, and HTTPS
+   (TLS version, certificate expiry, redirect, HSTS). No port scanning.
+6. **Findings** open and close by themselves. New critical and high findings notify the device or account owner (or
    the ISMS managers when nobody owns it); critical ones are also emailed. A baseline that everything meets files
    evidence on its controls. **Exceptions** need risk-acceptance rights, a reason and an end date within a year, and
    can't be approved for your own device.

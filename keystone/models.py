@@ -32,3 +32,4 @@ from keystone.sso.models import SsoPolicy
 from keystone.asm.models import AsmDevice, AsmFinding, AsmIdentity, AsmSetting, AsmSourceRecord, AsmVulnerability, Baseline
 from keystone.ops.models import BackupRun, JobStatus
 from keystone.asm.models import EpssScore, KevEntry, VulnPolicy
+from keystone.asm.models import ExternalDomain, ExternalHost

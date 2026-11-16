@@ -169,6 +169,7 @@ def seed(session: Session, admin) -> dict:
     _seed_workflows(session, people, fab, nw)
     _seed_trend_history(session)
     _seed_attack_surface(session, admin)
+    seed_external(session)
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
 
 
@@ -322,3 +323,31 @@ def _seed_workflows(session: Session, people: dict, fab, nw) -> None:
                         pasted="Do you encrypt customer data at rest?\nDo you require multi-factor authentication?\nDo you have an incident response plan?\nHow often do you test restores from backup?\nDo you hold an ISO 27001 certificate?")
     answers.fill_from_knowledge_base(session, lena, sq.id)
     answers.approve_item(session, mia, sq.items[0].id)
+
+
+def seed_external(session: Session) -> None:
+    """A fictional verified domain with example results (no lookups are made for demo data)."""
+    from keystone.asm.external import RECORD_PREFIX, _issue, _worst
+    from keystone.asm.models import ExternalDomain, ExternalHost
+
+    now = utcnow()
+    d = ExternalDomain(name="alpineskihouse.example", verification_token=RECORD_PREFIX + "demo", verified_at=now, last_scan_at=now,
+                       email={"spf": "v=spf1 include:spf.protection.outlook.com -all", "dmarc": "v=DMARC1; p=none", "dmarc_policy": "none", "caa": []},
+                       issues=[_issue("dmarc_monitor_only", "medium", "DMARC policy is p=none (monitoring only)"),
+                               _issue("caa_missing", "low", "No CAA record limiting which certificate authorities may issue for this domain")])
+    session.add(d)
+    session.flush()
+    hosts = [
+        ("alpineskihouse.example", "dns", {"web": "https", "tls_version": "TLSv1.3", "cert_expires": (now + timedelta(days=70)).date().isoformat(), "https_redirect": True}, []),
+        ("www.alpineskihouse.example", "dns", {"web": "https", "tls_version": "TLSv1.3", "cert_expires": (now + timedelta(days=70)).date().isoformat(), "https_redirect": True}, []),
+        ("booking.alpineskihouse.example", "ct", {"web": "https", "tls_version": "TLSv1.2", "cert_expires": (now + timedelta(days=9)).date().isoformat(), "https_redirect": True},
+         [_issue("cert_expiring", "high", "Certificate expires soon"), _issue("hsts_missing", "low", "No Strict-Transport-Security header")]),
+        ("shop.alpineskihouse.example", "ct", {"cname": "alpine-shop-2019.azurewebsites.example", "addresses": []},
+         [_issue("dangling_cname", "high", "Points (CNAME) to alpine-shop-2019.azurewebsites.example, which doesn't exist: someone could claim it and serve content on this name")]),
+        ("vpn.alpineskihouse.example", "ct", {"web": "https", "tls_version": "TLSv1.0", "https_redirect": None}, [_issue("tls_old", "high", "Old TLS version (TLSv1.0)")]),
+        ("intranet.alpineskihouse.example", "ct", {"addresses": ["10.20.0.15"], "web": "not checked"},
+         [_issue("internal_address", "low", "Public DNS gives an internal address for this name (reveals internal naming)")]),
+    ]
+    for name, src, facts, issues in hosts:
+        session.add(ExternalHost(domain_id=d.id, host=name, source=src, first_seen=now - timedelta(days=30), last_seen=now, checked_at=now, facts=facts, issues=issues, worst=_worst(issues)))
+    session.flush()

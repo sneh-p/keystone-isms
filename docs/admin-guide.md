@@ -363,6 +363,30 @@ scores for CVEs it has seen. Because whole files are downloaded, neither site le
 Allow those two hosts through your egress firewall. If a download fails, the previous data is kept, the error is
 shown on the page, and the `vuln-intel` job shows as failed under System health.
 
+### Internet-facing domains
+
+**Attack surface → Internet-facing** checks the domains your organisation uses for its website and email, the way
+anyone on the internet sees them. Add a domain, publish the TXT record Keystone shows at
+`_keystone-verification.<domain>` (or on the domain itself), and press **Verify**. Keep the record: Keystone looks for it
+before every check and stops checking a domain whose record has gone. This is what stops Keystone being used to map
+domains you don't own.
+
+What it looks at, once a day and on **Check now** (needs the integration-management permission):
+
+- **Email security** of the domain: SPF (missing, several records, `+all`, no `-all`/`~all`), DMARC (missing, or
+  `p=none`), and whether a CAA record limits who may issue certificates.
+- **Host names** under the domain from certificate transparency logs (via `crt.sh`), plus the domain itself, `www`, and
+  any host you add by hand (for names behind a wildcard certificate). Up to 300 per domain.
+- For each host: its DNS records; a **dangling CNAME** (pointing at a cloud name that no longer exists, so someone else
+  could claim it); a public name that points to an **internal address**; and, for hosts with public addresses,
+  **HTTPS**: TLS version, certificate validity and expiry, whether plain HTTP redirects to HTTPS, and HSTS.
+
+It never port-scans, never tries logins or vulnerability probes, and only connects to ports 443 and 80 of public
+addresses under a verified domain. New critical or high issues notify the ISMS managers, and the dashboard counts them.
+DNS queries go through the server's own resolver; allow `crt.sh` through your egress firewall for discovery. Some DNS
+providers answer "no records" instead of "no such name" for missing names, so a dangling CNAME there isn't detected:
+the check errs towards silence rather than false alarms.
+
 ## AI (optional)
 
 Keystone works fully without AI. To turn on the policy assistant and questionnaire drafting,

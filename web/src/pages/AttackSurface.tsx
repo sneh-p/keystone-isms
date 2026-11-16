@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Crosshair, Flame, Plus, RefreshCw, ShieldOff } from "lucide-react";
+import { CheckCircle2, Crosshair, Flame, Globe2, Plus, RefreshCw, ShieldOff, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi, usePeople, useUrlFilter } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -17,6 +17,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
 import { DateInput } from "@/components/forms";
 import { ImportButton } from "@/components/ImportDialog";
+import { CopyButton } from "@/components/CopyButton";
 
 const SEV_TONE: Record<string, "critical" | "warning" | "primary" | "outline"> = { critical: "critical", high: "warning", medium: "primary", low: "outline" };
 const SOURCE_LABEL: Record<string, string> = { rmm: "RMM", edr: "EDR", vuln: "Scanner", mdm: "MDM", manual: "CSV" };
@@ -50,6 +51,7 @@ export default function AttackSurface() {
         { value: "findings", label: `Findings (${data.findings_total})`, content: <Findings /> },
         { value: "devices", label: `Devices (${data.devices})`, content: <Devices /> },
         { value: "vulnerabilities", label: "Vulnerabilities", content: <Vulnerabilities /> },
+        { value: "external", label: "Internet-facing", content: <External /> },
         { value: "identities", label: `Identities (${data.identities})`, content: <Identities /> },
         { value: "settings", label: "Configuration", content: <Settings /> },
         { value: "baselines", label: "Baselines", content: <Baselines /> },
@@ -405,6 +407,89 @@ function Vulnerabilities() {
             ))}
           </div>
         </div>}
+      </Dialog>
+    </div>
+  );
+}
+
+const ISSUE_TONE: Record<string, "critical" | "serious" | "warning" | "outline"> = { critical: "critical", high: "serious", medium: "warning", low: "outline" };
+
+function Issues({ items }: { items: any[] }) {
+  if (!items.length) return <span className="text-xs text-muted-foreground">No issues</span>;
+  return <ul className="space-y-1">{items.map((i) => <li key={i.code} className="flex items-start gap-2 text-sm"><Badge tone={ISSUE_TONE[i.severity] ?? "outline"}>{titleCase(i.severity)}</Badge><span>{i.title}</span></li>)}</ul>;
+}
+
+/** Domains the organisation has proved it owns: email security records, and hosts found in certificate logs and DNS. */
+function External() {
+  const { can } = useAuth();
+  const { data } = useApi<any>("/asm/external");
+  const [name, setName] = useState("");
+  const [host, setHost] = useState<{ id: number; value: string } | null>(null);
+  const inv = ["/asm", "/dashboard"];
+  const add = useAction(() => api("/asm/external/domains", { body: { name } }), { success: "Domain added. Publish the TXT record, then verify.", invalidate: inv, onSuccess: () => setName("") });
+  const verify = useAction((id: number) => api(`/asm/external/domains/${id}/verify`, { method: "POST" }), { success: "Ownership verified.", invalidate: inv });
+  const scan = useAction((id: number) => api<any>(`/asm/external/domains/${id}/scan`, { method: "POST" }), { success: (r: any) => `Checked ${r.hosts} host(s): ${r.issues} issue(s).`, invalidate: inv });
+  const remove = useAction((id: number) => api(`/asm/external/domains/${id}`, { method: "DELETE" }), { success: "Domain removed.", invalidate: inv });
+  const addHost = useAction(() => api(`/asm/external/domains/${host!.id}/hosts`, { body: { host: host!.value } }), { success: "Host added; it's checked on the next scan.", invalidate: inv, onSuccess: () => setHost(null) });
+  if (!data) return <Skeleton className="h-64" />;
+  const s = data.summary;
+  const manage = can("integration.manage");
+  return (
+    <div className="space-y-5">
+      <p className="max-w-3xl text-sm text-muted-foreground">Only domains you prove you own are checked, and only the way a browser or mail server would see them: certificate transparency logs, public DNS, and HTTPS. No port scanning. Checks run daily.</p>
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Stat label="Critical" value={s.critical} tone={s.critical ? "critical" : "good"} />
+        <Stat label="High" value={s.high} tone={s.high ? "warning" : "good"} />
+        <Stat label="Medium" value={s.medium} />
+        <Stat label="Low" value={s.low} />
+      </div>
+      {manage && (
+        <Card><CardBody className="flex flex-wrap items-end gap-3">
+          <div className="w-72"><Field label="Add a domain you own"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="example.com" /></Field></div>
+          <Button disabled={!name.trim()} loading={add.isPending} onClick={() => add.mutate(undefined)}><Plus /> Add domain</Button>
+        </CardBody></Card>
+      )}
+      {data.domains.length === 0 && <Empty icon={Globe2} title="No domains yet">Add the domains your organisation uses for its website and email.</Empty>}
+      {data.domains.map((d: any) => (
+        <Card key={d.id}>
+          <CardHeader title={<span className="flex items-center gap-2">{d.name}{d.verified ? <Badge tone="good"><CheckCircle2 className="h-3 w-3" />Verified</Badge> : <Badge tone="warning">Not verified</Badge>}</span>}
+            description={d.last_scan_at ? `Last checked ${fmtDate(d.last_scan_at, true)} · ${d.hosts} host(s)` : d.verified ? "Not checked yet" : "Publish the TXT record below, then verify."}
+            action={manage && <div className="flex flex-wrap gap-2">
+              {d.verified ? <Button size="sm" variant="outline" loading={scan.isPending && scan.variables === d.id} onClick={() => scan.mutate(d.id)}><RefreshCw /> Check now</Button>
+                : <Button size="sm" loading={verify.isPending && verify.variables === d.id} onClick={() => verify.mutate(d.id)}>Verify</Button>}
+              {d.verified && <Button size="sm" variant="ghost" onClick={() => setHost({ id: d.id, value: "" })}><Plus /> Host</Button>}
+              <Button size="sm" variant="ghost" aria-label={`Remove ${d.name}`} onClick={() => { if (confirm(`Remove ${d.name} and its results?`)) remove.mutate(d.id); }}><Trash2 /></Button>
+            </div>} />
+          <CardBody className="space-y-4">
+            {d.scan_error && <p role="alert" className="text-sm text-critical">{d.scan_error}</p>}
+            {!d.verified && d.verification && (
+              <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                <p className="mb-2">Add this TXT record at your DNS provider. Keep it in place: Keystone checks it before every scan.</p>
+                <KeyValue items={[["Name", <code key="n">{d.verification.name}</code>], ["Type", "TXT"], ["Value", <span key="v" className="flex items-center gap-2"><code className="break-all">{d.verification.value}</code><CopyButton text={d.verification.value} /></span>]]} />
+              </div>
+            )}
+            {d.verified && d.last_scan_at && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div><p className="mb-2 text-sm font-medium">Email and certificates</p>
+                  <KeyValue items={[["SPF", d.email.spf ?? "None"], ["DMARC", d.email.dmarc_policy ? `p=${d.email.dmarc_policy}` : "None"], ["CAA", d.email.caa?.length ? d.email.caa.join(", ") : "None"]]} /></div>
+                <div><p className="mb-2 text-sm font-medium">Domain issues</p><Issues items={d.issues} /></div>
+              </div>
+            )}
+          </CardBody>
+        </Card>
+      ))}
+      {data.hosts.length > 0 && (
+        <DataTable rows={data.hosts} rowKey={(h: any) => h.id} search={(h: any) => h.host}
+          columns={[
+            { key: "w", header: "Worst", sort: (h: any) => ["critical", "high", "medium", "low"].indexOf(h.worst ?? "") + (h.worst ? 0 : 9), className: "w-24", cell: (h: any) => h.worst ? <Badge tone={ISSUE_TONE[h.worst]}>{titleCase(h.worst)}</Badge> : <span className="text-xs text-muted-foreground">None</span> },
+            { key: "h", header: "Host", sort: (h: any) => h.host, cell: (h: any) => <div><div className="font-medium">{h.host}</div><div className="text-xs text-muted-foreground">{h.source === "ct" ? "Certificate logs" : h.source === "manual" ? "Added by hand" : "DNS"} · since {fmtDate(h.first_seen)}</div></div> },
+            { key: "f", header: "Seen", cell: (h: any) => <div className="text-xs">{h.facts.web === "https" ? `HTTPS${h.facts.tls_version ? ` (${h.facts.tls_version})` : ""}${h.facts.cert_expires ? `, certificate until ${fmtDate(h.facts.cert_expires)}` : ""}` : h.facts.web === "no address" ? "Doesn't resolve" : h.facts.web === "no https" ? "No HTTPS service" : "Not checked"}{h.facts.cname ? <div className="text-muted-foreground">CNAME {h.facts.cname}</div> : null}</div> },
+            { key: "i", header: "Issues", cell: (h: any) => <Issues items={h.issues} /> },
+          ]} />
+      )}
+      <Dialog open={!!host} onOpenChange={(o) => !o && setHost(null)} title="Add a host" description="For names certificate logs don't show, such as hosts covered by a wildcard certificate. Must be part of the domain."
+        footer={<Button disabled={!host?.value.trim()} loading={addHost.isPending} onClick={() => addHost.mutate(undefined)}>Add</Button>}>
+        {host && <Field label="Host name"><Input value={host.value} onChange={(e) => setHost({ ...host, value: e.target.value })} placeholder="intranet.example.com" /></Field>}
       </Dialog>
     </div>
   );
