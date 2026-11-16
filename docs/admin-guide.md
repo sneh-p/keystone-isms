@@ -326,6 +326,9 @@ vulnerabilities; **Attack surface** shows the merged picture and the gaps agains
 | Tenable | Open critical/high/medium vulnerabilities and assets | API keys of a user with view access |
 | Qualys VMDR | Hosts with severity 3-5 detections | Reader user with API access |
 | Rapid7 InsightVM | Assets with critical and severe vulnerabilities | API key of a read-only user |
+| AWS Security Hub | Control results per region (resources passing and failing each control) | IAM user with only AWSSecurityHubReadOnlyAccess |
+| Microsoft Defender for Cloud | Security recommendations per Azure subscription (healthy and unhealthy resources) | App registration with the Security Reader role on each subscription (no API permissions) |
+| Google Security Command Center | Active misconfiguration findings for the organisation, by category | Service account with only Security Center Findings Viewer; JSON key |
 
 How it works: each run reads the source (read-only), matches devices across tools (serial number, then Entra device
 ID, then host name), and re-checks every enabled **baseline**. Gaps become **findings**; they close by themselves when

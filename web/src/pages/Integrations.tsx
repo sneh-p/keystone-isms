@@ -18,7 +18,7 @@ import { safeHref } from "@/lib/safe-url";
 
 const ICON: Record<string, any> = { website: Globe, github: Github, aws: Cloud, entra: ShieldCheck };
 
-const CATEGORY: Record<string, string> = { rmm: "devices (RMM)", edr: "EDR", vuln: "vulnerabilities", mdm: "device management", identity: "identities", posture: "configuration" };
+const CATEGORY: Record<string, string> = { rmm: "devices (RMM)", edr: "EDR", vuln: "vulnerabilities", mdm: "device management", identity: "identities", posture: "cloud and tenant configuration" };
 
 export default function Integrations() {
   const { can } = useAuth();

@@ -20,7 +20,7 @@ import { ImportButton } from "@/components/ImportDialog";
 import { CopyButton } from "@/components/CopyButton";
 
 const SEV_TONE: Record<string, "critical" | "warning" | "primary" | "outline"> = { critical: "critical", high: "warning", medium: "primary", low: "outline" };
-const SOURCE_LABEL: Record<string, string> = { rmm: "RMM", edr: "EDR", vuln: "Scanner", mdm: "MDM", manual: "CSV" };
+const SOURCE_LABEL: Record<string, string> = { rmm: "RMM", edr: "EDR", vuln: "Scanner", mdm: "MDM", posture: "Cloud posture", manual: "CSV" };
 
 function Sev({ s }: { s: string }) {
   return <Badge tone={SEV_TONE[s] ?? "outline"}>{titleCase(s)}</Badge>;

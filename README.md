@@ -123,7 +123,9 @@ nightly and test-restores each backup; copy the backups off the host and keep th
 
 **Risk → Attack surface** brings together what your tools know and compares it with what you require.
 
-1. **Connect sources** (read-only) under Integrations, or import devices from CSV for tools without an API.
+1. **Connect sources** (read-only) under Integrations: RMM, EDR, vulnerability scanners, Microsoft 365, and cloud
+   posture from AWS Security Hub, Microsoft Defender for Cloud and Google Security Command Center. Tools without an
+   API can be imported from CSV.
 2. **Set baselines**: "Add recommended baselines" creates 17, for example *every workstation and server has an EDR
    agent*, *disk encryption on*, *critical vulnerabilities fixed within 7 days*, *no vulnerabilities with a known
    exploit*, *MFA registered for every enabled account*, *no accounts unused for 90 days*, *Secure Score settings meet

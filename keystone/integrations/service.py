@@ -16,6 +16,7 @@ from keystone.core.services import authorize, get_or_404, require_text, today
 from keystone.frameworks.models import CommonControl
 
 from .models import CheckResult, Integration
+from .providers.asm_cloud import AwsSecurityHubProvider, DefenderForCloudProvider, GoogleSccProvider
 from .providers.asm_edr import CrowdStrikeProvider, SentinelOneProvider, SophosProvider
 from .providers.asm_microsoft import MicrosoftProvider
 from .providers.asm_rmm import ConnectWiseAutomateProvider, DattoRmmProvider, NCentralProvider, NinjaOneProvider
@@ -32,6 +33,8 @@ PROVIDERS: dict[str, Provider] = {p.key: p for p in (
     MicrosoftProvider(), CrowdStrikeProvider(), SentinelOneProvider(), SophosProvider(),
     NinjaOneProvider(), DattoRmmProvider(), NCentralProvider(), ConnectWiseAutomateProvider(),
     TenableProvider(), QualysProvider(), Rapid7Provider(),
+    # cloud posture (round 3): read-only posture assessments
+    AwsSecurityHubProvider(), DefenderForCloudProvider(), GoogleSccProvider(),
 )}
 
 
