@@ -1,10 +1,34 @@
 import {
-  Activity, AlertOctagon, BookOpen, Boxes, Building2, ClipboardCheck, ClipboardList, FileCheck2, Gauge, Globe2, Handshake, KeyRound,
-  LayoutDashboard, ListChecks, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, Search, ShieldCheck, Siren, Sparkles, UserCog, Users, Wrench, Scale,
+  Activity, AlertOctagon, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Handshake, KeyRound,
+  LayoutDashboard, ListChecks, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, Settings, ShieldCheck, Siren, Sparkles, UserCog, Users, Wrench,
 } from "lucide-react";
 
-export type NavItem = { label: string; to: string; icon: any; perm?: string };
+export type NavItem = { label: string; to: string; icon: any; perm?: string; also?: string[] };
 export type NavSection = { label?: string; items: NavItem[] };
+export type AreaTab = { label: string; to: string; perm?: string };
+
+/** Screens that belong together share one sidebar entry and a tab bar (rendered by the app shell). */
+export const AREAS: { name: string; tabs: AreaTab[] }[] = [
+  { name: "Vendors", tabs: [
+    { label: "Vendors", to: "/vendors" },
+    { label: "Vendor questionnaires", to: "/questionnaires" },
+    { label: "Vendor assessments", to: "/assessments" },
+  ] },
+  { name: "Improvement", tabs: [
+    { label: "Nonconformities", to: "/nonconformities" },
+    { label: "Audits", to: "/audits" },
+    { label: "Management review", to: "/reviews" },
+  ] },
+  { name: "Settings", tabs: [
+    { label: "Organisation", to: "/settings/organisation" },
+    { label: "Users", to: "/settings/users", perm: "users.manage" },
+    { label: "Audit log", to: "/settings/audit-log", perm: "audit_log.view" },
+    { label: "AI", to: "/settings/ai", perm: "ai.manage" },
+    { label: "My account", to: "/settings/account" },
+  ] },
+];
+
+const areaPaths = (name: string) => AREAS.find((a) => a.name === name)!.tabs.map((t) => t.to);
 
 export const NAV: NavSection[] = [
   { items: [{ label: "Overview", to: "/", icon: LayoutDashboard }] },
@@ -29,9 +53,7 @@ export const NAV: NavSection[] = [
   {
     label: "Third parties",
     items: [
-      { label: "Vendors", to: "/vendors", icon: Handshake },
-      { label: "Questionnaires", to: "/questionnaires", icon: ClipboardList },
-      { label: "Vendor assessments", to: "/assessments", icon: Scale },
+      { label: "Vendors", to: "/vendors", icon: Handshake, also: areaPaths("Vendors") },
       { label: "Entra exposure", to: "/exposure", icon: MapIcon },
     ],
   },
@@ -40,7 +62,7 @@ export const NAV: NavSection[] = [
     items: [
       { label: "People", to: "/people", icon: Users },
       { label: "Trust Center", to: "/trust-center", icon: Globe2 },
-      { label: "Security questionnaires", to: "/security-questionnaires", icon: MessageSquareText },
+      { label: "Customer questionnaires", to: "/security-questionnaires", icon: MessageSquareText },
       { label: "Integrations", to: "/integrations", icon: Plug },
     ],
   },
@@ -48,23 +70,25 @@ export const NAV: NavSection[] = [
     label: "Operations",
     items: [
       { label: "Incidents", to: "/incidents", icon: Siren },
-      { label: "Nonconformities", to: "/nonconformities", icon: Wrench },
-      { label: "Audits", to: "/audits", icon: Search },
-      { label: "Management review", to: "/reviews", icon: ClipboardCheck },
+      { label: "Improvement", to: "/nonconformities", icon: Wrench, also: areaPaths("Improvement") },
       { label: "Reports", to: "/reports", icon: Activity },
     ],
   },
-  {
-    label: "Settings",
-    items: [
-      { label: "Organisation", to: "/settings/organisation", icon: Building2 },
-      { label: "Users", to: "/settings/users", icon: UserCog, perm: "users.manage" },
-      { label: "Audit log", to: "/settings/audit-log", icon: AlertOctagon, perm: "audit_log.view" },
-      { label: "My account", to: "/settings/account", icon: KeyRound },
-      { label: "AI", to: "/settings/ai", icon: Sparkles, perm: "ai.manage" },
-    ],
-  },
+  { items: [{ label: "Settings", to: "/settings/organisation", icon: Settings, also: areaPaths("Settings") }] },
 ];
+
+/** Every screen, for the command palette: sidebar entries plus the tabs inside areas. */
+export const PAGES: { section: string; label: string; to: string; icon: any; perm?: string }[] = (() => {
+  const icons: Record<string, any> = { "/questionnaires": ClipboardList, "/assessments": Handshake, "/audits": Wrench, "/reviews": Wrench,
+    "/settings/users": UserCog, "/settings/audit-log": AlertOctagon, "/settings/ai": Sparkles, "/settings/account": KeyRound, "/settings/organisation": Building2 };
+  const out: { section: string; label: string; to: string; icon: any; perm?: string }[] = [];
+  for (const s of NAV) for (const it of s.items) {
+    const area = AREAS.find((a) => a.tabs.some((t) => t.to === it.to));
+    if (area) for (const t of area.tabs) out.push({ section: area.name, label: t.label, to: t.to, icon: icons[t.to] ?? it.icon, perm: t.perm });
+    else out.push({ section: s.label ?? "Keystone", label: it.label, to: it.to, icon: it.icon, perm: it.perm });
+  }
+  return out;
+})();
 
 /** Routes that exist in the current build; nav entries for others are hidden. */
 export const BUILT = new Set<string>();

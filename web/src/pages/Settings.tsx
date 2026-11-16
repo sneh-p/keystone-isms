@@ -235,7 +235,7 @@ export function AiSettings() {
           <CardHeader title="What is sent" />
           <CardBody className="space-y-3 text-sm text-muted-foreground">
             <p><span className="font-medium text-foreground">Policy assistant:</span> the document's text, its linked controls, your instruction and the organisation profile (name, industry, description, scope).</p>
-            <p><span className="font-medium text-foreground">Questionnaires:</span> the questions, the text of approved policies and approved knowledge-base answers. Draft policies are never sent.</p>
+            <p><span className="font-medium text-foreground">Customer questionnaires:</span> the questions, the text of approved policies and approved knowledge-base answers. Draft policies are never sent.</p>
             <p>People, users, risks, incidents, evidence files and credentials are never sent. Answers cite their sources, and quotes that can't be found in a source are discarded. A person approves every answer before export.</p>
           </CardBody>
         </Card>

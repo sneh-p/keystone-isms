@@ -2,12 +2,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Command } from "cmdk";
 import * as D from "@radix-ui/react-dialog";
-import { ChevronsLeft, ChevronsRight, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Sun, User } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Sun, User } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Menu } from "@/components/ui/dropdown";
-import { NAV, BUILT } from "./nav";
+import { AREAS, BUILT, NAV, PAGES, type NavItem } from "./nav";
 
 function Logo({ collapsed }: { collapsed?: boolean }) {
   return (
@@ -28,31 +28,76 @@ function useNav() {
   return NAV.map((s) => ({ ...s, items: s.items.filter((i) => (!i.perm || can(i.perm)) && (BUILT.size === 0 || BUILT.has(i.to))) })).filter((s) => s.items.length);
 }
 
+const GROUPS_KEY = "ks-nav-groups";
+
+function readClosedGroups(): string[] {
+  try { return JSON.parse(localStorage.getItem(GROUPS_KEY) ?? "[]"); } catch { return []; }
+}
+
+function isActive(it: NavItem, path: string): boolean {
+  if (it.to === "/") return path === "/";
+  return [it.to, ...(it.also ?? [])].some((p) => path === p || path.startsWith(p + "/"));
+}
+
 function Sidebar({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const sections = useNav();
+  const { pathname } = useLocation();
+  const [closed, setClosed] = useState<string[]>(readClosedGroups);
+  const toggle = (label: string) => setClosed((c) => {
+    const next = c.includes(label) ? c.filter((x) => x !== label) : [...c, label];
+    try { localStorage.setItem(GROUPS_KEY, JSON.stringify(next)); } catch { /* storage unavailable: keep in memory */ }
+    return next;
+  });
   return (
-    <nav className="flex-1 space-y-4 overflow-y-auto px-2 py-3" aria-label="Main">
-      {sections.map((s, i) => (
-        <div key={i}>
-          {s.label && !collapsed && <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{s.label}</div>}
-          <div className="space-y-0.5">
-            {s.items.map((it) => (
-              <NavLink
-                key={it.to}
-                to={it.to}
-                end={it.to === "/"}
-                onClick={onNavigate}
-                title={collapsed ? it.label : undefined}
-                className={({ isActive }) =>
-                  cn("flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors", isActive ? "bg-sidebar-active font-medium text-accent-foreground" : "text-sidebar-foreground hover:bg-muted", collapsed && "justify-center px-0")
-                }
-              >
-                <it.icon className="size-4 shrink-0" />
-                {!collapsed && <span className="truncate">{it.label}</span>}
-              </NavLink>
-            ))}
+    <nav className="flex-1 space-y-3 overflow-y-auto px-2 py-3" aria-label="Main">
+      {sections.map((s, i) => {
+        const hasActive = s.items.some((it) => isActive(it, pathname));
+        const open = collapsed || !s.label || hasActive || !closed.includes(s.label);
+        const listId = `nav-group-${i}`;
+        return (
+          <div key={i}>
+            {s.label && !collapsed && (
+              <button type="button" onClick={() => toggle(s.label!)} aria-expanded={open} aria-controls={listId} disabled={hasActive}
+                className="mb-1 flex w-full items-center justify-between rounded px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground disabled:cursor-default disabled:hover:text-muted-foreground">
+                {s.label}
+                {!hasActive && <ChevronDown className={cn("size-3.5 transition-transform", !open && "-rotate-90")} aria-hidden />}
+              </button>
+            )}
+            {open && (
+              <div id={listId} className="space-y-0.5">
+                {s.items.map((it) => {
+                  const active = isActive(it, pathname);
+                  return (
+                    <NavLink key={it.to} to={it.to} onClick={onNavigate} title={collapsed ? it.label : undefined} aria-current={active ? "page" : undefined}
+                      className={cn("flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors", active ? "bg-sidebar-active font-medium text-accent-foreground" : "text-sidebar-foreground hover:bg-muted", collapsed && "justify-center px-0")}>
+                      <it.icon className="size-4 shrink-0" />
+                      {!collapsed && <span className="truncate">{it.label}</span>}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** Tab bar for screens that share one sidebar entry (Vendors, Improvement, Settings). */
+function AreaTabs() {
+  const { pathname } = useLocation();
+  const { can } = useAuth();
+  const area = AREAS.find((a) => a.tabs.some((t) => pathname === t.to || pathname.startsWith(t.to + "/")));
+  if (!area) return null;
+  const tabs = area.tabs.filter((t) => !t.perm || can(t.perm));
+  if (tabs.length < 2) return null;
+  return (
+    <nav aria-label={`${area.name} sections`} className="-mt-2 mb-5 flex gap-1 overflow-x-auto border-b">
+      {tabs.map((t) => (
+        <NavLink key={t.to} to={t.to} className={({ isActive }) => cn("-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm transition-colors", isActive ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+          {t.label}
+        </NavLink>
       ))}
     </nav>
   );
@@ -60,7 +105,9 @@ function Sidebar({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: (
 
 function CommandPalette({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
   const nav = useNavigate();
-  const sections = useNav();
+  const { can } = useAuth();
+  const pages = PAGES.filter((p) => (!p.perm || can(p.perm)) && (BUILT.size === 0 || BUILT.has(p.to)));
+  const groups = [...new Set(pages.map((p) => p.section))];
   return (
     <D.Root open={open} onOpenChange={setOpen}>
       <D.Portal>
@@ -71,10 +118,10 @@ function CommandPalette({ open, setOpen }: { open: boolean; setOpen: (o: boolean
             <Command.Input autoFocus placeholder="Jump to a page…" className="w-full border-b bg-transparent px-4 py-3 text-sm outline-none" />
             <Command.List className="max-h-80 overflow-auto p-2">
               <Command.Empty className="py-6 text-center text-sm text-muted-foreground">No results</Command.Empty>
-              {sections.map((s, i) => (
-                <Command.Group key={i} heading={s.label ?? "Keystone"} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground">
-                  {s.items.map((it) => (
-                    <Command.Item key={it.to} value={`${s.label ?? ""} ${it.label}`} onSelect={() => { nav(it.to); setOpen(false); }} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm data-[selected=true]:bg-muted">
+              {groups.map((g) => (
+                <Command.Group key={g} heading={g} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground">
+                  {pages.filter((p) => p.section === g).map((it) => (
+                    <Command.Item key={it.to} value={`${g} ${it.label}`} onSelect={() => { nav(it.to); setOpen(false); }} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm data-[selected=true]:bg-muted">
                       <it.icon className="size-4 text-muted-foreground" />
                       {it.label}
                     </Command.Item>
@@ -175,7 +222,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto focus:outline-none">
-          <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+          <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8"><AreaTabs />{children}</div>
         </main>
       </div>
       <CommandPalette open={palette} setOpen={setPalette} />

@@ -35,7 +35,7 @@ export default function SecurityQuestionnaires() {
   const [creating, setCreating] = useState(false);
   return (
     <div className="animate-fade-in">
-      <PageHeader icon={MessageSquareText} title="Security questionnaires" description="Answer customers' security questionnaires from your approved policies and knowledge base. Every answer is reviewed by a person before it is exported."
+      <PageHeader icon={MessageSquareText} title="Customer questionnaires" description="Answer the security questionnaires customers send you, using your approved policies and knowledge base. A person reviews every answer before it is exported."
         actions={can("questionnaire.write") && <Button onClick={() => setCreating(true)}><FileUp /> New questionnaire</Button>} />
       {ai.data && !ai.data.available && (
         <p className="mb-4 rounded-lg border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">AI drafting is off, so answers are written by hand or filled from the knowledge base. {can("ai.manage") ? "You can turn it on under Settings → AI." : "An administrator can turn it on."}</p>
@@ -121,7 +121,7 @@ export function QuestionnaireDetail() {
   const editable = d.status === "open";
   return (
     <div className="animate-fade-in">
-      <button onClick={() => nav("/security-questionnaires")} className="mb-3 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" /> Security questionnaires</button>
+      <button onClick={() => nav("/security-questionnaires")} className="mb-3 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" /> Customer questionnaires</button>
       <PageHeader icon={MessageSquareText} title={d.title} description={[d.requester, d.due_date && `due ${fmtDate(d.due_date)}`, `${d.source_kind === "xlsx" ? "Excel" : d.source_kind === "csv" ? "CSV" : "Pasted"} questionnaire`].filter(Boolean).join(" · ")}
         actions={<>
           {editable && can("questionnaire.write") && ai.data?.available && <Button loading={draft.isPending} disabled={running || !d.progress.open} onClick={() => draft.mutate(undefined)}><Sparkles /> Draft open answers with AI</Button>}

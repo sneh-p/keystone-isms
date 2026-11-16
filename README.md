@@ -20,7 +20,7 @@ framework.
 | **People & portal** | People directory, invitation links, an employee portal for policy acknowledgement, security training with quizzes and a device checklist; offboarding |
 | **Trust Center** | A public page with frameworks, passing controls, policies, subprocessors and FAQs; gated documents behind access requests, NDA click-through and expiring links |
 | **Integrations** | Read-only, scheduled checks (website/TLS, GitHub, AWS, Entra) that file evidence when they pass |
-| **Security questionnaires** | Import a customer's spreadsheet, answer from approved policies and a knowledge base, approve each answer, export into the customer's own file |
+| **Customer questionnaires** | Import a customer's spreadsheet, answer from approved policies and a knowledge base, approve each answer, export into the customer's own file |
 | **AI (optional)** | Claude-powered policy assistant and questionnaire drafting with verified source quotes. Off by default; everything works without it |
 | **Assurance** | Local accounts (argon2id), seven roles, an **append-only, hash-chained audit log** of every change, register exports |
 

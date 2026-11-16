@@ -4,6 +4,12 @@ Keystone follows the ISO 27001 cycle: set the context, assess risk, choose and r
 check how it's working, and improve. Your **Overview** page shows what needs attention and the
 tasks assigned to you.
 
+## Navigation
+
+The sidebar groups screens by area; click a group heading to fold it away (Keystone remembers this). **Vendors**,
+**Improvement** (nonconformities, audits, management review) and **Settings** each have tabs across the top.
+Press Ctrl+K (⌘K on a Mac) to jump to any screen by name.
+
 ## Getting started (ISMS manager)
 
 1. **Onboarding wizard**: after the first sign-in, describe the company (size, where systems are
@@ -49,9 +55,9 @@ credential and checking that it is read-only; **Test connection** tries the sett
 save. Passing checks become evidence on their controls. A failing, erroring or unknown
 check shows on the control and makes it not ready.
 
-## Security questionnaires
+## Customer questionnaires
 
-Upload a customer's questionnaire (.xlsx or .csv) or paste the questions. Keystone finds the
+Under **Customer questionnaires**, upload a questionnaire a customer sent you (.xlsx or .csv) or paste the questions. Keystone finds the
 question column, plus any answer column. For each question you can:
 
 - **Fill from the knowledge base**: close matches to approved knowledge-base answers are filled
