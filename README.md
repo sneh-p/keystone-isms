@@ -16,6 +16,7 @@ All screenshots show the fictional demo organisation, Alpine Ski House.
 - [Screenshots](#screenshots)
 - [Quick start](#quick-start)
 - [Attack surface management](#attack-surface-management)
+- [Ticketing](#ticketing)
 - [Integrations](#integrations)
 - [Security model](#security-model)
 - [Configuration](#configuration)
@@ -144,6 +145,12 @@ nightly and test-restores each backup; copy the backups off the host and keep th
    can't be approved for your own device.
 
 Data a tool doesn't report is "no data", never compliant; failed or partial runs never retire anything.
+
+## Ticketing
+
+Open a ticket in **Jira, ServiceNow, ConnectWise PSA or Autotask** from a vulnerability, finding, task or
+nonconformity, and see when it's closed. Keystone only creates tickets and reads their status. Optionally, it opens
+tickets automatically for known-exploited vulnerabilities.
 
 ## Integrations
 

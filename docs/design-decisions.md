@@ -147,6 +147,12 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   dedicated scanner that can feed Keystone through the vulnerability connectors. Dangling-CNAME detection requires a
   definite NXDOMAIN, so providers that answer NODATA for missing names produce no alert (false negatives over false
   positives). Results are derived data; domains (and their verification) are audited.
+- **Ticketing writes, narrowly.** The four ticketing connectors are the only ones that write to another system, and
+  they only create tickets and read status: no updates, comments, transitions or closing, so a compromised Keystone
+  can at worst create tickets. Ticket text is built server-side from the record (never request text), incidents send
+  no details, and the link back is to Keystone, so the ticket system doesn't become a second copy of sensitive data.
+  Status flows one way: a closed ticket notifies the person who raised it but never closes the Keystone record, which
+  keeps verification in Keystone. Automatic tickets are capped per run to avoid flooding a service desk.
 - **Connector client decoding bug (found 2026-11-16).** The shared client rebuilt responses from already-decompressed
   bytes but kept `Content-Encoding`, so any real API that gzips its responses failed with `DecodingError`. Mocked
   connector tests never sent compressed responses; a regression test now does. This affected every attack surface

@@ -29,7 +29,7 @@ from .models import Notification, NotificationPrefs, SmtpSettings
 
 _LOG = logging.getLogger(__name__)
 NOTIFY_WITHIN_DAYS = 14
-EVENT_KINDS = ("mention", "asm", "system")  # one-off notifications; the hourly refresh never resolves these
+EVENT_KINDS = ("mention", "asm", "system", "ticket")  # one-off notifications; the hourly refresh never resolves these
 EMAIL = r"^[^@\s]{1,64}@[^@\s]{1,255}$"
 
 

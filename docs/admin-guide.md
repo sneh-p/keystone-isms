@@ -390,6 +390,30 @@ DNS queries go through the server's own resolver; allow `crt.sh` through your eg
 providers answer "no records" instead of "no such name" for missing names, so a dangling CNAME there isn't detected:
 the check errs towards silence rather than false alarms.
 
+## Ticketing (Jira, ServiceNow, ConnectWise PSA, Autotask)
+
+**Integrations → Ticketing** connects your service desk, so people can open a ticket from a vulnerability, an attack
+surface finding, a task or a nonconformity (**Ticket** button), and see when it's closed.
+
+| System | Keystone needs | Creates |
+|---|---|---|
+| Jira Cloud | Site, a dedicated user's email and API token, project key, issue type | An issue in the project |
+| ServiceNow | Instance, an integration user (web service access only), incident or problem, optional assignment group | An incident or problem |
+| ConnectWise PSA | API site (or your server), company ID, API member keys, clientId, service board ID, company record ID | A service ticket |
+| Autotask | Zone URL, API user and secret, tracking identifier, company ID, optional queue | A ticket |
+
+Keystone **only creates tickets and reads their status**: it never edits, comments on or closes them, and reads
+nothing else. Give the account only the rights to do that, in one project, table, board or queue. Each ticket holds a
+title, a short factual description built by Keystone (for incidents, only the reference, title and severity) and a
+link back to the record; one ticket per record per system. Raising a ticket needs the same permission as changing the
+record (for example task-write for tasks, control-write for vulnerabilities and findings). The integration runs hourly:
+it reads the status of open tickets, and tells whoever raised a ticket when it closes. Closing a ticket doesn't close
+the Keystone record; vulnerabilities and findings close when the tools stop reporting them.
+
+**Open tickets automatically** (off by default) opens one for each new known-exploited (P1), or P1 and P2,
+vulnerability, at most 25 per run. Credentials are encrypted, write-only, and dropped if the site address changes. The
+field mappings come from each vendor's API documentation: try **Test connection** and one ticket before relying on it.
+
 ## AI (optional)
 
 Keystone works fully without AI. To turn on the policy assistant and questionnaire drafting,

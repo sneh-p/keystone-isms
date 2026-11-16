@@ -18,6 +18,7 @@ import { DataTable } from "@/components/ui/table";
 import { DateInput } from "@/components/forms";
 import { ImportButton } from "@/components/ImportDialog";
 import { CopyButton } from "@/components/CopyButton";
+import { TicketButton, useTickets } from "@/components/TicketButton";
 
 const SEV_TONE: Record<string, "critical" | "warning" | "primary" | "outline"> = { critical: "critical", high: "warning", medium: "primary", low: "outline" };
 const SOURCE_LABEL: Record<string, string> = { rmm: "RMM", edr: "EDR", vuln: "Scanner", mdm: "MDM", posture: "Cloud posture", manual: "CSV" };
@@ -146,6 +147,7 @@ function Findings() {
   const grant = useAction(() => api(`/asm/findings/${exc.id}/exception`, { body: { reason: exc.reason, until: exc.until } }), { success: "Exception approved.", invalidate: ["/asm", "/dashboard"], onSuccess: () => setExc(null) });
   const revoke = useAction((id: number) => api(`/asm/findings/${id}/revoke-exception`, { method: "POST" }), { success: "Exception revoked.", invalidate: ["/asm"] });
   const rows = useMemo(() => (data ?? []).slice().sort((a, b) => (String(a.id) === focus ? -1 : String(b.id) === focus ? 1 : 0)), [data, focus]);
+  const tickets = useTickets("asm_finding", (data ?? []).filter((f: any) => f.status === "open").map((f: any) => f.id));
   if (!data) return <Skeleton className="h-64" />;
   return (
     <>
@@ -167,7 +169,7 @@ function Findings() {
           { key: "f", header: "Since", cell: (f: any) => fmtDate(f.first_seen), sort: (f: any) => f.first_seen },
           { key: "x", header: "", cell: (f: any) => f.status === "excepted"
             ? <div className="text-xs"><div>Excepted until {fmtDate(f.exception_until)} by {name(f.exception_by_id)}</div><div className="text-muted-foreground">{f.exception_reason}</div>{can("risk.accept") && <Button size="sm" variant="ghost" onClick={() => revoke.mutate(f.id)}>Revoke</Button>}</div>
-            : f.status === "open" && can("risk.accept") ? <Button size="sm" variant="ghost" onClick={() => setExc({ id: f.id, label: `${f.entity}: ${f.baseline}`, reason: "", until: null })}><ShieldOff /> Exception</Button> : null },
+            : f.status === "open" ? <span className="flex flex-wrap items-center gap-1"><TicketButton kind="asm_finding" id={f.id} tickets={tickets[f.id]} />{can("risk.accept") && <Button size="sm" variant="ghost" onClick={() => setExc({ id: f.id, label: `${f.entity}: ${f.baseline}`, reason: "", until: null })}><ShieldOff /> Exception</Button>}</span> : null },
         ]} />
       <Dialog open={!!exc} onOpenChange={(o) => !o && setExc(null)} title="Approve an exception" description={exc?.label}
         footer={<Button disabled={!exc?.reason?.trim() || !exc?.until} loading={grant.isPending} onClick={() => grant.mutate(undefined)}>Approve exception</Button>}>
@@ -342,6 +344,7 @@ function Vulnerabilities() {
   const [edit, setEdit] = useState<any>(null);
   const refresh = useAction(() => api<any>("/asm/vuln-intel/refresh", { method: "POST" }), { success: (r: any) => `Feeds updated: ${r.kev ?? 0} KEV entries, ${r.epss ?? 0} EPSS scores; ${r.prioritised} vulnerabilities re-prioritised.`, invalidate: ["/asm", "/dashboard"] });
   const save = useAction(() => api("/asm/vuln-policy", { method: "PUT", body: edit }), { success: "Prioritisation settings saved.", invalidate: ["/asm", "/dashboard"], onSuccess: () => setEdit(null) });
+  const tickets = useTickets("vulnerability", (data?.items ?? []).map((v: any) => v.id));
   if (!data || !pol.data) return <Skeleton className="h-64" />;
   const s = data.summary;
   const p = pol.data;
@@ -374,6 +377,7 @@ function Vulnerabilities() {
           { key: "f", header: "Fix by", sort: (v: any) => v.fix_by, cell: (v: any) => (
             <div className={v.overdue ? "font-medium text-critical" : undefined}>{fmtDate(v.fix_by)}
               <div className="text-xs font-normal text-muted-foreground">{v.days_left == null ? "" : v.overdue ? `${-v.days_left} day(s) late` : `${v.days_left} day(s) left`}</div></div>) },
+          { key: "t", header: "Ticket", cell: (v: any) => <TicketButton kind="vulnerability" id={v.id} tickets={tickets[v.id]} /> },
         ]} />
       <Card>
         <CardHeader title="How priorities and deadlines are set"

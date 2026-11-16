@@ -18,6 +18,7 @@ import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { clean, DateInput, EnumSelect, OwnerSelect } from "@/components/forms";
 import { Comments } from "@/components/Comments";
+import { TicketButton, useTickets } from "@/components/TicketButton";
 
 const NC_SOURCES = ["internal_audit", "external_audit", "incident", "management_review", "self_identified", "complaint", "monitoring"];
 const SEV_TONE: Record<string, any> = { major: "critical", minor: "warning", observation: "neutral" };
@@ -80,6 +81,7 @@ function NcDrawer({ nc, onClose }: { nc: any; onClose: () => void }) {
   const complete = useAction((aid: number) => api(`/corrective-actions/${aid}/complete`, { body: { notes: done[aid] ?? "" } }), { success: "Action completed.", invalidate: inv });
   const verify = useAction((v: { aid: number; ok: boolean }) => api(`/corrective-actions/${v.aid}/verify`, { body: { effective: v.ok, notes: ver[v.aid] ?? "" } }), { success: "Effectiveness check recorded.", invalidate: inv });
   const close = useAction(() => api(`/nonconformities/${nc.id}/close`, { method: "POST" }), { success: "Nonconformity closed.", invalidate: inv });
+  const tickets = useTickets("nonconformity", nc ? [nc.id] : []);
   if (!nc) return null;
   const ed = can("nc.write") && nc.status !== "closed";
   const steps = ["open", "action_planned", "verification", "closed"];
@@ -90,6 +92,7 @@ function NcDrawer({ nc, onClose }: { nc: any; onClose: () => void }) {
         <ol className="grid grid-cols-4 gap-2 text-center text-xs">
           {steps.map((s, i) => <li key={s} className={`rounded-md border px-2 py-1.5 ${steps.indexOf(nc.status) >= i ? "border-primary bg-accent font-medium text-accent-foreground" : "text-muted-foreground"}`}>{i + 1}. {titleCase(s)}</li>)}
         </ol>
+        {nc.status !== "closed" && <TicketButton kind="nonconformity" id={nc.id} tickets={tickets[nc.id]} />}
         {nc.description && <p className="whitespace-pre-wrap text-sm">{nc.description}</p>}
         <Section title="Analysis">
           <div className="space-y-3">

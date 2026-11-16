@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/select";
 import { DateInput, EnumSelect, OwnerSelect } from "@/components/forms";
 import { Comments } from "@/components/Comments";
 import { SavedViews } from "@/components/SavedViews";
+import { TicketButton, useTickets } from "@/components/TicketButton";
 
 const COLS = [
   { key: "todo", label: "To do" },
@@ -198,6 +199,7 @@ function TaskDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   const approve = useAction(() => api(`/tasks/${id}/approve`, { body: { comment: comment || null } }), { success: "Approved. Evidence filed and next occurrence scheduled.", invalidate: inv });
   const ret = useAction(() => api(`/tasks/${id}/return`, { body: { comment } }), { success: "Returned to assignee.", invalidate: inv });
   const nr = useAction(() => api(`/tasks/${id}/not-relevant`, { body: { comment } }), { success: "Marked not relevant.", invalidate: inv });
+  const tickets = useTickets("task", [id]);
   if (!data) return <Sheet open onOpenChange={(o) => !o && onClose()} title="Loading…"><Skeleton className="h-64" /></Sheet>;
   const openState = ["todo", "in_progress"].includes(data.status);
   const reviewer = can("task.approve") && data.status === "in_review" && me?.id !== data.submitted_by_id && me?.id !== data.assignee_id;
@@ -206,6 +208,7 @@ function TaskDrawer({ id, onClose }: { id: number; onClose: () => void }) {
       actions={data.status === "todo" && can("task.write") && <Button size="sm" variant="outline" onClick={() => start.mutate(undefined)}><Play /> Start</Button>}>
       <div className="space-y-6">
         {data.description && <p className="text-sm">{data.description}</p>}
+        <TicketButton kind="task" id={id} tickets={tickets[id]} />
         {data.evidence_hint && <div className="rounded-lg border border-primary/20 bg-accent/50 px-4 py-3 text-sm"><span className="font-medium">Evidence to provide:</span> {data.evidence_hint}</div>}
         {data.review_comment && <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><span className="font-medium">Reviewer:</span> {data.review_comment}</div>}
         <Section title="Controls">

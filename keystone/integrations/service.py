@@ -22,7 +22,8 @@ from .providers.asm_microsoft import MicrosoftProvider
 from .providers.asm_rmm import ConnectWiseAutomateProvider, DattoRmmProvider, NCentralProvider, NinjaOneProvider
 from .providers.asm_vuln import QualysProvider, Rapid7Provider, TenableProvider
 from .providers.aws import AwsProvider
-from .providers.base import InventoryProvider, Provider
+from .providers.base import InventoryProvider, Outcome, Provider
+from .providers.ticketing import TICKET_PROVIDERS, TicketProvider
 from .providers.entra import EntraProvider
 from .providers.github import GitHubProvider
 from .providers.website import WebsiteProvider
@@ -35,6 +36,8 @@ PROVIDERS: dict[str, Provider] = {p.key: p for p in (
     TenableProvider(), QualysProvider(), Rapid7Provider(),
     # cloud posture (round 3): read-only posture assessments
     AwsSecurityHubProvider(), DefenderForCloudProvider(), GoogleSccProvider(),
+    # ticketing (round 3): the only connectors that write, and only new tickets
+    *TICKET_PROVIDERS,
 )}
 
 
@@ -49,6 +52,9 @@ def _split(p: Provider, values: dict) -> tuple[dict, dict]:
     unknown = set(values) - known
     if unknown:
         raise ValueError(f"Unknown settings: {sorted(unknown)}")
+    for f in p.fields:
+        if f.options and f.name in values and values[f.name] not in {v for v, _ in f.options}:
+            raise ValueError(f"{f.label}: choose one of the listed options.")
     config = {f.name: values[f.name] for f in p.fields if not f.secret and f.name in values}
     secrets = {f.name: values[f.name] for f in p.fields if f.secret and values.get(f.name)}
     return config, secrets
@@ -100,13 +106,15 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
             inventory, outcomes = p.collect(i.config or {}, secrets), []
         else:
             outcomes = p.run(i.config or {}, secrets, session)
+            if isinstance(p, TicketProvider):  # ticketing: read open tickets' status, open automatic ones
+                from keystone.ticketing.service import describe_sync, sync
+
+                outcomes.append(Outcome("sync", "pass", describe_sync(sync(session, i, p, secrets))))
         i.last_status, i.last_error = "ok", None
     except Exception as e:  # noqa: BLE001 - any provider failure becomes an 'error' result, never a pass
         msg = str(e)[:500] if isinstance(e, ValueError) else f"{type(e).__name__}: run failed"
         outcomes = []
         i.last_status, i.last_error = "error", msg
-        from .providers.base import Outcome
-
         outcomes = [Outcome(c.key, "error", msg) for c in p.checks]
     i.last_run_at = now
     codes = {c.code: c for c in session.scalars(select(CommonControl))}

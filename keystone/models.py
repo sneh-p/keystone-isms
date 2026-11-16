@@ -33,3 +33,4 @@ from keystone.asm.models import AsmDevice, AsmFinding, AsmIdentity, AsmSetting, 
 from keystone.ops.models import BackupRun, JobStatus
 from keystone.asm.models import EpssScore, KevEntry, VulnPolicy
 from keystone.asm.models import ExternalDomain, ExternalHost
+from keystone.ticketing.models import TicketLink

@@ -27,6 +27,7 @@ class ConfigField:
     required: bool = True
     help: str = ""
     example: str = ""  # used in setup commands until the field is filled in (never for secrets)
+    options: tuple[tuple[str, str], ...] = ()  # (value, label): shown as a choice; any other value is refused
 
 
 @dataclass(frozen=True)
