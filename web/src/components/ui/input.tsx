@@ -1,0 +1,23 @@
+import { forwardRef, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
+import { cn } from "@/lib/utils";
+
+const base = "flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
+
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(({ className, ...p }, ref) => <input ref={ref} className={cn(base, "h-9", className)} {...p} />);
+Input.displayName = "Input";
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(({ className, ...p }, ref) => <textarea ref={ref} className={cn(base, "min-h-20", className)} {...p} />);
+Textarea.displayName = "Textarea";
+
+export function Field({ label, hint, children, className, required }: { label: ReactNode; hint?: ReactNode; children: ReactNode; className?: string; required?: boolean }) {
+  return (
+    <label className={cn("grid gap-1.5 text-sm", className)}>
+      <span className="font-medium">
+        {label}
+        {required && <span className="text-critical"> *</span>}
+      </span>
+      {children}
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+    </label>
+  );
+}

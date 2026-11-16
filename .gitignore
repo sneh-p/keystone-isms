@@ -22,3 +22,7 @@ __pycache__/
 # Pester / test output
 testResults.xml
 coverage.xml
+
+# Web build
+web/node_modules/
+web/dist/
