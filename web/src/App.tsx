@@ -17,6 +17,7 @@ const Tasks = lazy(() => import("@/pages/Tasks"));
 const Onboarding = lazy(() => import("@/pages/Onboarding"));
 const People = lazy(() => import("@/pages/People"));
 const TrustCenterAdmin = lazy(() => import("@/pages/TrustCenter"));
+const Integrations = lazy(() => import("@/pages/Integrations"));
 const PublicTrust = lazy(() => import("@/pages/PublicTrust"));
 const Portal = lazy(() => import("@/pages/Portal"));
 const TrainingModule = lazy(() => import("@/pages/Portal").then((m) => ({ default: m.TrainingModule })));
@@ -50,6 +51,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/onboarding", element: <Onboarding /> },
   { path: "/people", element: <People />, nav: true },
   { path: "/trust-center", element: <TrustCenterAdmin />, nav: true },
+  { path: "/integrations", element: <Integrations />, nav: true },
   { path: "/assets", element: <Assets />, nav: true },
   { path: "/vendors", element: <Vendors />, nav: true },
   { path: "/questionnaires", element: <Questionnaires />, nav: true },

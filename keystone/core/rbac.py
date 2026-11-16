@@ -56,6 +56,7 @@ ALL_PERMISSIONS = frozenset(
         "people.write",
         "portal",
         "trust.manage",
+        "integration.manage",
     }
 )
 
