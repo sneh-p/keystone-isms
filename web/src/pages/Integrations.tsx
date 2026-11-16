@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Cloud, Github, Globe, Play, Plug, Settings2, ShieldCheck } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Cloud, ExternalLink, FlaskConical, Github, Globe, Play, Plug, Settings2, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
-import { fmtDate } from "@/lib/utils";
+import { cn, fmtDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { Field, Input } from "@/components/ui/input";
 import { PageHeader, Section, Skeleton, Stat, Switch } from "@/components/ui/misc";
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
+import { CodeBlock } from "@/components/CopyButton";
 
 const ICON: Record<string, any> = { website: Globe, github: Github, aws: Cloud, entra: ShieldCheck };
 
@@ -45,23 +47,14 @@ export default function Integrations() {
                 <div className="mt-3 text-xs text-muted-foreground">{p.checks.length} checks · maps to {[...new Set(p.checks.flatMap((c: any) => c.controls))].length} controls</div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {mine.map((i: any) => <Button key={i.id} size="sm" variant="secondary" onClick={() => setOpen(i.id)}>{i.name} <StatusBadge status={i.last_status === "error" ? "error" : i.results.some((r: any) => r.result === "fail") ? "fail" : i.results.length ? "pass" : "unknown"} label=" " /></Button>)}
-                  {can("integration.manage") && <Button size="sm" variant="outline" onClick={() => setConnect({ provider: p.key, name: p.name, values: {}, schedule_hours: 24, fields: p.fields })}>Connect</Button>}
+                  {can("integration.manage") && <Button size="sm" variant="outline" onClick={() => setConnect({ provider: p.key, name: p.name, values: {}, schedule_hours: 24 })}>Connect</Button>}
                 </div>
               </CardBody>
             </Card>
           );
         })}
       </div>
-      <Dialog open={!!connect} onOpenChange={(o) => !o && setConnect(null)} title={connect?.id ? `Edit ${connect.name}` : `Connect ${connect?.name}`} description="Use credentials with read-only permissions. Secrets are encrypted and can never be read back; leave a secret empty to keep the stored one."
-        footer={<Button loading={save.isPending} onClick={() => save.mutate(connect)}>Save</Button>}>
-        {connect && <div className="space-y-4">
-          <Field label="Name"><Input value={connect.name} onChange={(e) => setConnect({ ...connect, name: e.target.value })} /></Field>
-          {connect.fields.map((f: any) => (
-            <Field key={f.name} label={f.label} hint={f.help}><Input type={f.secret ? "password" : "text"} autoComplete="off" placeholder={f.secret && connect.id ? "•••••••• (stored)" : ""} value={connect.values[f.name] ?? ""} onChange={(e) => setConnect({ ...connect, values: { ...connect.values, [f.name]: e.target.value } })} /></Field>
-          ))}
-          <Field label="Run every (hours)"><Input type="number" min={1} max={720} value={connect.schedule_hours} onChange={(e) => setConnect({ ...connect, schedule_hours: Number(e.target.value) })} /></Field>
-        </div>}
-      </Dialog>
+      {connect && <ConnectDialog connect={connect} setConnect={setConnect} provider={data.providers.find((p: any) => p.key === connect.provider)} saving={save.isPending} onSave={() => save.mutate(connect)} />}
       {open && <IntegrationDrawer id={open} providers={data.providers} integrations={data.integrations} onClose={() => setOpen(null)} onEdit={(c: any) => setConnect(c)} />}
     </div>
   );
@@ -78,7 +71,7 @@ function IntegrationDrawer({ id, providers, integrations, onClose, onEdit }: any
   const ed = can("integration.manage");
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()} title={i.name} subtitle={`${p?.name} · ${i.last_run_at ? `last run ${fmtDate(i.last_run_at, true)}` : "never run"} · every ${i.schedule_hours}h`}
-      actions={ed && <><Button size="sm" variant="outline" onClick={() => onEdit({ id: i.id, provider: i.provider, name: i.name, values: { ...i.config }, schedule_hours: i.schedule_hours, fields: p.fields })}><Settings2 /> Edit</Button><Button size="sm" loading={run.isPending} onClick={() => run.mutate(undefined)}><Play /> Run now</Button></>}>
+      actions={ed && <><Button size="sm" variant="outline" onClick={() => onEdit({ id: i.id, provider: i.provider, name: i.name, values: { ...i.config }, schedule_hours: i.schedule_hours })}><Settings2 /> Edit</Button><Button size="sm" loading={run.isPending} onClick={() => run.mutate(undefined)}><Play /> Run now</Button></>}>
       <div className="space-y-6">
         {ed && <Switch checked={i.enabled} onChange={(v) => toggle.mutate(v)} label={i.enabled ? "Runs on schedule" : "Paused"} />}
         {i.last_error && <div className="rounded-lg border border-critical/30 bg-critical/5 px-4 py-3 text-sm">{i.last_error}</div>}
@@ -102,5 +95,82 @@ function IntegrationDrawer({ id, providers, integrations, onClose, onEdit }: any
         </Section>
       </div>
     </Sheet>
+  );
+}
+
+/** Fill {field} placeholders from the form (non-secret fields only, plus {host} from a URL). Unknown braces are left alone. */
+function fillPlaceholders(text: string, provider: any, values: Record<string, string>): string {
+  const vals = new Map<string, string>();
+  for (const f of provider.fields) if (!f.secret) vals.set(f.name, (values[f.name] ?? "").trim() || f.example || `<${f.label}>`);
+  const url = vals.get("url");
+  if (url) {
+    try { vals.set("host", new URL(url.includes("://") ? url : `https://${url}`).hostname); } catch { vals.set("host", url); }
+  }
+  return text.replace(/\{(\w+)\}/g, (m, k) => vals.get(k) ?? m);
+}
+
+function SetupGuide({ provider, values }: { provider: any; values: Record<string, string> }) {
+  if (!provider.setup?.length) return null;
+  return (
+    <ol className="space-y-5">
+      {provider.setup.map((st: any, i: number) => {
+        const link = st.link ? fillPlaceholders(st.link, provider, values) : "";
+        return (
+          <li key={i} className="relative pl-9">
+            <span className={cn("absolute left-0 top-0 grid size-6 place-items-center rounded-full text-xs font-semibold", st.kind === "verify" ? "bg-good/15 text-good" : "bg-accent text-accent-foreground")}>
+              {st.kind === "verify" ? <ShieldCheck className="size-3.5" aria-label="Verify" /> : i + 1}
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="text-sm font-semibold leading-6">{st.title}</h4>
+              {st.kind === "verify" && <Badge tone="good">Verify</Badge>}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">{fillPlaceholders(st.text, provider, values)}</p>
+            {st.code && <div className="mt-2"><CodeBlock code={fillPlaceholders(st.code, provider, values)} label={st.title} /></div>}
+            {link && (link.startsWith("/")
+              ? <Link to={link} className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">{st.link_label || "Open"} <ArrowRight className="size-3.5" /></Link>
+              : <a href={link} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">{st.link_label || "Open"} <ExternalLink className="size-3.5" /></a>)}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function ConnectDialog({ connect, setConnect, provider, saving, onSave }: { connect: any; setConnect: (c: any) => void; provider: any; saving: boolean; onSave: () => void }) {
+  const [results, setResults] = useState<any[] | null>(null);
+  const test = useAction(() => api<{ results: any[] }>("/integrations/test", { body: { provider: connect.id ? null : connect.provider, integration_id: connect.id ?? null, values: connect.values } }), { invalidate: [], onSuccess: (r) => setResults(r.results) });
+  const setValue = (name: string, v: string) => { setConnect({ ...connect, values: { ...connect.values, [name]: v } }); setResults(null); };
+  if (!provider) return null;
+  return (
+    <Dialog open onOpenChange={(o) => !o && setConnect(null)} extraWide title={connect.id ? `Edit ${connect.name}` : `Connect ${provider.name}`}
+      description="Use credentials with read-only permissions only. Secrets are encrypted and can never be read back; leave a secret empty to keep the stored one."
+      footer={<><Button variant="outline" loading={test.isPending} onClick={() => test.mutate(undefined)}><FlaskConical /> Test connection</Button><Button loading={saving} onClick={onSave}>Save</Button></>}>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <section aria-label="Setup guide">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Setup guide</h3>
+          <SetupGuide provider={provider} values={connect.values} />
+        </section>
+        <section className="space-y-4 lg:border-l lg:pl-6" aria-label="Settings">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Settings</h3>
+          <Field label="Name"><Input value={connect.name} onChange={(e) => setConnect({ ...connect, name: e.target.value })} /></Field>
+          {provider.fields.map((f: any) => (
+            <Field key={f.name} label={f.label} hint={f.help}><Input type={f.secret ? "password" : "text"} autoComplete="off" placeholder={f.secret && connect.id ? "•••••••• (stored)" : ""} value={connect.values[f.name] ?? ""} onChange={(e) => setValue(f.name, e.target.value)} /></Field>
+          ))}
+          <Field label="Run every (hours)"><Input type="number" min={1} max={720} value={connect.schedule_hours} onChange={(e) => setConnect({ ...connect, schedule_hours: Number(e.target.value) })} /></Field>
+          <div className="rounded-lg border bg-muted/30 p-3" aria-live="polite">
+            <div className="text-sm font-medium">Test connection</div>
+            <p className="mt-0.5 text-xs text-muted-foreground">Runs the checks now with these settings. Nothing is saved and no evidence is filed.</p>
+            {results && (
+              <ul className="mt-3 space-y-2">{results.map((r) => (
+                <li key={r.check_key} className="text-sm">
+                  <div className="flex items-start justify-between gap-2"><span className="font-medium">{r.title}</span><StatusBadge status={r.result} /></div>
+                  <p className="text-xs text-muted-foreground">{r.summary}</p>
+                </li>
+              ))}</ul>
+            )}
+          </div>
+        </section>
+      </div>
+    </Dialog>
   );
 }

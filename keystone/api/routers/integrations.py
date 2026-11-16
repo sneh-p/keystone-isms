@@ -42,6 +42,17 @@ def update(iid: int, body: IntegrationIn, user=Depends(perm("integration.manage"
     return out(db, integ.save_integration(db, user, iid, name=body.name, values=body.values, schedule_hours=body.schedule_hours, enabled=body.enabled))
 
 
+class TestIn(In):
+    provider: str | None = None
+    integration_id: int | None = None
+    values: dict = {}
+
+
+@router.post("/integrations/test")
+def test(body: TestIn, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
+    return {"results": integ.test(db, user, body.provider, body.values, body.integration_id)}
+
+
 @router.post("/integrations/{iid}/run")
 def run(iid: int, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
     integ.run(db, user, iid)

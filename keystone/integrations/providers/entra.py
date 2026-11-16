@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .base import CheckDef, Outcome, Provider
+from .base import CheckDef, Outcome, Provider, SetupStep
 
 
 class EntraProvider(Provider):
@@ -15,6 +15,21 @@ class EntraProvider(Provider):
         CheckDef("admin_consent_workflow", "Admin consent workflow enabled", ("KC-ORG-18",)),
         CheckDef("expired_credentials", "No expired app credentials left", ("KC-ORG-17",)),
         CheckDef("dormant_high_risk", "No dormant high-risk third-party apps", ("KC-ORG-22", "KC-ORG-19")),
+    )
+    setup = (
+        SetupStep(
+            "Collect and import a snapshot",
+            "This integration never connects to Microsoft. A technician runs the read-only collector and imports "
+            "collected.json; the checks use the latest snapshot of each tenant. Re-collect regularly (for example "
+            "monthly) so results stay current.",
+            link="/exposure", link_label="Get the collector",
+        ),
+        SetupStep(
+            "Check a snapshot is there",
+            "Use Test connection below. Checks show unknown when no snapshot has been imported, or when the "
+            "collector could not read a dataset.",
+            kind="verify",
+        ),
     )
 
     def run(self, config: dict, secrets: dict, session=None) -> list[Outcome]:

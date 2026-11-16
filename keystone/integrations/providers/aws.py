@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .base import CheckDef, ConfigField, Outcome, Provider
+from .base import CheckDef, ConfigField, Outcome, Provider, SetupStep
 
 
 class AwsProvider(Provider):
@@ -10,7 +10,7 @@ class AwsProvider(Provider):
     name = "Amazon Web Services"
     description = "Checks root MFA, CloudTrail, the IAM password policy, S3 account-level public access block and GuardDuty."
     fields = (
-        ConfigField("region", "Home region", help="e.g. eu-west-1"),
+        ConfigField("region", "Home region", help="e.g. eu-west-1", example="eu-west-1"),
         ConfigField("access_key_id", "Access key ID", secret=True, help="For an IAM identity with the AWS managed SecurityAudit policy only."),
         ConfigField("secret_access_key", "Secret access key", secret=True),
     )
@@ -20,6 +20,36 @@ class AwsProvider(Provider):
         CheckDef("password_policy", "IAM password policy is strong", ("KC-ORG-17",)),
         CheckDef("s3_public_block", "S3 account public access blocked", ("KC-TEC-03", "KC-TEC-12")),
         CheckDef("guardduty", "GuardDuty is enabled", ("KC-TEC-16", "KC-ORG-25")),
+    )
+    setup = (
+        SetupStep(
+            "Create a read-only IAM user",
+            "Run in AWS CloudShell (or with an administrator profile) in the account to check. The AWS managed "
+            "SecurityAudit policy only allows reading configuration (Get, List, Describe). Copy the AccessKeyId "
+            "and SecretAccessKey from the last command into the settings.",
+            code="aws iam create-user --user-name keystone-readonly\n"
+                 "aws iam attach-user-policy --user-name keystone-readonly --policy-arn arn:aws:iam::aws:policy/SecurityAudit\n"
+                 "aws iam create-access-key --user-name keystone-readonly",
+            link="https://console.aws.amazon.com/cloudshell/home?region={region}", link_label="Open CloudShell",
+        ),
+        SetupStep(
+            "Check the user has nothing else attached",
+            "Expect SecurityAudit as the only attached policy, and empty lists for inline policies and groups.",
+            kind="verify",
+            code="aws iam list-attached-user-policies --user-name keystone-readonly --query 'AttachedPolicies[].PolicyName'\n"
+                 "aws iam list-user-policies --user-name keystone-readonly --query 'PolicyNames'\n"
+                 "aws iam list-groups-for-user --user-name keystone-readonly --query 'Groups[].GroupName'",
+        ),
+        SetupStep(
+            "Prove it cannot change anything",
+            "The IAM policy simulator evaluates the user's permissions without performing any action. Every row "
+            "must say implicitDeny.",
+            kind="verify",
+            code='aws iam simulate-principal-policy \\\n'
+                 '  --policy-source-arn "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):user/keystone-readonly" \\\n'
+                 '  --action-names iam:CreateUser iam:AttachUserPolicy s3:PutObject s3:DeleteBucket ec2:TerminateInstances cloudtrail:StopLogging guardduty:DeleteDetector \\\n'
+                 "  --query 'EvaluationResults[].[EvalActionName,EvalDecision]' --output table",
+        ),
     )
 
     def __init__(self, session_factory=None):

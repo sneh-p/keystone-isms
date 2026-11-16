@@ -3,12 +3,12 @@ import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export function Dialog({ open, onOpenChange, title, description, children, footer, wide }: { open: boolean; onOpenChange: (o: boolean) => void; title: ReactNode; description?: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
+export function Dialog({ open, onOpenChange, title, description, children, footer, wide, extraWide }: { open: boolean; onOpenChange: (o: boolean) => void; title: ReactNode; description?: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean; extraWide?: boolean }) {
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       <D.Portal>
         <D.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] animate-fade-in" />
-        <D.Content className={cn("fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border bg-card shadow-2xl animate-fade-in", wide ? "max-w-3xl" : "max-w-lg")}>
+        <D.Content className={cn("fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border bg-card shadow-2xl animate-fade-in", extraWide ? "max-w-5xl" : wide ? "max-w-3xl" : "max-w-lg")}>
           <div className="flex items-start justify-between gap-4 border-b px-5 py-4">
             <div>
               <D.Title className="font-semibold">{title}</D.Title>

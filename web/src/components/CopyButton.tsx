@@ -46,7 +46,7 @@ export function CopyButton({ text, label = "Copy", size = "sm", variant = "outli
 export function CodeBlock({ code, label }: { code: string; label?: string }) {
   return (
     <div className="group relative">
-      <pre className="whitespace-pre-wrap break-all rounded-md border bg-muted/50 px-4 py-3 pr-28 font-mono text-xs leading-5" aria-label={label}>{code}</pre>
+      <pre className="whitespace-pre-wrap [overflow-wrap:anywhere] rounded-md border bg-muted/50 px-4 py-3 pr-28 font-mono text-xs leading-5" aria-label={label}>{code}</pre>
       <div className="absolute right-2 top-2"><CopyButton text={code} variant="secondary" /></div>
     </div>
   );

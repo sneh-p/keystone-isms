@@ -187,3 +187,73 @@ def test_api_never_returns_secrets(api, ready_users, content, monkeypatch):
     assert {x["check_key"] for x in run["results"]} == {"org_2fa", "branch_protection", "secret_scanning", "dependabot"}
     api_login(api, "viewer")
     assert api.post(f"/api/integrations/{iid}/run").status_code == 403
+
+
+def test_dry_run_saves_nothing_and_never_leaks_secrets(content, session, users, monkeypatch):
+    from keystone.integrations.models import CheckResult
+
+    monkeypatch.setitem(integ.PROVIDERS, "website", website())
+    res = integ.test(session, users["admin"], "website", {"url": "https://shop.example"})
+    assert {r["check_key"]: r["result"] for r in res}["https_redirect"] == "pass"
+    assert session.scalar(select(CheckResult)) is None and session.scalar(select(Evidence)) is None and session.scalar(select(Integration)) is None
+    with pytest.raises(PermissionDenied):
+        integ.test(session, users["control_owner"], "website", {"url": "https://shop.example"})
+    with pytest.raises(ValueError, match="Missing"):
+        integ.test(session, users["admin"], "github", {"org": "acme"})
+    # Editing: an empty secret field falls back to the stored secret.
+    monkeypatch.setitem(integ.PROVIDERS, "github", github())
+    i = integ.save_integration(session, users["admin"], provider_key="github", values={"org": "acme", "token": "ghp_secret_value"})
+    res = integ.test(session, users["admin"], values={"org": "acme"}, integration_id=i.id)
+    assert {r["result"] for r in res} - {"error"}
+    session.flush()
+    assert all("ghp_secret_value" not in (r.summary + json.dumps(r.changes or {})) for r in session.scalars(select(AuditLog)))
+
+
+def test_setup_guides_never_template_secrets():
+    import re
+
+    for p in integ.PROVIDERS.values():
+        secret = {f.name for f in p.fields if f.secret}
+        for st in p.setup:
+            assert not set(re.findall(r"\{(\w+)\}", st.code + st.text + st.link)) & secret, p.key
+            assert st.kind in ("do", "verify")
+
+
+def _site(handler, resolve_check=lambda h: None):
+    return WebsiteProvider(client_factory=lambda: httpx.Client(transport=httpx.MockTransport(handler)), tls=lambda host: {"version": "TLSv1.3", "not_after": "Dec 31 23:59:59 2099 GMT"}, resolve_check=resolve_check)
+
+
+def _headers_result(provider):
+    return next(o for o in provider.run({"url": "https://shop.example"}, {}) if o.key == "security_headers")
+
+
+def test_blocked_site_is_unknown_not_fail():
+    o = _headers_result(_site(lambda req: httpx.Response(301, headers={"location": "https://shop.example/"}) if req.url.scheme == "http" else httpx.Response(403)))
+    assert o.result == "unknown" and "403" in o.summary
+
+
+def test_https_redirects_followed_and_guarded():
+    full = {"strict-transport-security": "max-age=1", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'self'"}
+
+    def handler(req):
+        if req.url.scheme == "http":
+            return httpx.Response(301, headers={"location": "https://shop.example/"})
+        if req.url.path == "/":
+            return httpx.Response(302, headers={"location": "/en/"})
+        return httpx.Response(200, headers=full)
+
+    o = _headers_result(_site(handler))
+    assert o.result == "pass" and o.details["url"] == "https://shop.example/en/"
+
+    downgrade = _headers_result(_site(lambda req: httpx.Response(301, headers={"location": "http://shop.example/"})))
+    assert downgrade.result == "fail" and "plain HTTP" in downgrade.summary
+
+    def guard(host):
+        if host != "shop.example":
+            raise ValueError("Refusing to check a non-public address.")
+
+    internal = _headers_result(_site(lambda req: httpx.Response(302, headers={"location": "https://intranet.local/"}), resolve_check=guard))
+    assert internal.result == "error" and "non-public" in internal.summary
+
+    loop = _headers_result(_site(lambda req: httpx.Response(302, headers={"location": "https://shop.example/again"})))
+    assert loop.result == "error" and "redirects" in loop.summary

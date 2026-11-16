@@ -161,6 +161,16 @@ each one the narrowest read-only credential:
 | AWS | An IAM user or role with the AWS-managed `SecurityAudit` policy |
 | Microsoft Entra ID | None. It reads the latest imported exposure snapshot; it never calls Microsoft Graph |
 
+Each Connect dialog has a setup guide with copyable commands, filled in with the values you
+type, to create the credential and then verify it: for AWS, that the user has only
+SecurityAudit and (with the IAM policy simulator, which changes nothing) that it can't modify
+anything; for GitHub, that the token can read what the checks need. Secrets are never put into
+these commands. **Test connection** runs the checks with the entered settings without saving
+results or evidence, so you can confirm access before saving.
+
+A website that blocks automated requests (HTTP 4xx/5xx) is reported as unknown, not as failing.
+Redirects are followed over HTTPS only, and each new host must also be public.
+
 Secrets are encrypted with `secret.key` and are write-only: the API never returns them, and the
 audit log records only that they changed. A check that errors or can't decide is reported as
 error or unknown, never as passing.

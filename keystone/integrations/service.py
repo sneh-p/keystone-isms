@@ -106,6 +106,33 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
     return results
 
 
+def test(session: Session, actor, provider_key: str | None = None, values: dict | None = None, integration_id: int | None = None) -> list[dict]:
+    """Dry run: run the checks with the given settings (stored secrets fill any left empty) without
+    saving anything: no results, no evidence, no change to the integration."""
+    authorize(session, actor, "integration.manage")
+    stored_config, stored_secrets = {}, {}
+    if integration_id:
+        i = get_or_404(session, Integration, integration_id)
+        provider_key = i.provider
+        stored_config = i.config or {}
+        stored_secrets = json.loads(crypto.decrypt(i.secret_enc)) if i.secret_enc else {}
+    p = provider(provider_key or "")
+    config, secrets = _split(p, values or {})
+    config, secrets = {**stored_config, **config}, {**stored_secrets, **secrets}
+    missing = [f.label for f in p.fields if f.required and not (secrets.get(f.name) if f.secret else config.get(f.name))]
+    if missing:
+        raise ValueError("Missing: " + ", ".join(missing))
+    try:
+        outcomes = p.run(config, secrets, session)
+    except Exception as e:  # noqa: BLE001 - report, never pass
+        msg = str(e)[:500] if isinstance(e, ValueError) else f"{type(e).__name__}: test failed"
+        from .providers.base import Outcome
+
+        outcomes = [Outcome(c.key, "error", msg) for c in p.checks]
+    log_event(session, actor, "integration_test", "Integration", integration_id, f"Tested {p.name}: " + ", ".join(f"{o.key}={o.result}" for o in outcomes))
+    return [{"check_key": o.key, "title": p.check(o.key).title, "result": o.result, "summary": o.summary} for o in outcomes]
+
+
 def latest_results(session: Session, integration_id: int) -> list[CheckResult]:
     last = session.scalar(select(CheckResult.run_at).where(CheckResult.integration_id == integration_id).order_by(CheckResult.run_at.desc()).limit(1))
     if last is None:

@@ -44,7 +44,9 @@ under **Trust Center → Requests**; approving produces a private link to send t
 ## Integrations
 
 Connect a website, GitHub, AWS or the imported Entra data to run read-only checks on a
-schedule. Passing checks become evidence on their controls. A failing, erroring or unknown
+schedule. **Connect** shows a setup guide with commands to copy for creating a read-only
+credential and checking that it is read-only; **Test connection** tries the settings before you
+save. Passing checks become evidence on their controls. A failing, erroring or unknown
 check shows on the control and makes it not ready.
 
 ## Security questionnaires

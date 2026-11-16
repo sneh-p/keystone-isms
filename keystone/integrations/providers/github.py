@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from .base import CheckDef, ConfigField, Outcome, Provider
+from .base import CheckDef, ConfigField, Outcome, Provider, SetupStep
 
 API = "https://api.github.com"
 
@@ -14,7 +14,7 @@ class GitHubProvider(Provider):
     name = "GitHub"
     description = "Checks your GitHub organisation for 2FA enforcement, branch protection, secret scanning and Dependabot alerts."
     fields = (
-        ConfigField("org", "Organisation login", help="e.g. my-company"),
+        ConfigField("org", "Organisation login", help="e.g. my-company", example="my-company"),
         ConfigField("token", "Read-only token", secret=True, help="Fine-grained token with read access to organisation administration and repository metadata."),
     )
     checks = (
@@ -22,6 +22,35 @@ class GitHubProvider(Provider):
         CheckDef("branch_protection", "Default branches protected", ("KC-TEC-25", "KC-TEC-28", "KC-TEC-32")),
         CheckDef("secret_scanning", "Secret scanning enabled", ("KC-TEC-28", "KC-ORG-17")),
         CheckDef("dependabot", "Dependabot security updates enabled", ("KC-TEC-08", "KC-ORG-21")),
+    )
+    setup = (
+        SetupStep(
+            "Create a fine-grained, read-only token",
+            "Sign in as an organisation owner and create a fine-grained personal access token. Resource owner: "
+            "{org}. Repository access: All repositories. Repository permissions: Administration Read-only "
+            "(Metadata Read-only is added automatically). Organisation permissions: Administration Read-only. "
+            "Choose an expiry and note it: the integration starts failing when the token expires. If your "
+            "organisation requires approval for fine-grained tokens, approve the request under the organisation's "
+            "settings.",
+            link="https://github.com/settings/personal-access-tokens/new", link_label="Create token on GitHub",
+        ),
+        SetupStep(
+            "Check the permissions are read-only",
+            "On the token's page, every permission must say Read-only. Nothing else should be listed.",
+            kind="verify",
+            link="https://github.com/settings/personal-access-tokens", link_label="Your fine-grained tokens",
+        ),
+        SetupStep(
+            "Check the token can read what the checks need",
+            "Paste the token where shown. Expect the organisation's two-factor setting (true or false) and an HTTP "
+            "200 for the repository list. A missing line or HTTP 403 means a permission is missing. Close the "
+            "terminal afterwards so the token is not left in it.",
+            kind="verify",
+            code="read -rs GH_TOKEN   # paste the token, then press Enter\n"
+                 "curl -s -H \"Authorization: Bearer $GH_TOKEN\" https://api.github.com/orgs/{org} | grep two_factor_requirement_enabled\n"
+                 "curl -s -o /dev/null -w '%{http_code}\\n' -H \"Authorization: Bearer $GH_TOKEN\" 'https://api.github.com/orgs/{org}/repos?per_page=1'\n"
+                 "unset GH_TOKEN",
+        ),
     )
 
     def __init__(self, client_factory=None):
