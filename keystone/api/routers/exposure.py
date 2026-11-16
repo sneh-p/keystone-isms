@@ -1,9 +1,12 @@
+import hashlib
 import json
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from sqlalchemy.orm import Session
 
+from keystone.core.audit import log_event
 from keystone.core.services import get_or_404
+from keystone.core.settings import PROJECT_ROOT
 from keystone.tprm.exposure import diff, exports, fair_mapping, importer, inventory, vendor_matching as vm
 from keystone.tprm.exposure.models import OWNER_CLASSES, TenantApp
 from keystone.tprm.exposure.schema import CollectedFileInvalid
@@ -14,6 +17,31 @@ from ..serialize import ser
 from .common import In, xlsx_response
 
 router = APIRouter(prefix="/exposure", tags=["entra exposure"])
+
+# The read-only collector technicians run on their workstation (see collector/README.md).
+COLLECTOR_DIR = PROJECT_ROOT / "collector"
+COLLECTOR_FILES = {"script": "Invoke-VendorExposureCollector.ps1", "tenants-csv": "tenants.example.csv"}
+
+
+def _collector_file(key: str) -> bytes:
+    if key not in COLLECTOR_FILES:
+        raise LookupError("Unknown collector file.")
+    return (COLLECTOR_DIR / COLLECTOR_FILES[key]).read_bytes()
+
+
+@router.get("/collector")
+def collector(user=Depends(perm("read"))):
+    """The collector script's text and SHA-256, so a technician can copy it or verify a download."""
+    data = _collector_file("script")
+    return {"filename": COLLECTOR_FILES["script"], "sha256": hashlib.sha256(data).hexdigest().upper(), "size": len(data), "script": data.decode("utf-8"),
+            "tenants_csv": _collector_file("tenants-csv").decode("utf-8")}
+
+
+@router.get("/collector/{key}")
+def collector_download(key: str, user=Depends(perm("read")), db: Session = Depends(get_db)):
+    data = _collector_file(key)
+    log_event(db, user, "export", "Collector", None, f"Downloaded {COLLECTOR_FILES[key]}")
+    return Response(data, media_type="text/plain; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{COLLECTOR_FILES[key]}"'})
 
 
 @router.post("/preview")

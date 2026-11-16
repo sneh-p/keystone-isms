@@ -14,6 +14,7 @@ import { Select } from "@/components/ui/select";
 import { LevelBadge } from "@/components/ui/status";
 import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
+import { CodeBlock, CopyButton } from "@/components/CopyButton";
 
 export default function Exposure() {
   return (
@@ -24,6 +25,7 @@ export default function Exposure() {
         { value: "cross", label: "Cross-tenant", content: <CrossTenant /> },
         { value: "match", label: "Vendor matching", content: <Matching /> },
         { value: "rem", label: "Remediation", content: <Remediation /> },
+        { value: "collector", label: "Collector", content: <Collector /> },
         { value: "imp", label: "Import", content: <Import /> },
       ]} />
     </div>
@@ -38,7 +40,7 @@ function TenantMap() {
   const [classes, setClasses] = useState<string | null>("vendors");
   const [open, setOpen] = useState<number | null>(null);
   if (!tenants.data) return <Skeleton className="h-64" />;
-  if (!tenants.data.length) return <Empty icon={MapIcon} title="No exposure data yet">Run collector/Invoke-VendorExposureCollector.ps1 and import collected.json on the Import tab.</Empty>;
+  if (!tenants.data.length) return <Empty icon={MapIcon} title="No exposure data yet">Get the read-only PowerShell collector on the Collector tab, run it, then import collected.json on the Import tab.</Empty>;
   const apps = (data?.apps ?? []).filter((a: any) => classes === "all" || (classes === "vendors" ? ["third_party", "unknown"].includes(a.owner_class) : a.owner_class === classes));
   const bad = data ? Object.entries(data.snapshot.endpoint_status).filter(([, v]: any) => v.status !== "ok") : [];
   return (
@@ -220,6 +222,119 @@ function Remediation() {
           {data[k].length > 0 && <CardBody className="p-3"><DataTable rows={data[k]} rowKey={(r: any) => JSON.stringify(r)} columns={Object.keys(data[k][0]).map((c) => ({ key: c, header: c, cell: (r: any) => String(r[c] ?? "—") }))} /></CardBody>}
         </Card>
       ))}
+    </div>
+  );
+}
+
+/** PowerShell single-quoted literal. */
+const psq = (v: string) => `'${v.replace(/'/g, "''")}'`;
+
+function Step({ n, title, children }: { n: number; title: string; children: any }) {
+  return (
+    <li className="relative pl-10">
+      <span className="absolute left-0 top-0 grid size-7 place-items-center rounded-full bg-accent text-sm font-semibold text-accent-foreground">{n}</span>
+      <h3 className="font-semibold leading-7">{title}</h3>
+      <div className="mt-2 space-y-3 text-sm">{children}</div>
+    </li>
+  );
+}
+
+function Collector() {
+  const { data } = useApi<any>("/exposure/collector");
+  const [mode, setMode] = useState<"single" | "batch">("single");
+  const [tenantId, setTenantId] = useState("");
+  const [tenantName, setTenantName] = useState("");
+  const [ticket, setTicket] = useState("");
+  const [skipSignIn, setSkipSignIn] = useState(false);
+  if (!data) return <Skeleton className="h-96" />;
+  const script = `.\\${data.filename}`;
+  const args = mode === "single"
+    ? [`-TenantId ${psq(tenantId.trim() || "contoso.onmicrosoft.com")}`, `-TenantName ${psq(tenantName.trim() || "Head office")}`]
+    : ["-TenantListCsv .\\tenants.csv"];
+  if (ticket.trim()) args.push(`-TicketNumber ${psq(ticket.trim())}`);
+  if (skipSignIn) args.push("-SkipSignInActivity");
+  const command = `${script} ${args.join(" ")}`;
+  const verify = `(Get-FileHash ${script} -Algorithm SHA256).Hash -eq '${data.sha256}'`;
+  return (
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <ol className="space-y-8">
+        <Step n={1} title="Check the prerequisites on the technician's workstation">
+          <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+            <li><b className="text-foreground">PowerShell 7.4 or later</b> (<code>pwsh</code>). Windows PowerShell 5.1 is not supported.</li>
+            <li>A <b className="text-foreground">read-only Entra role</b>: Global Reader is recommended. If you use PIM, activate it first and give the ticket as the reason.</li>
+            <li><b className="text-foreground">Entra ID P1 or P2</b> for sign-in activity. Without it, dormancy is shown as unknown; everything else still works.</li>
+            <li>Only the Microsoft Graph authentication module is needed:</li>
+          </ul>
+          <CodeBlock code="Install-Module Microsoft.Graph.Authentication -Scope CurrentUser" label="Install the Graph authentication module" />
+        </Step>
+        <Step n={2} title="Download the script and check it">
+          <div className="flex flex-wrap gap-2">
+            <a href={downloadUrl("/exposure/collector/script")}><Button><Download /> Download {data.filename}</Button></a>
+            {mode === "batch" && <a href={downloadUrl("/exposure/collector/tenants-csv")}><Button variant="outline"><Download /> tenants.example.csv</Button></a>}
+          </div>
+          <p className="text-muted-foreground">In the folder you saved it to, confirm the file is unchanged. This prints <code>True</code>:</p>
+          <CodeBlock code={verify} label="Verify the script hash" />
+          <p className="text-muted-foreground">Windows marks downloaded scripts as coming from the internet. Once the hash matches, unblock it:</p>
+          <CodeBlock code={`Unblock-File ${script}`} label="Unblock the script" />
+        </Step>
+        <Step n={3} title="Build the command">
+          <div className="flex gap-2" role="radiogroup" aria-label="Collection mode">
+            {(["single", "batch"] as const).map((m) => (
+              <button key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`rounded-full border px-3 py-1 text-sm transition ${mode === m ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"}`}>
+                {m === "single" ? "One tenant" : "Several tenants (CSV)"}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {mode === "single" ? (
+              <>
+                <Field label="Tenant ID or domain"><Input value={tenantId} onChange={(e) => setTenantId(e.target.value)} placeholder="contoso.onmicrosoft.com" /></Field>
+                <Field label="Tenant name in Keystone"><Input value={tenantName} onChange={(e) => setTenantName(e.target.value)} placeholder="Head office" /></Field>
+              </>
+            ) : (
+              <div className="sm:col-span-2">
+                <p className="mb-2 text-muted-foreground">Save a <code>tenants.csv</code> next to the script with one tenant per line:</p>
+                <CodeBlock code={data.tenants_csv.trim()} label="Tenant list format" />
+              </div>
+            )}
+            <Field label="Change or ticket reference" hint="Recorded in the output for the audit trail."><Input value={ticket} onChange={(e) => setTicket(e.target.value)} placeholder="CHG-1042" /></Field>
+            <label className="flex items-center gap-2 self-end pb-2 text-sm"><input type="checkbox" checked={skipSignIn} onChange={(e) => setSkipSignIn(e.target.checked)} /> Skip sign-in activity (no Entra P1/P2)</label>
+          </div>
+          <p className="text-muted-foreground">Run this in <code>pwsh</code> from the script's folder:</p>
+          <CodeBlock code={command} label="Collector command" />
+          <Banner tone="warning">
+            <b>Consent prompt:</b> sign-in uses Microsoft's "Microsoft Graph Command Line Tools" app. If Entra asks you to consent to it, <b>cancel</b> unless that consent has been approved for your tenant. The script never calls a consent or grant API, and cancelling just records the tenant as failed.
+          </Banner>
+        </Step>
+        <Step n={4} title="Import the result, then delete it">
+          <p className="text-muted-foreground">The script writes <code>output/&lt;TenantName&gt;_&lt;date&gt;/collected.json</code> plus CSVs. Import <code>collected.json</code> on the <b className="text-foreground">Import</b> tab. If the script wrote <code>collected.INVALID.json</code>, don't import it: report it.</p>
+          <p className="text-muted-foreground">The output is a map of your attack surface: keep it on an encrypted volume, don't email it, and delete it after import.</p>
+        </Step>
+      </ol>
+      <div className="space-y-4">
+        <Card>
+          <CardHeader title="What the collector does" />
+          <CardBody className="space-y-2 text-sm text-muted-foreground">
+            <p>Reads, with the technician's own delegated sign-in: service principals, permissions, consent settings, credential metadata and sign-in activity.</p>
+            <p>Only <code>GET</code> requests, only to <code>graph.microsoft.com</code>. It changes nothing in the tenant and exports no user IDs, tokens or secret hints.</p>
+            <p>Keystone itself never connects to Microsoft Graph.</p>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="Script" description={`${data.filename} · ${(data.size / 1024).toFixed(1)} KB`} />
+          <CardBody className="space-y-2 text-sm">
+            <div className="text-xs text-muted-foreground">SHA-256</div>
+            <div className="break-all font-mono text-xs">{data.sha256}</div>
+          </CardBody>
+        </Card>
+      </div>
+      <details className="group xl:col-span-2 rounded-lg border">
+        <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm font-medium">
+          <span>View the full script ({data.script.split("\n").length} lines)</span>
+          <span onClick={(e) => e.preventDefault()}><CopyButton text={data.script} label="Copy script" /></span>
+        </summary>
+        <pre className="max-h-[36rem] overflow-auto border-t bg-muted/40 px-4 py-3 font-mono text-xs leading-5">{data.script}</pre>
+      </details>
     </div>
   );
 }

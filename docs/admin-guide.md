@@ -126,8 +126,9 @@ exported when someone explicitly chooses the "with licensed text" download.
 
 ## Entra exposure
 
-Technicians run `collector/Invoke-VendorExposureCollector.ps1` with a read-only role and
-upload `collected.json` on **Entra exposure → Exposure import**. Read
+Technicians get the collector from **Entra exposure → Collector**: download the script (with
+its SHA-256 to verify), build the exact command for one tenant or a CSV of tenants, and copy
+it. They run it with a read-only role and upload `collected.json` on **Entra exposure → Import**. Read
 [collector/README.md](../collector/README.md) before the first run, including the guidance on
 the Graph Command Line Tools consent prompt and on handling the output files.
 

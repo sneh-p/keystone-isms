@@ -98,7 +98,8 @@ the knowledge base so the next questionnaire is faster.
 
 ## Entra exposure
 
-1. A technician runs the collector and you import `collected.json` (**Exposure import**). Red
+1. A technician gets the collector and a ready-to-copy command from the **Collector** tab, runs
+   it, and you import `collected.json` on the **Import** tab. Red
    banners mean an endpoint failed: results that depend on it are shown as unknown, never as safe.
 2. **Exposure map**: every third-party app with its exposure level and the plain-English reasons
    for it, its permissions, credentials and last sign-in, plus changes since the last snapshot

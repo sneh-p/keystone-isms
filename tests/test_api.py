@@ -178,7 +178,7 @@ def test_get_endpoints_on_demo(demo_api, path):
     assert r.status_code == 200, r.text[:300]
 
 
-@pytest.mark.parametrize("path", ["/api/soa/ISO27001_2022/export.xlsx", "/api/soa/SOC2_TSC_2017/export.docx", "/api/reports/Risk register.xlsx", "/api/exposure/remediation.xlsx", "/api/attachments/1"])
+@pytest.mark.parametrize("path", ["/api/soa/ISO27001_2022/export.xlsx", "/api/soa/SOC2_TSC_2017/export.docx", "/api/reports/Risk register.xlsx", "/api/exposure/remediation.xlsx", "/api/attachments/1", "/api/exposure/collector/script", "/api/exposure/collector/tenants-csv"])
 def test_downloads(demo_api, path):
     r = demo_api.get(path)
     assert r.status_code == 200 and len(r.content) > 20 and "attachment" in r.headers["content-disposition"]
@@ -215,3 +215,15 @@ def test_framing_is_same_origin_by_default(monkeypatch):
     monkeypatch.setenv("KEYSTONE_FRAME_ANCESTORS", "https://intranet.example")
     h = security_headers()
     assert "frame-ancestors https://intranet.example;" in h["Content-Security-Policy"] and "X-Frame-Options" not in h
+
+
+def test_collector_script_offered_with_hash(demo_api):
+    import hashlib
+
+    from keystone.core.settings import PROJECT_ROOT
+
+    on_disk = (PROJECT_ROOT / "collector" / "Invoke-VendorExposureCollector.ps1").read_bytes()
+    meta = demo_api.get("/api/exposure/collector").json()
+    assert meta["sha256"] == hashlib.sha256(on_disk).hexdigest().upper() and meta["script"].encode() == on_disk
+    assert demo_api.get("/api/exposure/collector/script").content == on_disk
+    assert demo_api.get("/api/exposure/collector/..%2Fkeystone.db").status_code == 404
