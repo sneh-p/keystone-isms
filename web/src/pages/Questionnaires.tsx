@@ -14,6 +14,7 @@ import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { DateInput } from "@/components/forms";
+import { VendorPortalPanel } from "@/components/VendorPortalPanel";
 
 export default function Questionnaires() {
   const { can } = useAuth();
@@ -94,6 +95,7 @@ function Answers({ id, vendor, onClose }: { id: number; vendor: (id: number) => 
               );
             })}
           </div>
+          <VendorPortalPanel questionnaireId={id} locked={data.status === "reviewed"} />
           {data.status === "received" && can("vendor.write") && (
             <Section title="Review">
               <Textarea placeholder="Review notes" value={notes} onChange={(e) => setNotes(e.target.value)} />

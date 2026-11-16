@@ -68,8 +68,10 @@ def _blob_path(sha: str) -> Path:
     return get_settings().attachments_dir / sha[:2] / sha
 
 
-def save_attachment(session: Session, actor, filename: str, data: bytes, entity_type: str | None = None, entity_id: int | None = None) -> Attachment:
-    if actor is None:
+def save_attachment(session: Session, actor, filename: str, data: bytes, entity_type: str | None = None, entity_id: int | None = None, *, external_channel: str | None = None) -> Attachment:
+    """Store a file. Uploads need a signed-in user, except from a reviewed external channel (the vendor portal),
+    which must name itself and has already authorised the request and scanned the file."""
+    if actor is None and not external_channel:
         raise AttachmentRejected("uploads require a signed-in user")
     session.info["actor"] = actor
     fname = safe_filename(filename)

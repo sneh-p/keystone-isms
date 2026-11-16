@@ -41,6 +41,7 @@ const Reports = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.
 const AiSettings = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.AiSettings })));
 const SecurityQuestionnaires = lazy(() => import("@/pages/SecurityQuestionnaires"));
 const QuestionnaireDetail = lazy(() => import("@/pages/SecurityQuestionnaires").then((m) => ({ default: m.QuestionnaireDetail })));
+const VendorPortal = lazy(() => import("@/pages/VendorPortal"));
 
 /** Authenticated application routes. `nav` marks routes that appear in the sidebar. */
 export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] = [
@@ -109,6 +110,7 @@ export default function App() {
       <Route path="/login" element={me ? <Navigate to="/" replace /> : needsBootstrap ? <Navigate to="/setup" replace /> : <Login />} />
       <Route path="/setup" element={needsBootstrap ? <Setup /> : <Navigate to="/" replace />} />
       <Route path="/trust/:slug" element={<Suspense fallback={<Loading />}><PublicTrust /></Suspense>} />
+      <Route path="/vendor-portal" element={<Suspense fallback={<Loading />}><VendorPortal /></Suspense>} />
       <Route path="/invite" element={<Suspense fallback={<Loading />}><AcceptInvite /></Suspense>} />
       <Route path="/invite/:token" element={<Suspense fallback={<Loading />}><AcceptInvite /></Suspense>} />
       <Route path="/portal" element={<Private><Suspense fallback={<Loading />}><Portal /></Suspense></Private>} />

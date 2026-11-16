@@ -50,8 +50,8 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
   return parse(res);
 }
 
-export async function upload<T = any>(path: string, form: FormData, method = "POST"): Promise<T> {
-  const res = await fetch(`/api${path}`, { method, credentials: "same-origin", headers: headers(method, false), body: form });
+export async function upload<T = any>(path: string, form: FormData, method = "POST", extraHeaders: Record<string, string> = {}): Promise<T> {
+  const res = await fetch(`/api${path}`, { method, credentials: "same-origin", headers: { ...(headers(method, false) as Record<string, string>), ...extraHeaders }, body: form });
   return parse(res);
 }
 

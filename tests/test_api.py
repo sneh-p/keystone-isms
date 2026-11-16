@@ -11,7 +11,9 @@ from keystone.core.rbac import Role, has_permission
 from tests.conftest import PASSWORD, api_login
 
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
-PUBLIC = {"/auth/status", "/auth/bootstrap", "/auth/login", "/public/invite", "/public/trust/{slug}", "/public/trust/{slug}/requests", "/public/trust/{slug}/access", "/public/trust/{slug}/access/nda", "/public/trust/{slug}/documents/{public_id}"}
+PUBLIC = {"/auth/status", "/auth/bootstrap", "/auth/login", "/public/invite", "/public/trust/{slug}", "/public/trust/{slug}/requests", "/public/trust/{slug}/access", "/public/trust/{slug}/access/nda", "/public/trust/{slug}/documents/{public_id}",
+          # Vendor portal (reviewed design, docs/feature-security-designs.md): token in the X-Vendor-Token header.
+          "/public/vendor-portal", "/public/vendor-portal/files", "/public/vendor-portal/files/{file_id}"}
 
 
 def all_routes():

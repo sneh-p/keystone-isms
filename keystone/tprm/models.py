@@ -121,3 +121,21 @@ class VendorAssessment(Audited, OwnedMixin, TimestampMixin, Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     vendor: Mapped[Vendor] = relationship(lazy="joined")
+
+
+class VendorPortalLink(Audited, OwnedMixin, TimestampMixin, Base):
+    """A vendor's access to one questionnaire. Only the SHA-256 of the token is stored (SC-AUTHN-007).
+    expires_at is optional by design (the default is no expiry); staff can set one or revoke the link."""
+
+    __tablename__ = "vendor_portal_links"
+    __audit_redact__ = ("token_hash",)
+    REF_PREFIX = "VPL"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    questionnaire_id: Mapped[int] = mapped_column(ForeignKey("vendor_questionnaires.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    contact_name: Mapped[str | None] = mapped_column(String(200))
+    contact_email: Mapped[str | None] = mapped_column(String(320))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime)

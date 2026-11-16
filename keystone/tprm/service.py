@@ -222,6 +222,16 @@ def record_responses(session: Session, actor, questionnaire_id: int, responses: 
     """Store responses (entered by staff from the vendor's reply). complete=True marks it received."""
     authorize(session, actor, "vendor.write")
     vq = get_or_404(session, VendorQuestionnaire, questionnaire_id)
+    apply_responses(vq, responses, complete)
+    session.flush()
+    return vq
+
+
+MAX_ANSWER = 10_000
+
+
+def apply_responses(vq: VendorQuestionnaire, responses: dict, complete: bool = False) -> None:
+    """Validate and merge responses (shared by staff entry and the vendor portal; callers authorise)."""
     if vq.status == "reviewed":
         raise ValueError("This questionnaire has been reviewed and is locked.")
     questions = {q["id"]: q for q in vq.template.questions}
@@ -229,11 +239,18 @@ def record_responses(session: Session, actor, questionnaire_id: int, responses: 
     for qid, resp in responses.items():
         if qid not in questions:
             raise ValueError(f"Unknown question {qid}")
+        if resp is not None and not isinstance(resp, dict):
+            raise ValueError(f"Question {qid}: invalid response")
         allowed = QUESTION_TYPES[questions[qid]["type"]]
         ans = (resp or {}).get("answer")
+        comment = (resp or {}).get("comment")
+        if not isinstance(ans, (str, type(None))) or not isinstance(comment, (str, type(None))):
+            raise ValueError(f"Question {qid}: answers and comments must be text")
+        if len(ans or "") > MAX_ANSWER or len(comment or "") > MAX_ANSWER:
+            raise ValueError(f"Question {qid}: answers are limited to {MAX_ANSWER} characters")
         if allowed and ans not in (*allowed, None, ""):
             raise ValueError(f"Question {qid}: answer must be one of {allowed}")
-        clean[qid] = {"answer": ans or None, "comment": ((resp or {}).get("comment") or "").strip() or None}
+        clean[qid] = {"answer": ans or None, "comment": (comment or "").strip() or None}
     vq.responses = {**(vq.responses or {}), **clean}
     if complete:
         missing = missing_required(vq.template.questions, vq.responses)
@@ -241,8 +258,6 @@ def record_responses(session: Session, actor, questionnaire_id: int, responses: 
             raise ValueError("Required questions unanswered: " + ", ".join(missing))
         vq.status, vq.received_at = "received", utcnow()
     vq.score, _ = score_responses(vq.template.questions, vq.responses)
-    session.flush()
-    return vq
 
 
 def review_questionnaire(session: Session, actor, questionnaire_id: int, notes: str) -> VendorQuestionnaire:

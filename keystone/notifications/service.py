@@ -52,6 +52,13 @@ def items_for(session: Session, user: User, on: date | None = None) -> list[dict
 
         for i in session.scalars(select(Integration).where(Integration.enabled.is_(True), Integration.last_status == "error")):
             out.append({"key": _key("integration", i.id, i.last_run_at), "kind": "integrations", "title": f"Integration {i.name} failed on its last run", "page": "/integrations", "due": None})
+    # Questionnaires returned through the vendor portal: the vendor's owner, or vendor managers if it has none.
+    from keystone.tprm.models import Vendor, VendorQuestionnaire
+
+    q = select(VendorQuestionnaire, Vendor).join(Vendor, Vendor.id == VendorQuestionnaire.vendor_id).where(VendorQuestionnaire.status == "received")
+    for vq, v in session.execute(q):
+        if v.owner_id == user.id or (v.owner_id is None and has_permission(user, "vendor.write")):
+            out.append({"key": _key("vq", vq.id, vq.received_at), "kind": "questionnaires", "title": f"Review the questionnaire returned by {v.name}", "page": f"/questionnaires?open={vq.id}", "due": None})
     return out
 
 
