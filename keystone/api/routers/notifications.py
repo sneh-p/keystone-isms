@@ -71,3 +71,12 @@ class TestIn(In):
 @router.post("/settings/email/test")
 def send_test(body: TestIn, user=Depends(perm("users.manage")), db: Session = Depends(get_db)):
     return {"sent_to": ntf.send_test(db, user, body.to)}
+
+
+@router.get("/email-status")
+def email_status(user=Depends(perm("read")), db: Session = Depends(get_db)):
+    """Whether "Send by email" can work: email is on and links can be built from KEYSTONE_PUBLIC_URL."""
+    from keystone.core.settings import get_settings
+
+    s = ntf.smtp(db)
+    return {"ready": bool(s.enabled and s.host and s.from_address and get_settings().public_url)}

@@ -163,10 +163,13 @@ def trend(session: Session, current: dict[str, float], on: date | None = None, p
     return {"days": days, "series": series}
 
 
-def my_tasks(session: Session, user, on: date | None = None) -> list[dict]:
-    """Things assigned to this user that need action."""
+def my_tasks(session: Session, user, on: date | None = None, routed: dict[int, list[dict]] | None = None) -> list[dict]:
+    """Things assigned to this user that need action: their own records and tasks, plus every attention item routed
+    to them (keystone/reporting/routing.py). Pass `routed` when building lists for many users."""
+    from keystone.reporting.routing import routed_items
+
     on = on or date.today()
-    out = []
+    out = list((routed if routed is not None else routed_items(session, on)).get(user.id, []))
     for v in pol.pending_for(session, user):
         out.append({"what": f"Acknowledge {v.document.code} {v.document.title} v{v.version_label}", "due": None, "page": "/policies"})
     for r in risk.list_risks(session):

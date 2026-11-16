@@ -77,7 +77,9 @@ function PersonDrawer({ person: p, items, onClose }: { person: any; items: Recor
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [linkTo, setLinkTo] = useState<string | null>(null);
   const inv = ["/people"];
-  const invite = useAction(() => api(`/people/${p.id}/invite`, { method: "POST" }), { onSuccess: (r: any) => setInviteUrl(absoluteLink(r)) });
+  const emailReady = useApi<{ ready: boolean }>("/email-status").data?.ready;
+  const invite = useAction((send_email: boolean) => api(`/people/${p.id}/invite`, { method: "POST", body: { send_email } }), {
+    success: (r: any) => (r.emailed_to ? `Invitation emailed to ${r.emailed_to}.` : "Invitation link created."), onSuccess: (r: any) => setInviteUrl(absoluteLink(r)) });
   const status = useAction((s: string) => api(`/people/${p.id}/status`, { body: { status: s } }), { success: "Status updated.", invalidate: inv });
   const tick = useAction((v: { item: string; done: boolean }) => api(`/people/${p.id}/offboarding`, { body: v }), { invalidate: inv });
   const complete = useAction(() => api(`/people/${p.id}/offboarding/complete`, { method: "POST" }), { success: "Offboarding complete; their sign-in was disabled.", invalidate: inv });
@@ -101,7 +103,12 @@ function PersonDrawer({ person: p, items, onClose }: { person: any; items: Recor
               <p className="text-sm text-muted-foreground">Send an invitation link so {p.full_name.split(" ")[0]} can sign in to the employee portal. Links work once and expire after 7 days.</p>
               {inviteUrl ? (
                 <div className="flex gap-2"><Input readOnly value={inviteUrl} onFocus={(e) => e.target.select()} /><CopyButton text={inviteUrl} size="md" /></div>
-              ) : <Button onClick={() => invite.mutate(undefined)} loading={invite.isPending}><Mail /> Create invitation link</Button>}
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {emailReady && <Button onClick={() => invite.mutate(true)} loading={invite.isPending}><Mail /> Email invitation to {p.email}</Button>}
+                  <Button variant={emailReady ? "outline" : "default"} onClick={() => invite.mutate(false)} loading={invite.isPending}>Create invitation link</Button>
+                </div>
+              )}
               {users.data && (
                 <div className="flex items-end gap-2 border-t pt-3">
                   <Field label="Or link an existing Keystone account" className="flex-1"><Select value={linkTo} onChange={setLinkTo} options={users.data.map((u) => ({ value: String(u.id), label: `${u.display_name} (${u.username})` }))} /></Field>

@@ -60,6 +60,26 @@ def bulk_update_controls(session: Session, actor, ids: list[int], **fields) -> l
     return targets
 
 
+def hand_over_tasks(session: Session, actor, control_ids: list[int]) -> int:
+    """Give each control's open tasks to its owner. A task moves only when every control it serves has that same
+    owner, so a task shared with another owner's control stays where it is. Tasks in review stay with whoever
+    submitted them. Returns the number moved; each move is audited by the task service."""
+    from keystone.tasks import service as tsk
+    from keystone.tasks.models import Task
+
+    authorize(session, actor, "task.write")
+    ids = set(control_ids)
+    moved = 0
+    for t in session.scalars(select(Task).join(Task.controls).where(CommonControl.id.in_(ids), Task.status.in_(("todo", "in_progress"))).distinct()):
+        owners = {c.owner_id for c in t.controls}
+        if len(owners) == 1 and None not in owners:
+            owner = owners.pop()
+            if t.assignee_id != owner:
+                tsk.save_task(session, actor, t.id, assignee_id=owner)
+                moved += 1
+    return moved
+
+
 def review_control(session: Session, actor, control_id: int) -> CommonControl:
     authorize(session, actor, "control.write")
     c = get_or_404(session, CommonControl, control_id)

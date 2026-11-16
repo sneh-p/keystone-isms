@@ -377,7 +377,7 @@ def test_bulk_update_controls(api, ready_users, content, db):
     assert api.post("/api/controls/bulk", json={"ids": ids, "owner_id": owner}).status_code == 403
     api_login(api, "controlowner")
     r = api.post("/api/controls/bulk", json={"ids": ids, "owner_id": owner, "status": "planned"})
-    assert r.status_code == 200 and r.json() == {"updated": 3}
+    assert r.status_code == 200 and r.json() == {"updated": 3, "tasks_moved": 0}
     with db.session_scope() as s:
         assert {(c.owner_id, c.status) for c in s.query(CommonControl).filter(CommonControl.id.in_(ids))} == {(owner, "planned")}
         assert s.query(AuditLog).count() >= before + 3  # one audited change per control

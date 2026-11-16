@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Link2, Mail, ShieldAlert, ShieldCheck } from "lucide-react";
 import { absoluteLink, api, downloadUrl } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -19,8 +19,9 @@ export function VendorPortalPanel({ questionnaireId, locked }: { questionnaireId
   const { data } = useApi<any>(key);
   const [form, setForm] = useState({ contact_name: "", contact_email: "", expires_on: null as string | null });
   const [created, setCreated] = useState<string | null>(null);
-  const create = useAction(() => api(`/questionnaires/${questionnaireId}/portal-link`, { body: { contact_name: form.contact_name || null, contact_email: form.contact_email || null, expires_at: form.expires_on ? `${form.expires_on}T00:00:00Z` : null } }),
-    { success: "Link created. Copy it now; it can't be shown again.", invalidate: [key], onSuccess: (r: any) => setCreated(absoluteLink(r)) });
+  const emailReady = useApi<{ ready: boolean }>("/email-status").data?.ready;
+  const create = useAction((send_email: boolean) => api(`/questionnaires/${questionnaireId}/portal-link`, { body: { contact_name: form.contact_name || null, contact_email: form.contact_email || null, expires_at: form.expires_on ? `${form.expires_on}T00:00:00Z` : null, send_email } }),
+    { success: (r: any) => (r.emailed_to ? `Link emailed to ${r.emailed_to}.` : "Link created. Copy it now; it can't be shown again."), invalidate: [key], onSuccess: (r: any) => setCreated(absoluteLink(r)) });
   const revoke = useAction((id: number) => api(`/portal-links/${id}/revoke`, { method: "POST" }), { success: "Link revoked.", invalidate: [key] });
   const expiry = useAction((v: { id: number; date: string | null }) => api(`/portal-links/${v.id}`, { method: "PATCH", body: { expires_at: v.date ? `${v.date}T00:00:00Z` : null } }), { success: "Expiry updated.", invalidate: [key] });
   if (!data) return null;
@@ -63,7 +64,10 @@ export function VendorPortalPanel({ questionnaireId, locked }: { questionnaireId
             <Field label="Contact email"><Input value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} /></Field>
             <Field label="Expires (optional)" hint="Empty: the link never expires."><DateInput value={form.expires_on} onChange={(v) => setForm({ ...form, expires_on: v })} /></Field>
           </div>
-          <Button size="sm" loading={create.isPending} onClick={() => create.mutate(undefined)}><Link2 /> {active ? "Create a new link (replaces the current one)" : "Create vendor link"}</Button>
+          <div className="flex flex-wrap gap-2">
+            {emailReady && <Button size="sm" disabled={!form.contact_email} loading={create.isPending} onClick={() => create.mutate(true)}><Mail /> {active ? "Email a new link (replaces the current one)" : "Email link to the contact"}</Button>}
+            <Button size="sm" variant={emailReady ? "outline" : "default"} loading={create.isPending} onClick={() => create.mutate(false)}><Link2 /> {active ? "Create a new link (replaces the current one)" : "Create vendor link"}</Button>
+          </div>
         </div>
       )}
       {data.files.length > 0 && (

@@ -108,13 +108,13 @@ export default function Dashboard() {
           </CardBody>
         </Card>
         <Card>
-          <CardHeader title={`My tasks (${data.my_tasks.length})`} description="Assigned to you or waiting on your approval." />
+          <CardHeader title={`My tasks (${data.my_tasks.length})`} description={data.my_tasks.length > 10 ? "The 10 most urgent; the bell lists everything." : "Assigned to you, owned by you or waiting on your approval."} />
           <CardBody className="p-0">
             {data.my_tasks.length === 0 ? (
               <div className="p-5 text-sm text-muted-foreground">You're all caught up.</div>
             ) : (
               <ul className="divide-y">
-                {data.my_tasks.map((t: any, i: number) => {
+                {data.my_tasks.slice(0, 10).map((t: any, i: number) => {
                   const d = daysUntil(t.due);
                   return (
                     <li key={i}>

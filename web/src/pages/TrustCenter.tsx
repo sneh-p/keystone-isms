@@ -35,7 +35,9 @@ export default function TrustCenterAdmin() {
   const addFaq = useAction(() => api("/trust-center/faqs", { body: faq }), { success: "FAQ added.", invalidate: inv, onSuccess: () => setFaq(null) });
   const delFaq = useAction((id: number) => api(`/trust-center/faqs/${id}`, { method: "DELETE" }), { invalidate: inv });
   const setSub = useAction((v: any) => api(`/trust-center/subprocessors/${v.id}`, { method: "PUT", body: { purpose: v.purpose, location: v.location } }), { success: "Subprocessor list updated.", invalidate: inv });
-  const approve = useAction((id: number) => api(`/trust-center/requests/${id}/approve`, { body: {} }), { invalidate: inv, onSuccess: (r: any) => setLink(absoluteLink(r)) });
+  const emailReady = useApi<{ ready: boolean }>("/email-status").data?.ready;
+  const approve = useAction((id: number) => api(`/trust-center/requests/${id}/approve`, { body: { send_email: !!emailReady } }), {
+    success: (r: any) => (r.emailed_to ? `Approved; the link was emailed to ${r.emailed_to}.` : "Approved. Copy the link and send it to the requester."), invalidate: inv, onSuccess: (r: any) => setLink(absoluteLink(r)) });
   const deny = useAction((id: number) => api(`/trust-center/requests/${id}/deny`, { method: "POST" }), { success: "Request denied.", invalidate: inv });
   const revoke = useAction((id: number) => api(`/trust-center/requests/${id}/revoke`, { method: "POST" }), { success: "Access revoked.", invalidate: inv });
   if (!data || !s) return <Skeleton className="h-96" />;
@@ -63,7 +65,7 @@ export default function TrustCenterAdmin() {
             { key: "v", header: "Downloads", cell: (r: any) => r.view_count, className: "text-right" },
             { key: "d", header: "Decided", cell: (r: any) => (r.decided_at ? `${fmtDate(r.decided_at)} · ${name(r.decided_by_id)}` : `requested ${fmtDate(r.created_at)}`) },
             { key: "x", header: "", cell: (r: any) => ed && <div className="flex justify-end gap-1">
-              {r.status !== "approved" && <Button size="sm" onClick={() => approve.mutate(r.id)}><Check /> Approve</Button>}
+              {r.status !== "approved" && <Button size="sm" onClick={() => approve.mutate(r.id)}><Check /> {emailReady ? "Approve and email link" : "Approve"}</Button>}
               {r.status === "approved" && <Button size="sm" variant="outline" onClick={() => approve.mutate(r.id)}>New link</Button>}
               {r.status === "pending" && <Button size="sm" variant="ghost" onClick={() => deny.mutate(r.id)}><X /> Deny</Button>}
               {r.status === "approved" && <Button size="sm" variant="ghost" onClick={() => revoke.mutate(r.id)}>Revoke</Button>}

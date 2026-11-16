@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from keystone.trust import service as trust
-from keystone.trust.models import TrustDocument, TrustFaq, TrustSubprocessor
+from keystone.trust.models import AccessRequest, TrustDocument, TrustFaq, TrustSubprocessor
 
 from ..deps import get_db, perm
 from ..serialize import ser
@@ -105,14 +105,24 @@ def subprocessor(vendor_id: int, body: SubIn, user=Depends(perm("trust.manage"))
 
 class ApproveIn(In):
     days: int | None = None
+    send_email: bool = False  # email the link to the requester
 
 
 @router.post("/trust-center/requests/{rid}/approve")
 def approve(rid: int, body: ApproveIn, user=Depends(perm("trust.manage")), db: Session = Depends(get_db)):
     token = trust.approve(db, user, rid, body.days)
-    slug = trust.settings(db).slug
+    st = trust.settings(db)
     # SC-CRY-005: the token travels in the URL fragment, never in a path or query the server would log.
-    return public_link(f"/trust/{slug}#access={token}")
+    out = {**public_link(f"/trust/{st.slug}#access={token}"), "emailed_to": None}
+    if body.send_email:
+        from keystone.notifications import service as ntf
+
+        r = db.get(AccessRequest, rid)
+        exp = r.expires_at.strftime("%d %b %Y") if r and r.expires_at else ""
+        out["emailed_to"] = ntf.email_link(db, user, to=r.email if r else None, subject=f"Your access to {st.headline or 'our Trust Center'}",
+                                           intro=f"Hello {r.name if r else ''},\n\nYour request for access to our security documents has been approved. Open this link to view and download them:",
+                                           path=f"/trust/{st.slug}#access={token}", closing=f"The link is personal to you and works until {exp}. Please don't forward it.", entity=("AccessRequest", rid))
+    return out
 
 
 @router.post("/trust-center/requests/{rid}/deny")

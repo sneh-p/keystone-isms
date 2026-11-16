@@ -46,11 +46,25 @@ def update(pid: int, body: PersonIn, user=Depends(perm("people.write")), db: Ses
     return ser(ppl.save_person(db, user, pid, **body.model_dump(exclude_unset=True)), PERSON)
 
 
+class InviteIn(In):
+    send_email: bool = False
+
+
 @router.post("/people/{pid}/invite")
-def invite(pid: int, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+def invite(pid: int, body: InviteIn | None = None, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
     token = ppl.invite(db, user, pid)
+    out = {**public_link(f"/invite#token={token}"), "expires_in_days": ppl.INVITE_DAYS, "emailed_to": None}
+    if body and body.send_email:
+        from keystone.notifications import service as ntf
+        from keystone.org.service import get_org
+
+        person = get_or_404(db, Person, pid)
+        org = get_org(db)
+        out["emailed_to"] = ntf.email_link(db, user, to=person.email, subject=f"Your {org.name if org else 'Keystone'} employee portal invitation",
+                                           intro=f"Hello {person.full_name},\n\nYou've been invited to the employee portal, where you accept security policies, complete short training and confirm your device is secure. Open this link to set your password:",
+                                           path=f"/invite#token={token}", closing=f"The link works once and expires in {ppl.INVITE_DAYS} days.", entity=("Person", pid))
     # SC-CRY-005: the token travels in the URL fragment, never in a path or query the server would log.
-    return {**public_link(f"/invite#token={token}"), "expires_in_days": ppl.INVITE_DAYS}
+    return out
 
 
 class LinkIn(In):

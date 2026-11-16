@@ -38,13 +38,13 @@ def _kind(page: str) -> str:
     return page.strip("/").split("/")[0].split("?")[0] or "general"
 
 
-def items_for(session: Session, user: User, on: date | None = None) -> list[dict]:
+def items_for(session: Session, user: User, on: date | None = None, routed: dict | None = None) -> list[dict]:
     """What this user should be told about today."""
     from keystone.reporting.dashboard import my_tasks
 
     on = on or today()
     out = []
-    for t in my_tasks(session, user, on):
+    for t in my_tasks(session, user, on, routed):
         if t["due"] is None or t["due"] <= on + timedelta(days=NOTIFY_WITHIN_DAYS):
             out.append({"key": _key("task", t["what"], t["page"], t["due"]), "kind": _kind(t["page"]), "title": t["what"], "page": t["page"], "due": t["due"]})
     if has_permission(user, "integration.manage"):
@@ -62,10 +62,10 @@ def items_for(session: Session, user: User, on: date | None = None) -> list[dict
     return out
 
 
-def refresh(session: Session, user: User, on: date | None = None) -> int:
+def refresh(session: Session, user: User, on: date | None = None, routed: dict | None = None) -> int:
     """Add new items to the user's inbox and resolve ones that no longer apply. Returns the number added."""
     now = datetime.now()
-    items = {i["key"]: i for i in items_for(session, user, on)}
+    items = {i["key"]: i for i in items_for(session, user, on, routed)}
     existing = {n.key: n for n in session.scalars(select(Notification).where(Notification.user_id == user.id, Notification.resolved_at.is_(None)))}
     for k, n in existing.items():
         if k not in items:
@@ -81,7 +81,10 @@ def refresh(session: Session, user: User, on: date | None = None) -> int:
 
 
 def refresh_all(session: Session, on: date | None = None) -> int:
-    return sum(refresh(session, u, on) for u in session.scalars(select(User).where(User.active.is_(True))))
+    from keystone.reporting.routing import routed_items
+
+    routed = routed_items(session, on)  # once for everyone
+    return sum(refresh(session, u, on, routed) for u in list(session.scalars(select(User).where(User.active.is_(True)))))
 
 
 # ---- the signed-in user's own inbox (every role: permission "portal", plus a user-id filter) ----------------
@@ -286,3 +289,36 @@ def send_digests(session: Session, now: datetime | None = None) -> int:
     s.last_error = None
     session.flush()
     return len(batch)
+
+
+# ---- emailing a link (invitations, vendor portal links, Trust Center access) ------------------------------
+
+def email_link(session: Session, actor, *, to: str | None, subject: str, intro: str, path: str, closing: str, entity: tuple[str, int | None]) -> str:
+    """Send one plain-text email containing a Keystone link. The link is built from KEYSTONE_PUBLIC_URL (never from the
+    request), and the audit entry names the recipient but never the link, which may carry an access token. Raises
+    ValueError (and so rolls back the caller's change, e.g. a new token) if the email can't be sent."""
+    from keystone.core.audit import log_event
+    from keystone.core.settings import get_settings
+
+    to = (to or "").strip()
+    if not re.match(EMAIL, to):
+        raise ValueError("There's no valid email address to send this to.")
+    base = get_settings().public_url
+    if not base:
+        raise ValueError("Set KEYSTONE_PUBLIC_URL on the server so emailed links point to the right address; copy the link instead for now.")
+    s = smtp(session)
+    if not s.enabled:
+        raise ValueError("Email isn't set up (Settings > Email); copy the link instead.")
+    from keystone.org.service import get_org
+
+    org = get_org(session)
+    body = f"{intro}\n\n{base}{path}\n\n{closing}\n\n-- \nSent by {org.name if org else 'Keystone'} with Keystone ISMS.\n"
+    msg = mailer.build(s.from_address or "", s.from_name, to, subject, body)
+    try:
+        mailer.send(_cfg(s), [msg])
+    except (smtplib.SMTPException, OSError, ValueError) as e:
+        s.last_error = _describe(e)
+        raise ValueError(f"The email couldn't be sent ({s.last_error}). Nothing was changed; try again or copy the link instead.") from None
+    log_event(session, actor, "email", entity[0], entity[1], f"Link emailed to {to}: {subject}")
+    session.flush()
+    return to

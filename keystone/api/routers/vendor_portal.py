@@ -37,13 +37,26 @@ class LinkIn(In):
     contact_name: str | None = Field(default=None, max_length=200)
     contact_email: str | None = Field(default=None, max_length=320)
     expires_at: datetime | None = None  # none = never expires (default)
+    send_email: bool = False  # email the link to contact_email
 
 
 @router.post("/questionnaires/{qid}/portal-link")
 def create_link(qid: int, body: LinkIn, user=Depends(perm("vendor.write")), db: Session = Depends(get_db)):
     link, token = portal.create_link(db, user, qid, contact_name=body.contact_name, contact_email=body.contact_email, expires_at=_naive_utc(body.expires_at))
     # SC-AUTHN-007: the token travels after "#", so it never reaches server logs; shown once, stored as a hash.
-    return {**ser(link, LINK), **public_link(f"/vendor-portal#token={token}")}
+    out = {**ser(link, LINK), **public_link(f"/vendor-portal#token={token}"), "emailed_to": None}
+    if body.send_email:
+        from keystone.notifications import service as ntf
+        from keystone.org.service import get_org
+
+        vq = get_or_404(db, VendorQuestionnaire, qid)
+        org = get_org(db)
+        company = org.name if org else "Our company"
+        due = f" by {vq.due_date:%d %b %Y}" if vq.due_date else ""
+        out["emailed_to"] = ntf.email_link(db, user, to=body.contact_email, subject=f"{company}: security questionnaire to complete",
+                                           intro=f"Hello {body.contact_name or ''},\n\n{company} asks you to answer a short security questionnaire{due} and upload supporting documents such as certificates or audit reports. You can save and come back to this link:",
+                                           path=f"/vendor-portal#token={token}", closing="The link gives access to this questionnaire only. Please don't forward it.", entity=("VendorQuestionnaire", qid))
+    return out
 
 
 class ExpiryIn(In):

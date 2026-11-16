@@ -99,16 +99,19 @@ export default function Controls() {
 function BulkControls({ ids, people, onDone }: { ids: number[]; people: { id: number; display_name: string }[]; onDone: () => void }) {
   const [owner, setOwner] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const run = useAction((body: any) => api<{ updated: number }>("/controls/bulk", { method: "POST", body }), {
-    success: (r) => `${r.updated} control${r.updated === 1 ? "" : "s"} updated.`, invalidate: ["/controls", "/frameworks", "/dashboard", "/soa"], onSuccess: onDone,
+  const [handOver, setHandOver] = useState(true);
+  const run = useAction((body: any) => api<{ updated: number; tasks_moved: number }>("/controls/bulk", { method: "POST", body }), {
+    success: (r) => `${r.updated} control${r.updated === 1 ? "" : "s"} updated${r.tasks_moved ? `; ${r.tasks_moved} open task${r.tasks_moved === 1 ? "" : "s"} handed over` : ""}.`, invalidate: ["/controls", "/frameworks", "/dashboard", "/soa", "/tasks"], onSuccess: onDone,
   });
   const body: any = { ids };
   if (owner) body.owner_id = owner === "none" ? null : Number(owner);
+  if (owner && owner !== "none") body.hand_over_tasks = handOver;
   if (status) body.status = status;
   return (
     <>
       <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-48"><Select value={owner} onChange={setOwner} allowEmpty emptyLabel="Keep owner" placeholder="Set owner…" options={[{ value: "none", label: "Remove owner" }, ...people.map((p) => ({ value: String(p.id), label: p.display_name }))]} ariaLabel="Set owner for selected controls" /></div>
       <div className="min-w-0 basis-[calc(50%-0.25rem)] sm:basis-auto sm:w-48"><Select value={status} onChange={setStatus} allowEmpty emptyLabel="Keep status" placeholder="Set status…" options={CONTROL_STATUS.filter((s) => s.value !== "not_applicable")} ariaLabel="Set status for selected controls" /></div>
+      {owner && owner !== "none" && <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={handOver} onChange={(e) => setHandOver(e.target.checked)} /> Also hand over their open tasks</label>}
       <Button size="sm" disabled={!owner && !status} loading={run.isPending} onClick={() => run.mutate(body)}>Apply to {ids.length}</Button>
     </>
   );
@@ -125,7 +128,9 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   useEffect(() => { if (data) setF(initial(data)); }, [data]);
   const dirty = editing && !!data && !!f && JSON.stringify(f) !== JSON.stringify(initial(data));
   const confirmDiscard = useUnsavedGuard(dirty);
-  const save = useAction((body: any) => api(`/controls/${id}`, { method: "PATCH", body }), { success: "Control saved.", invalidate: ["/controls", "/frameworks", "/dashboard", "/soa"], onSuccess: () => setEditing(false) });
+  const [handOver, setHandOver] = useState(true);
+  const save = useAction((body: any) => api<any>(`/controls/${id}`, { method: "PATCH", body }), { success: (r) => `Control saved${r.tasks_moved ? `; ${r.tasks_moved} open task${r.tasks_moved === 1 ? "" : "s"} handed over to the owner` : ""}.`, invalidate: ["/controls", "/frameworks", "/dashboard", "/soa", "/tasks"], onSuccess: () => setEditing(false) });
+  const ownerChanged = !!data && !!f && f.owner_id && f.owner_id !== data.owner_id;
   const review = useAction(() => api(`/controls/${id}/review`, { method: "POST" }), { success: "Review recorded.", invalidate: ["/controls"] });
   const editable = can("control.write");
   const statusLabel = (v: string) => CONTROL_STATUS.find((s) => s.value === v)?.label ?? v;
@@ -171,11 +176,12 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
                   <Field label="Status"><Select value={f.status} onChange={(v) => setF({ ...f, status: v })} options={CONTROL_STATUS} /></Field>
                   <Field label="Owner"><Select value={f.owner_id ? String(f.owner_id) : null} onChange={(v) => setF({ ...f, owner_id: v ? Number(v) : null })} allowEmpty emptyLabel="No owner" options={people.map((p) => ({ value: String(p.id), label: p.display_name }))} /></Field>
                 </div>
+                {ownerChanged && <label className="mt-2 flex items-center gap-1.5 text-xs"><input type="checkbox" checked={handOver} onChange={(e) => setHandOver(e.target.checked)} /> Also give this control's open tasks to the new owner</label>}
                 <Field className="mt-4" label="How it is implemented"><Textarea value={f.implementation_notes} onChange={(e) => setF({ ...f, implementation_notes: e.target.value })} /></Field>
                 {f.status === "not_applicable" && <Field className="mt-4" label="Why not applicable" required><Textarea value={f.na_justification} onChange={(e) => setF({ ...f, na_justification: e.target.value })} /></Field>}
                 <Field className="mt-4 max-w-xs" label="Review every (days)"><Input type="number" min={30} max={1095} value={f.review_interval_days} onChange={(e) => setF({ ...f, review_interval_days: Number(e.target.value) })} /></Field>
                 <div className="mt-4 flex gap-2">
-                  <Button loading={save.isPending} disabled={!dirty} onClick={() => save.mutate({ ...f, implementation_notes: f.implementation_notes || null, na_justification: f.na_justification || null })}>Save</Button>
+                  <Button loading={save.isPending} disabled={!dirty} onClick={() => save.mutate({ ...f, implementation_notes: f.implementation_notes || null, na_justification: f.na_justification || null, hand_over_tasks: !!ownerChanged && handOver })}>Save</Button>
                   <Button variant="ghost" onClick={() => { if (confirmDiscard()) { setF(initial(data)); setEditing(false); } }}>Cancel</Button>
                 </div>
               </>

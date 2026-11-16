@@ -41,7 +41,7 @@ def test_refresh_dedupes_and_resolves(demo_db):
         # An item that no longer needs action is resolved, not deleted.
         first = items[0]
         orig = ntf.items_for
-        ntf.items_for = lambda session, user, on=None: [i for i in orig(session, user, on) if i["key"] != first.key]
+        ntf.items_for = lambda session, user, on=None, routed=None: [i for i in orig(session, user, on, routed) if i["key"] != first.key]
         try:
             ntf.refresh(s, mia)
         finally:

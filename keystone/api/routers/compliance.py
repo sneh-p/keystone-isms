@@ -124,22 +124,28 @@ class ControlPatch(In):
     implementation_notes: str | None = None
     na_justification: str | None = None
     review_interval_days: int | None = None
+    hand_over_tasks: bool = False
 
 
 @router.patch("/controls/{cid}")
 def update_control(cid: int, body: ControlPatch, user=Depends(perm("control.write")), db: Session = Depends(get_db)):
-    return control_summary(ctl.update_control(db, user, cid, **body.model_dump(exclude_unset=True)))
+    c = ctl.update_control(db, user, cid, **body.model_dump(exclude_unset=True, exclude={"hand_over_tasks"}))
+    moved = ctl.hand_over_tasks(db, user, [cid]) if body.hand_over_tasks and c.owner_id else 0
+    return {**control_summary(c), "tasks_moved": moved}
 
 
 class ControlBulkIn(In):
     ids: list[int] = Field(min_length=1, max_length=500)
     status: str | None = None
     owner_id: int | None = None
+    hand_over_tasks: bool = False  # also give the controls' open tasks to the new owner
 
 
 @router.post("/controls/bulk")
 def bulk_update_controls(body: ControlBulkIn, user=Depends(perm("control.write")), db: Session = Depends(get_db)):
-    return {"updated": len(ctl.bulk_update_controls(db, user, body.ids, **body.model_dump(exclude_unset=True, exclude={"ids"})))}
+    updated = ctl.bulk_update_controls(db, user, body.ids, **body.model_dump(exclude_unset=True, exclude={"ids", "hand_over_tasks"}))
+    moved = ctl.hand_over_tasks(db, user, body.ids) if body.hand_over_tasks and body.owner_id else 0
+    return {"updated": len(updated), "tasks_moved": moved}
 
 
 @router.post("/controls/{cid}/review")

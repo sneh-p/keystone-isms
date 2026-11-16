@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from keystone.assets.models import Asset
 from keystone.core.db import utcnow
-from keystone.core.services import apply_fields, authorize, get_or_404, require_text
+from keystone.core.services import apply_fields, authorize, get_or_404, require_text, today
 from keystone.core.settings import PROJECT_ROOT
 
 from .models import CATEGORIES, RESOLUTIONS, SEVERITIES, STATUSES, Incident, IncidentEvent
@@ -62,8 +62,22 @@ def report_incident(session: Session, actor, *, asset_ids: list[int] | None = No
     session.add(inc)
     session.flush()
     _event(session, inc, actor, f"Incident reported ({inc.severity}, {inc.category}).", "system", inc.detected_at)
+    _risk_realised(session, inc, actor)
     session.flush()
     return inc
+
+
+def _risk_realised(session: Session, inc: Incident, actor) -> None:
+    """An incident that realises a risk is a reason to reassess it (ISO 27001 8.2, 6.1): its review becomes due now,
+    which puts it in the risk owner's tasks. Recorded on the incident timeline; the risk change is audited."""
+    from keystone.risk.models import Risk
+
+    r = session.get(Risk, inc.risk_id) if inc.risk_id else None
+    if r is None or r.status == "closed":
+        return
+    if r.review_date is None or r.review_date > today():
+        r.review_date = today()
+    _event(session, inc, actor, f"Linked to risk {r.ref} {r.title}; its review is now due so the owner can reassess it.", "system")
 
 
 def _validate(inc: Incident) -> None:
@@ -77,13 +91,15 @@ def _validate(inc: Incident) -> None:
 def update_incident(session: Session, actor, incident_id: int, *, asset_ids: list[int] | None = None, **fields) -> Incident:
     authorize(session, actor, "incident.write")
     inc = get_or_404(session, Incident, incident_id)
-    before = inc.severity
+    before, risk_before = inc.severity, inc.risk_id
     apply_fields(inc, fields, FIELDS)
     _validate(inc)
     if asset_ids is not None:
         inc.assets = list(session.scalars(select(Asset).where(Asset.id.in_(asset_ids))))
     if inc.severity != before:
         _event(session, inc, actor, f"Severity changed {before} → {inc.severity}.", "system")
+    if inc.risk_id and inc.risk_id != risk_before:
+        _risk_realised(session, inc, actor)
     session.flush()
     return inc
 
