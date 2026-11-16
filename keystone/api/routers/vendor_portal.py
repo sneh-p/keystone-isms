@@ -19,7 +19,7 @@ from .common import In, public_link
 from .trust import _ip
 
 router = APIRouter(tags=["vendor-portal"])
-TOKEN_HEADER = "X-Vendor-Token"
+VENDOR_HEADER = "X-Vendor-Token"
 LINK = ("id", "contact_name", "contact_email", "expires_at", "revoked_at", "last_used_at", "created_at", "created_by_id")
 
 
@@ -72,7 +72,7 @@ def _guard(fn):
 
 
 @router.get("/public/vendor-portal")
-def public_view(request: Request, token: str | None = Header(None, alias=TOKEN_HEADER), db: Session = Depends(get_db)):
+def public_view(request: Request, token: str | None = Header(None, alias=VENDOR_HEADER), db: Session = Depends(get_db)):
     return _guard(lambda: portal.view(db, token, _ip(request)))
 
 
@@ -82,23 +82,23 @@ class AnswersIn(In):
 
 
 @router.put("/public/vendor-portal")
-def public_save(body: AnswersIn, request: Request, token: str | None = Header(None, alias=TOKEN_HEADER), db: Session = Depends(get_db)):
+def public_save(body: AnswersIn, request: Request, token: str | None = Header(None, alias=VENDOR_HEADER), db: Session = Depends(get_db)):
     return _guard(lambda: portal.save(db, token, _ip(request), body.responses, body.submit))
 
 
 @router.post("/public/vendor-portal/files")
-async def public_upload(request: Request, file: UploadFile = File(...), token: str | None = Header(None, alias=TOKEN_HEADER), db: Session = Depends(get_db)):
+async def public_upload(request: Request, file: UploadFile = File(...), token: str | None = Header(None, alias=VENDOR_HEADER), db: Session = Depends(get_db)):
     data = await file.read(portal.MAX_FILE_BYTES + 1)  # never read more than the limit allows
     return _guard(lambda: portal.upload(db, token, _ip(request), file.filename or "file", data))
 
 
 @router.delete("/public/vendor-portal/files/{file_id}")
-def public_delete(file_id: str, request: Request, token: str | None = Header(None, alias=TOKEN_HEADER), db: Session = Depends(get_db)):
+def public_delete(file_id: str, request: Request, token: str | None = Header(None, alias=VENDOR_HEADER), db: Session = Depends(get_db)):
     return _guard(lambda: portal.delete_file(db, token, _ip(request), file_id))
 
 
 @router.get("/public/vendor-portal/files/{file_id}")
-def public_download(file_id: str, request: Request, token: str | None = Header(None, alias=TOKEN_HEADER), db: Session = Depends(get_db)):
+def public_download(file_id: str, request: Request, token: str | None = Header(None, alias=VENDOR_HEADER), db: Session = Depends(get_db)):
     att, data = _guard(lambda: portal.download_own(db, token, _ip(request), file_id))
     safe = att.filename.replace('"', "")
     return Response(data, media_type=att.content_type, headers={"Content-Disposition": f'attachment; filename="{safe}"', "X-Content-Type-Options": "nosniff"})
