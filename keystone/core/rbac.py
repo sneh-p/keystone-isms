@@ -55,6 +55,7 @@ ALL_PERMISSIONS = frozenset(
         "task.approve",
         "people.write",
         "portal",
+        "trust.manage",
     }
 )
 

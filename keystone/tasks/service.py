@@ -185,7 +185,8 @@ def control_readiness(session: Session, control: CommonControl, on: date | None 
             latest[t.template_key or f"t{t.id}"] = t
         late = [t for t in latest.values() if overdue(t, on)]
         done = [t for t in tasks if t.status == "done"]
-        checks.append({"kind": "tasks", "label": f"{len(done)} task(s) completed, {len(late)} overdue", "ok": not late and bool(done)})
+        # Tasks block readiness only when overdue; proof itself comes from the evidence check.
+        checks.append({"kind": "tasks", "label": f"{len(done)} task(s) completed, {len(late)} overdue", "ok": not late})
     evs = [e for e in evidence_for(session, control.id) if evidence_state(e, on) in ("current", "expiring")]
     checks.append({"kind": "evidence", "label": f"{len(evs)} current evidence item(s)", "ok": bool(evs)})
     try:

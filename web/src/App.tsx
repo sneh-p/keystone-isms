@@ -16,6 +16,8 @@ const Risks = lazy(() => import("@/pages/Risks"));
 const Tasks = lazy(() => import("@/pages/Tasks"));
 const Onboarding = lazy(() => import("@/pages/Onboarding"));
 const People = lazy(() => import("@/pages/People"));
+const TrustCenterAdmin = lazy(() => import("@/pages/TrustCenter"));
+const PublicTrust = lazy(() => import("@/pages/PublicTrust"));
 const Portal = lazy(() => import("@/pages/Portal"));
 const TrainingModule = lazy(() => import("@/pages/Portal").then((m) => ({ default: m.TrainingModule })));
 const AcceptInvite = lazy(() => import("@/pages/Portal").then((m) => ({ default: m.AcceptInvite })));
@@ -47,6 +49,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/tasks", element: <Tasks />, nav: true },
   { path: "/onboarding", element: <Onboarding /> },
   { path: "/people", element: <People />, nav: true },
+  { path: "/trust-center", element: <TrustCenterAdmin />, nav: true },
   { path: "/assets", element: <Assets />, nav: true },
   { path: "/vendors", element: <Vendors />, nav: true },
   { path: "/questionnaires", element: <Questionnaires />, nav: true },
@@ -95,6 +98,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={me ? <Navigate to="/" replace /> : needsBootstrap ? <Navigate to="/setup" replace /> : <Login />} />
       <Route path="/setup" element={needsBootstrap ? <Setup /> : <Navigate to="/" replace />} />
+      <Route path="/trust/:slug" element={<Suspense fallback={<Loading />}><PublicTrust /></Suspense>} />
       <Route path="/invite/:token" element={<Suspense fallback={<Loading />}><AcceptInvite /></Suspense>} />
       <Route path="/portal" element={<Private><Suspense fallback={<Loading />}><Portal /></Suspense></Private>} />
       <Route path="/portal/training/:key" element={<Private><Suspense fallback={<Loading />}><TrainingModule /></Suspense></Private>} />

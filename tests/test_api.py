@@ -11,7 +11,7 @@ from keystone.core.rbac import Role, has_permission
 from tests.conftest import PASSWORD, api_login
 
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
-PUBLIC = {"/auth/status", "/auth/bootstrap", "/auth/login", "/public/invite/{token}"}
+PUBLIC = {"/auth/status", "/auth/bootstrap", "/auth/login", "/public/invite/{token}", "/public/trust/{slug}", "/public/trust/{slug}/requests", "/public/trust/{slug}/access/{token}", "/public/trust/{slug}/access/{token}/nda", "/public/trust/{slug}/documents/{public_id}"}
 
 
 def all_routes():
