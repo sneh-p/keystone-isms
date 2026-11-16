@@ -107,3 +107,28 @@ def read_attachment(att: Attachment) -> bytes:
 
 def attachments_for(session: Session, entity_type: str, entity_id: int) -> list[Attachment]:
     return list(session.scalars(select(Attachment).where(Attachment.entity_type == entity_type, Attachment.entity_id == entity_id).order_by(Attachment.created_at)))
+
+
+# ---- who may download a stored file through GET /attachments/{id} (SC-AUTHZ-002) --------------------------
+# A file is readable only through the record it belongs to. Types not listed (employees' device screenshots,
+# files a vendor removed, unlinked files) are never served here; they have their own routes or none at all.
+DOWNLOAD_PERMISSION = {
+    "Evidence": "read",
+    "Task": "read",  # task attachments become evidence when the task is approved
+    "PolicyVersion": "read",
+    "SecurityQuestionnaire": "read",  # the customer's questionnaire file
+    "VendorQuestionnaire": "read",  # vendor portal uploads
+    "TrustDocument": "trust.manage",  # gated documents: NDA and approval apply to everyone else
+}
+
+
+def attachment_for_download(session: Session, actor, attachment_id: int) -> Attachment:
+    """The attachment if the actor may download it; otherwise NotFound, so other files can't be discovered."""
+    from .rbac import has_permission
+    from .services import NotFound
+
+    att = session.get(Attachment, attachment_id)
+    perm = DOWNLOAD_PERMISSION.get(att.entity_type or "") if att else None
+    if att is None or perm is None or not has_permission(actor, perm):
+        raise NotFound(f"Attachment {attachment_id} not found")
+    return att

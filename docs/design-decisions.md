@@ -94,6 +94,11 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
 - **Vendor portal links don't expire by default** (organisation decision, 2026-11-16). Mitigations: one link per
   questionnaire (a new one revokes the old), revocation, optional expiry, read-only after submission, rate limits,
   and all vendor actions audited.
+- **File downloads by number** (`GET /api/attachments/{id}`) are checked against the record a file belongs to
+  (`DOWNLOAD_PERMISSION` in `keystone/core/attachments.py`): evidence, task, policy, customer-questionnaire and
+  vendor-portal files need `read`; gated Trust Center documents need `trust.manage`; employees' device screenshots,
+  files a vendor removed and unlinked files are never served there. Refusals look like a missing file (404). A test
+  fails if a new kind of upload appears without being classified.
 - **Document viewer** keeps SC-FILE-002 (files are always served as attachments): the browser fetches the bytes and
   shows PDFs, images and text from a Blob whose type Keystone sets; other types download. Office files are not
   previewed (that would need server-side conversion).

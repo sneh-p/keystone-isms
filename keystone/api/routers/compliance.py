@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from keystone.controls import service as ctl
 from keystone.controls.models import Evidence
-from keystone.core.attachments import Attachment, read_attachment
+from keystone.core.attachments import attachment_for_download, read_attachment
 from keystone.core.services import get_or_404
 from keystone.frameworks import loader, service as fw
 from keystone.frameworks.models import CommonControl, Framework, STATUS_LABELS
@@ -182,7 +182,7 @@ def review_evidence(eid: int, body: EvReview, user=Depends(perm("evidence.write"
 
 @router.get("/attachments/{aid}")
 def download(aid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
-    a = get_or_404(db, Attachment, aid)
+    a = attachment_for_download(db, user, aid)  # checked against the record the file belongs to
     safe = a.filename.replace('"', "")
     return Response(read_attachment(a), media_type=a.content_type, headers={"Content-Disposition": f'attachment; filename="{safe}"', "X-Content-Type-Options": "nosniff"})
 
