@@ -39,7 +39,8 @@
 - changing authentication, sessions, tokens, invitations or Trust Center access links
 - changing roles, permissions, segregation of duties or employee isolation
 - any cryptography
-- new outbound destinations, integrations or URL fetching; letting the app call Microsoft Graph
+- new outbound destinations, integrations or URL fetching; letting the app call Microsoft Graph beyond the read-only
+  Microsoft 365 attack surface source (decided 2026-11-16)
 - file uploads, archive extraction or user-supplied templates
 - IAM, infrastructure-as-code or CI permissions
 - destructive migrations, or anything touching the audit log

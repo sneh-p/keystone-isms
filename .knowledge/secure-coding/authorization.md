@@ -7,7 +7,7 @@ rule_prefix: SC-AUTHZ
 applies_to: ["keystone/**/*.py", "tests/test_api.py"]
 load_when: ["new or changed endpoint", "new or changed service function", "scheduled job acting for a user", "query by ID", "create or update from request data", "public endpoint"]
 status: stable
-verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
+verified: { by: human:sneh, at: 2026-11-16T20:00:00Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---
@@ -39,7 +39,9 @@ service without an explicit permission is a bug.
 
 Fetch objects with `get_or_404()` and apply the boundary in the query. For portal data, filter by the caller:
 `where(TrainingCompletion.user_id == actor.id)`. For public data, filter by published state and by the hashed
-access token. Return 404, not 403, for objects outside the caller's boundary.
+access token. Return 404, not 403, for objects outside the caller's boundary. Stored files are served by
+`GET /attachments/{id}` only through the record they belong to (`DOWNLOAD_PERMISSION` in
+`keystone/core/attachments.py`).
 
 ```python
 # Do: a visitor can only download a published document, with their own valid grant
@@ -83,6 +85,7 @@ Scanners can't detect missing authorization, so these tests are the control.
 ### SC-AUTHZ-006 — Least privilege for code identities
 **SHOULD · medium** · CWE-250, CWE-272
 
-Integration credentials are read-only (GitHub fine-grained read, AWS `SecurityAudit`), the collector uses a
-read-only Entra role, and the app's database user should not be a superuser. Never use admin or owner
+Integration credentials are read-only (GitHub fine-grained read, AWS `SecurityAudit`, and read-only API roles for the
+attack surface sources: Microsoft 365 application read permissions, CrowdStrike Hosts read, SentinelOne Viewer, Sophos
+Service Principal ReadOnly, read-only RMM and scanner users), the collector uses a read-only Entra role, and the app's database user should not be a superuser. Never use admin or owner
 credentials at runtime.

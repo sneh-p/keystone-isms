@@ -7,7 +7,7 @@ rule_prefix: SC-AUTHN
 applies_to: ["keystone/core/auth.py", "keystone/core/sessions.py", "keystone/api/routers/auth.py", "keystone/api/deps.py", "keystone/people/**", "keystone/trust/**", "**/*session*", "**/*login*", "**/*token*", "**/*password*", "web/src/lib/auth.tsx", "web/src/pages/Auth.tsx"]
 load_when: ["login or setup", "passwords", "sessions or cookies", "invitation links", "Trust Center access links", "API keys or tokens", "MFA or SSO"]
 status: stable
-verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
+verified: { by: human:sneh, at: 2026-11-16T20:00:00Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---
@@ -20,7 +20,7 @@ stale_after: 2027-05-16T00:00:00Z
 All authentication goes through `keystone/core/auth.py`, `keystone/core/sessions.py` and the `current_user` /
 `perm()` dependencies in `keystone/api/deps.py`. Every route requires a signed-in session except the explicit,
 reviewed `PUBLIC` set in `tests/test_api.py` (sign-in, first-run setup, invitation acceptance, the public Trust
-Center). Changes to auth flows need human sign-off ([SC-AGT-006](/agent-conduct.md)).
+Center, the vendor portal, and the single sign-on start and callback redirects). Changes to auth flows need human sign-off ([SC-AGT-006](/agent-conduct.md)).
 
 ### SC-AUTHN-002 — Hash passwords with Argon2id
 **MUST · critical** · CWE-916, CWE-256 · ASVS V6
@@ -57,6 +57,10 @@ claims = jwt.decode(token, key, algorithms=["RS256"], audience=settings.oidc_aud
                     options={"require": ["exp", "sub"]})
 ```
 
+Single sign-on (`keystone/sso/service.py`) follows this with Authlib and joserfc: RS256 only; issuer, audience, expiry,
+iat, sub and nonce required; Entra tokens must carry the configured tenant; state and nonce are single-use, expire after
+10 minutes and are bound to the browser by an HttpOnly cookie; accounts are found by issuer and subject.
+
 ### SC-AUTHN-005 — Throttle, and give nothing away
 **MUST · high** · CWE-307, CWE-204
 
@@ -78,8 +82,10 @@ Look tokens up by their hash (`WHERE token_hash = :h`), which avoids comparing s
 ### SC-AUTHN-007 — Store tokens like passwords
 **MUST · high** · CWE-312 · ASVS V6
 
-Session tokens, invitation tokens and Trust Center access tokens are stored as SHA-256 hashes, expire, and are
-single-use where that applies (invitations). Generate them as described in [SC-CRY-002](/cryptography.md). Never
+Session tokens, invitation tokens, Trust Center access tokens and vendor portal tokens are stored as SHA-256 hashes,
+expire (vendor portal links only when staff set an expiry, an accepted decision), and are single-use where that applies
+(invitations, single sign-on login state). Generate them as described in [SC-CRY-002](/cryptography.md). Never
 put them in logs, the audit log, URL paths or query strings: links carry them after `#` (`/invite#token=…`,
-`/trust/<slug>#access=…`), and the browser sends them in the `X-Invite-Token` / `X-Trust-Access` header
+`/trust/<slug>#access=…`, `/vendor-portal#token=…`), and the browser sends them in the `X-Invite-Token` /
+`X-Trust-Access` / `X-Vendor-Token` header
 ([SC-CRY-005](/cryptography.md)).

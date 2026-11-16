@@ -7,7 +7,7 @@ rule_prefix: SC-AGT
 applies_to: ["**/*"]
 load_when: ["every task"]
 status: stable
-verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
+verified: { by: human:sneh, at: 2026-11-16T20:00:00Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---
@@ -88,7 +88,8 @@ Get explicit human confirmation before you do any of the following:
 - design or change any use of cryptography (`keystone/core/secrets.py`, token hashing)
 - add a new outbound network destination, webhook, integration or URL-fetching feature
 - add file upload, archive extraction or user-supplied templates
-- change what the collector reads, or let the app call Microsoft Graph
+- change what the collector reads, or let the app call Microsoft Graph beyond the read-only Microsoft 365 attack
+  surface source (decided 2026-11-16)
 - change IAM, network rules, infrastructure-as-code or CI permissions
 - run a migration that drops, exposes or bulk-modifies data, or touches the audit log
 - rely on an exception to any MUST rule

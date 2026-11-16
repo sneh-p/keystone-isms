@@ -7,7 +7,7 @@ rule_prefix: SC-FILE
 applies_to: ["keystone/core/attachments.py", "keystone/**/*.py", "scripts/**/*.py"]
 load_when: ["open(), pathlib or os.path with input", "UploadFile", "openpyxl, python-docx or zipfile", "XML parsing", "serving stored files", "imports of framework packs or collector output"]
 status: stable
-verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
+verified: { by: human:sneh, at: 2026-11-16T20:00:00Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---
@@ -44,6 +44,10 @@ def resolve_inside(user_path: str) -> Path:
   on read.
 - Treat SVG and HTML as active content (they are not on the allowlist).
 - Never execute, import or `exec` an uploaded file.
+- Files from outside the company (vendor portal uploads) are scanned by ClamAV before storage, and refused when the
+  scanner can't give a clean verdict (`keystone/core/antivirus.py`).
+- The document viewer never serves files inline: it fetches the bytes and builds a Blob with a type it chooses (PDF,
+  images, plain text); HTML and SVG are never rendered.
 
 ### SC-FILE-003 — Extract archives defensively
 **MUST · high** · `keystone/core/safe_files.check_zip()` · CWE-22, CWE-409

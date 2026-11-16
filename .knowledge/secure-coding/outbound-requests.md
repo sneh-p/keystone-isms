@@ -7,7 +7,7 @@ rule_prefix: SC-SSRF
 applies_to: ["keystone/integrations/**", "keystone/ai/**", "keystone/**/*.py"]
 load_when: ["httpx, requests, urllib or boto3 with a non-constant URL or host", "new integration provider", "webhooks", "URL previews or imports", "fetching files by URL"]
 status: stable
-verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
+verified: { by: human:sneh, at: 2026-11-16T20:00:00Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---
@@ -30,6 +30,10 @@ c = httpx.Client(base_url=API, timeout=15.0, follow_redirects=False)
 c.get(f"/orgs/{org}")
 ```
 
+Attack surface connectors go through `keystone/integrations/http.py`: each declares exact vendor hosts, or the vendor's
+domain for customer-specific consoles (for example `*.sentinelone.net`, `*.central.sophos.com`); pagination links
+returned by an API are checked against the same rule.
+
 ### SC-SSRF-002 — Arbitrary URLs need network-level controls
 **MUST · critical** · CWE-918
 
@@ -50,10 +54,18 @@ be globally routable (including IPv4-mapped IPv6 and carrier-grade NAT checks) a
 the TLS check connect to that IP while presenting the original host name for `Host` and SNI, so certificates are
 still verified (`_pinned()`); responses are streamed and their bodies never read; each redirect hop is re-validated
 over HTTPS only. Changing this design is an escalation per [SC-AGT-006](/agent-conduct.md); reuse this code rather
-than hand-rolling a new fetcher.
+than hand-rolling a new fetcher (`keystone/integrations/http.py` reuses its validation and pinning).
+
+Two more features reach hosts an administrator chooses: the SMTP relay (`keystone/notifications/mailer.py`) and
+self-hosted RMM servers (N-central, ConnectWise Automate). Both resolve once, require public addresses and connect to the
+validated IP. An internal relay or server is allowed only when the server operator lists its name in
+`KEYSTONE_SMTP_PRIVATE_HOSTS` or `KEYSTONE_INTEGRATION_PRIVATE_HOSTS`, never from the web UI; loopback, link-local and
+metadata addresses are refused even then.
 
 ### SC-SSRF-003 — Never send credentials to input-chosen hosts
 **MUST NOT · critical** · CWE-918, CWE-201
 
 Never attach integration secrets, session cookies, the Anthropic key or cloud credentials to a request whose
-host came from input. Credentials are sent only to the fixed hosts in SC-SSRF-001.
+host came from input. Credentials are sent only to hosts the connector's policy allows (SC-SSRF-001). Where an
+administrator chooses the host (SMTP relay, self-hosted RMM servers), the stored credential is bound to that host:
+changing the host discards it, so it can't be redirected to a host it wasn't entered for.

@@ -1,4 +1,4 @@
-# Proposed updates to the secure coding standard (for AppSec review)
+# Updates to the secure coding standard after sign-off (applied)
 
 The standard in `.knowledge/secure-coding/` and `AGENTS.md` are protected files: agents may not edit them, and
 `scripts/check-suppressions.sh` blocks commits that do. Since sign-off on 2026-11-16, features approved by AppSec
@@ -6,7 +6,8 @@ The standard in `.knowledge/secure-coding/` and `AGENTS.md` are protected files:
 code. Below is each outdated passage and proposed replacement text. After review, apply them in one change with a
 `log.md` entry and re-record `verified` on the changed concepts.
 
-Prepared 2026-11-16.
+Prepared and, on approval by human:sneh ("Apply them"), applied on 2026-11-16; recorded in `.knowledge/secure-coding/log.md`.
+The passages below are kept as the record of what changed and why.
 
 ## authentication.md
 

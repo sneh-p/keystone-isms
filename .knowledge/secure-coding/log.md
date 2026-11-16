@@ -19,3 +19,14 @@
   change), SC-AUTHN-007 / SC-CRY-005 (tokens only in fragments and headers), SC-SSRF-002 (IP pinning, bodies not
   read), SC-LLM-005 (rate limit and budget), SC-CFG-004 / SC-CFG-006 (bounded lists, HTTPS config, HSTS, no Host
   header), SC-ERR-004 (evidence refreshed, not duplicated). Semgrep baseline removed: no baselined findings remain.
+
+## 2026-11-16 (features since sign-off)
+* **Approved by human:sneh** ("Apply them", after reviewing `docs/secure-coding-proposed-updates.md`): concept text
+  brought in line with features AppSec approved after sign-off (notifications, vendor portal, auditor workspace, single
+  sign-on, attack surface management). Rules unchanged; descriptions and examples updated:
+  SC-AUTHN-001 (public routes: vendor portal, SSO redirects), SC-AUTHN-004 (how OIDC is verified), SC-AUTHN-007 (vendor
+  portal tokens, SSO login state), SC-AUTHZ-002 (file downloads checked against their record), SC-AUTHZ-006 (read-only
+  roles for attack surface sources), SC-SSRF-001/002/003 (shared connector client, vendor domains, admin-chosen SMTP and
+  self-hosted hosts with operator allowlists, host-bound credentials), SC-SEC-006 (key rotation scope), SC-CFG-003
+  (public write routes), SC-CFG-004 (new caps), SC-FILE-002 (virus scanning, document viewer), agent conduct and
+  AGENTS.md (Microsoft Graph decision). `verified` re-recorded on the changed concepts.

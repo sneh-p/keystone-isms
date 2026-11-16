@@ -259,5 +259,5 @@ TanStack Query; PowerShell 7 for the Entra collector.
 | [docs/workflow-analysis.md](docs/workflow-analysis.md) | Workflow analysis and the improvements made |
 | [docs/ux-assessment.md](docs/ux-assessment.md) | UI/UX assessment and what changed |
 | [docs/secure-coding-adoption.md](docs/secure-coding-adoption.md) | How the secure coding standard was adopted |
-| [docs/secure-coding-proposed-updates.md](docs/secure-coding-proposed-updates.md) | Changes to the (protected) secure coding standard waiting for AppSec review |
+| [docs/secure-coding-proposed-updates.md](docs/secure-coding-proposed-updates.md) | Record of the updates made to the secure coding standard after sign-off |
 | [collector/README.md](collector/README.md) | The read-only Entra exposure collector |

@@ -7,7 +7,7 @@ rule_prefix: SC-SEC
 applies_to: ["**/*"]
 load_when: ["API key, password, token or connection string", "settings or environment variables", "integration credentials", "Dockerfile, compose or CI", "web environment variables", "test fixtures"]
 status: stable
-verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
+verified: { by: human:sneh, at: 2026-11-16T20:00:00Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---
@@ -62,4 +62,4 @@ the deployment platform or the encrypted settings in the database.
 
 Rotate any secret that was committed, logged, pasted into a ticket or chat, or sent to a third party. Removing it
 from the code doesn't remove it from git history or logs. For `secret.key`, rotation means re-entering every
-integration and AI credential.
+integration, attack surface source, SMTP, single sign-on and AI credential.

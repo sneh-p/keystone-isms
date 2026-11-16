@@ -7,7 +7,7 @@ rule_prefix: SC-CFG
 applies_to: ["keystone/api/app.py", "keystone/api/deps.py", "keystone/core/settings.py", "deploy/**", "Dockerfile", "docker-compose.yml", "web/vite.config.ts"]
 load_when: ["app or middleware setup", "CORS", "cookies", "headers", "nginx or systemd config", "new setting or feature flag", "production settings"]
 status: stable
-verified: { by: human:sneh, at: 2026-11-16T02:55:39Z }
+verified: { by: human:sneh, at: 2026-11-16T20:00:00Z }
 generated: { by: claude/claude-opus-5-5, at: 2026-11-16T00:00:00Z }
 stale_after: 2027-05-16T00:00:00Z
 ---
@@ -49,7 +49,8 @@ request's `Origin`.
 
 The session cookie is `SameSite=Lax`, and every POST, PUT, PATCH and DELETE needs the `X-CSRF-Token` header
 matching the session (`current_session` in `keystone/api/deps.py`). Public write routes (Trust Center requests,
-invitation acceptance) carry no session and are rate-limited. GET, HEAD and OPTIONS never change state.
+invitation acceptance, the vendor portal) carry no session, are rate-limited, and are authorised by a token in a request
+header. GET, HEAD and OPTIONS never change state.
 
 ### SC-CFG-004 — Limits everywhere
 **MUST · high** · CWE-400, CWE-770
@@ -59,6 +60,8 @@ invitation acceptance) carry no session and are rate-limited. GET, HEAD and OPTI
 - Item caps on imports (questionnaire rows, collector datasets) and history queries; the evidence list is paged
   (`limit` ≤ 5,000, total in `X-Total-Count`) and the task list returns all open tasks plus a capped history.
 - Timeouts on outbound calls ([SC-ERR-004](/errors-and-logging.md)).
+- Other caps: CSV import 1,000 rows, bulk changes 500 records, vendor uploads 10 MB and 20 files per questionnaire,
+  audit pack 500 MB, connector responses 50 MB with a page cap, calendar requests 100 days.
 
 ### SC-CFG-005 — Production defaults are the safe ones
 **MUST · high** · CWE-1188, CWE-489 · A02:2025 · ASVS V13
