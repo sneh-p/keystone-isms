@@ -18,7 +18,10 @@ from keystone.core.settings import PROJECT_ROOT
 from .models import CommonControl, ControlMapping, Framework, Requirement
 
 CONTENT_DIR = PROJECT_ROOT / "content" / "frameworks"
-PACK_FILES = ["iso27001_2022.yaml", "nist_csf_2_0.yaml", "soc2_tsc.yaml", "cis_v8_1.yaml"]
+PACK_FILES = ["iso27001_2022.yaml", "nist_csf_2_0.yaml", "soc2_tsc.yaml", "cis_v8_1.yaml",
+              # round 3
+              "nis2.yaml", "dora.yaml", "gdpr.yaml", "iso27701_2019.yaml", "iso42001_2023.yaml", "pci_dss_4_0_1.yaml",
+              "cyber_essentials.yaml", "essential_eight.yaml"]
 RESTRICTED_LICENSES = {"proprietary", "cc_by_nc_nd"}
 MAX_SUMMARY_CHARS = 160
 
@@ -57,6 +60,10 @@ def check_pack(doc: dict, name: str = "pack") -> None:
 
 def load_pack(session: Session, actor, doc: dict) -> Framework:
     authorize(session, actor, "framework.write")
+    return _load_pack(session, doc)
+
+
+def _load_pack(session: Session, doc: dict) -> Framework:
     check_pack(doc, doc.get("framework", {}).get("code", "pack"))
     meta = doc["framework"]
     fw = session.scalar(select(Framework).where(Framework.code == meta["code"]))
@@ -88,6 +95,10 @@ def _requirement_index(session: Session) -> dict[tuple[str, str], Requirement]:
 
 def load_controls(session: Session, actor, controls_doc: dict, crosswalk_doc: dict) -> int:
     authorize(session, actor, "framework.write")
+    return _load_controls(session, controls_doc, crosswalk_doc)
+
+
+def _load_controls(session: Session, controls_doc: dict, crosswalk_doc: dict) -> int:
     index = _requirement_index(session)
     by_code: dict[str, CommonControl] = {c.code: c for c in session.scalars(select(CommonControl))}
     wanted: dict[str, set[int]] = {}
@@ -140,6 +151,31 @@ def seed_content(session: Session, actor, content_dir: Path = CONTENT_DIR) -> di
         out[fw.code] = len(fw.requirements)
     out["mappings"] = load_controls(session, actor, read_yaml(content_dir / "common_controls.yaml"), read_yaml(content_dir / "crosswalk.yaml"))
     return out
+
+
+def sync_bundled(session: Session, content_dir: Path = CONTENT_DIR) -> list[str]:
+    """At start-up: bring an onboarded installation up to the bundled content. Packs it doesn't have yet are added
+    switched off (an administrator turns them on under Frameworks), new common controls and mappings are added, and
+    nothing the organisation chose or wrote is changed. A fresh installation is left for onboarding. Returns the codes
+    of packs added."""
+    have = set(session.scalars(select(Framework.code)))
+    if not have:
+        return []
+    added = []
+    for name in PACK_FILES:
+        doc = read_yaml(content_dir / name)
+        code = doc["framework"]["code"]
+        if code in have:
+            continue
+        fw = _load_pack(session, doc)
+        fw.enabled = False
+        added.append(code)
+    known_controls = set(session.scalars(select(CommonControl.code)))
+    controls_doc = read_yaml(content_dir / "common_controls.yaml")
+    if added or {c["code"] for c in controls_doc["controls"]} - known_controls:
+        _load_controls(session, controls_doc, read_yaml(content_dir / "crosswalk.yaml"))
+    session.flush()
+    return added
 
 
 def import_licensed_text(session: Session, actor, framework_code: str, rows: list[dict]) -> dict:

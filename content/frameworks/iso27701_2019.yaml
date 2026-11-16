@@ -1,0 +1,77 @@
+# ISO/IEC 27701:2019 - privacy information management. Clause and Annex A/B identifiers with SHORT TITLES WRITTEN BY
+# KEYSTONE; no text from the standard. ISO/IEC 27701 is copyright ISO/IEC. The 2025 edition restructures the standard
+# as a stand-alone management system; this pack follows the 2019 numbering most certificates still use.
+framework:
+  code: ISO27701_2019
+  name: ISO/IEC 27701
+  version: "2019"
+  publisher: ISO/IEC
+  license: proprietary
+  text_level: summary
+  source_url: https://www.iso.org/standard/71670.html
+  notice: "Identifiers and Keystone-written summaries only (2019 numbering). Import official text from your licensed copy."
+
+requirements:
+  - {ref: "5", kind: clause_group, title: "PIMS requirements extending ISO/IEC 27001"}
+  - {ref: "5.2.1", parent: "5", kind: clause, title: "Determine your role as PII controller and/or processor and the privacy context"}
+  - {ref: "5.2.2", parent: "5", kind: clause, title: "Include parties with privacy interests and requirements"}
+  - {ref: "5.2.3", parent: "5", kind: clause, title: "Include PII processing in the scope"}
+  - {ref: "5.4.1.2", parent: "5", kind: clause, title: "Risk assessment covers risks to PII principals"}
+  - {ref: "5.4.1.3", parent: "5", kind: clause, title: "Risk treatment and Statement of Applicability include the privacy controls"}
+  - {ref: "A.7.2", kind: annex_group, title: "Controllers: conditions for collection and processing"}
+  - {ref: "A.7.2.1", parent: "A.7.2", kind: annex_control, title: "Document the purposes of processing"}
+  - {ref: "A.7.2.2", parent: "A.7.2", kind: annex_control, title: "Identify the lawful basis"}
+  - {ref: "A.7.2.3", parent: "A.7.2", kind: annex_control, title: "Decide when and how consent is obtained"}
+  - {ref: "A.7.2.4", parent: "A.7.2", kind: annex_control, title: "Obtain and record consent"}
+  - {ref: "A.7.2.5", parent: "A.7.2", kind: annex_control, title: "Privacy impact assessment"}
+  - {ref: "A.7.2.6", parent: "A.7.2", kind: annex_control, title: "Contracts with PII processors"}
+  - {ref: "A.7.2.7", parent: "A.7.2", kind: annex_control, title: "Joint controller arrangements"}
+  - {ref: "A.7.2.8", parent: "A.7.2", kind: annex_control, title: "Records of PII processing"}
+  - {ref: "A.7.3", kind: annex_group, title: "Controllers: obligations to PII principals"}
+  - {ref: "A.7.3.1", parent: "A.7.3", kind: annex_control, title: "Determine and meet obligations to PII principals"}
+  - {ref: "A.7.3.2", parent: "A.7.3", kind: annex_control, title: "Decide what information PII principals receive"}
+  - {ref: "A.7.3.3", parent: "A.7.3", kind: annex_control, title: "Give PII principals that information"}
+  - {ref: "A.7.3.4", parent: "A.7.3", kind: annex_control, title: "Let people change or withdraw consent"}
+  - {ref: "A.7.3.5", parent: "A.7.3", kind: annex_control, title: "Let people object to processing"}
+  - {ref: "A.7.3.6", parent: "A.7.3", kind: annex_control, title: "Access, correction and erasure"}
+  - {ref: "A.7.3.7", parent: "A.7.3", kind: annex_control, title: "Tell third parties about changes to shared PII"}
+  - {ref: "A.7.3.8", parent: "A.7.3", kind: annex_control, title: "Provide a copy of the PII processed"}
+  - {ref: "A.7.3.9", parent: "A.7.3", kind: annex_control, title: "Handle requests"}
+  - {ref: "A.7.3.10", parent: "A.7.3", kind: annex_control, title: "Automated decision-making"}
+  - {ref: "A.7.4", kind: annex_group, title: "Controllers: privacy by design and by default"}
+  - {ref: "A.7.4.1", parent: "A.7.4", kind: annex_control, title: "Collect only what is needed"}
+  - {ref: "A.7.4.2", parent: "A.7.4", kind: annex_control, title: "Process only what is needed"}
+  - {ref: "A.7.4.3", parent: "A.7.4", kind: annex_control, title: "Keep PII accurate and of good quality"}
+  - {ref: "A.7.4.4", parent: "A.7.4", kind: annex_control, title: "Set PII minimisation objectives"}
+  - {ref: "A.7.4.5", parent: "A.7.4", kind: annex_control, title: "De-identify or delete PII when processing ends"}
+  - {ref: "A.7.4.6", parent: "A.7.4", kind: annex_control, title: "Manage temporary files"}
+  - {ref: "A.7.4.7", parent: "A.7.4", kind: annex_control, title: "Retention"}
+  - {ref: "A.7.4.8", parent: "A.7.4", kind: annex_control, title: "Disposal"}
+  - {ref: "A.7.4.9", parent: "A.7.4", kind: annex_control, title: "Protect PII in transmission"}
+  - {ref: "A.7.5", kind: annex_group, title: "Controllers: sharing, transfer and disclosure"}
+  - {ref: "A.7.5.1", parent: "A.7.5", kind: annex_control, title: "Basis for transfers between jurisdictions"}
+  - {ref: "A.7.5.2", parent: "A.7.5", kind: annex_control, title: "Where PII may be transferred"}
+  - {ref: "A.7.5.3", parent: "A.7.5", kind: annex_control, title: "Records of transfers"}
+  - {ref: "A.7.5.4", parent: "A.7.5", kind: annex_control, title: "Records of disclosures to third parties"}
+  - {ref: "B.8.2", kind: annex_group, title: "Processors: conditions for collection and processing"}
+  - {ref: "B.8.2.1", parent: "B.8.2", kind: annex_control, title: "Customer agreement"}
+  - {ref: "B.8.2.2", parent: "B.8.2", kind: annex_control, title: "Process only for the customer's purposes"}
+  - {ref: "B.8.2.3", parent: "B.8.2", kind: annex_control, title: "No marketing use without consent"}
+  - {ref: "B.8.2.4", parent: "B.8.2", kind: annex_control, title: "Flag instructions that would infringe the law"}
+  - {ref: "B.8.2.5", parent: "B.8.2", kind: annex_control, title: "Help customers meet their obligations"}
+  - {ref: "B.8.2.6", parent: "B.8.2", kind: annex_control, title: "Records of processing for customers"}
+  - {ref: "B.8.3", kind: annex_group, title: "Processors: obligations to PII principals"}
+  - {ref: "B.8.3.1", parent: "B.8.3", kind: annex_control, title: "Support customers with PII principals' requests"}
+  - {ref: "B.8.4", kind: annex_group, title: "Processors: privacy by design and by default"}
+  - {ref: "B.8.4.1", parent: "B.8.4", kind: annex_control, title: "Manage temporary files"}
+  - {ref: "B.8.4.2", parent: "B.8.4", kind: annex_control, title: "Return, transfer or dispose of PII at the end"}
+  - {ref: "B.8.4.3", parent: "B.8.4", kind: annex_control, title: "Protect PII in transmission"}
+  - {ref: "B.8.5", kind: annex_group, title: "Processors: sharing, transfer and disclosure"}
+  - {ref: "B.8.5.1", parent: "B.8.5", kind: annex_control, title: "Tell customers the basis for transfers between jurisdictions"}
+  - {ref: "B.8.5.2", parent: "B.8.5", kind: annex_control, title: "Tell customers where PII may be transferred"}
+  - {ref: "B.8.5.3", parent: "B.8.5", kind: annex_control, title: "Records of disclosures to third parties"}
+  - {ref: "B.8.5.4", parent: "B.8.5", kind: annex_control, title: "Tell customers about disclosure requests"}
+  - {ref: "B.8.5.5", parent: "B.8.5", kind: annex_control, title: "Legally binding disclosures"}
+  - {ref: "B.8.5.6", parent: "B.8.5", kind: annex_control, title: "Disclose which subcontractors process PII"}
+  - {ref: "B.8.5.7", parent: "B.8.5", kind: annex_control, title: "Engage subcontractors only as agreed"}
+  - {ref: "B.8.5.8", parent: "B.8.5", kind: annex_control, title: "Tell customers about subcontractor changes"}

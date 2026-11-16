@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from keystone.assets import service as assets
@@ -51,6 +52,10 @@ def seed(session: Session, admin) -> dict:
         expiry = datetime.now() + timedelta(days=90) if role == Role.AUDITOR else None  # auditor accounts must expire
         people[username] = auth.create_user(session, admin, username=username, display_name=name, password=DEMO_PASSWORD, role=role, email=f"{username}@alpineskihouse.example", must_change_password=False, expires_at=expiry)
     loader.seed_content(session, admin)
+    from keystone.frameworks.models import Framework
+
+    for fw in session.scalars(select(Framework)):  # the demo company: an ISMS on ISO 27001 plus GDPR for guest data
+        fw.enabled = fw.code in ("ISO27001_2022", "NIST_CSF_2_0", "SOC2_TSC_2017", "CIS_V8_1", "GDPR")
 
     org.save_org(
         session, admin, name="Alpine Ski House", legal_name="Alpine Ski House AG", industry="Leisure and hospitality",

@@ -25,6 +25,14 @@ const FW = [
   { code: "SOC2_TSC_2017", name: "SOC 2", hint: "Trust Services Criteria for service organisations" },
   { code: "NIST_CSF_2_0", name: "NIST CSF 2.0", hint: "Outcome-based cybersecurity framework" },
   { code: "CIS_V8_1", name: "CIS Controls v8.1", hint: "Prioritised technical safeguards" },
+  { code: "NIS2", name: "NIS2", hint: "EU cybersecurity duties for essential and important entities" },
+  { code: "DORA", name: "DORA", hint: "EU digital operational resilience for financial entities" },
+  { code: "GDPR", name: "GDPR", hint: "EU data protection" },
+  { code: "ISO27701_2019", name: "ISO/IEC 27701", hint: "Privacy management, extending ISO 27001" },
+  { code: "ISO42001_2023", name: "ISO/IEC 42001", hint: "AI management system" },
+  { code: "PCI_DSS_4_0_1", name: "PCI DSS 4.0.1", hint: "Payment card data security" },
+  { code: "CYBER_ESSENTIALS", name: "Cyber Essentials", hint: "UK baseline technical controls" },
+  { code: "ESSENTIAL_EIGHT", name: "Essential Eight", hint: "Australian mitigation strategies, maturity levels 1-3" },
 ];
 
 function Toggle({ on, onClick, title, hint, icon: Icon }: { on: boolean; onClick: () => void; title: string; hint?: string; icon?: any }) {

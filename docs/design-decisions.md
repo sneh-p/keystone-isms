@@ -21,8 +21,16 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   titles in its own words, and an import for licensed official text that is stored only in the
   database. A loader check rejects restricted packs with long text or a `licensed_text` field.
 - The common control set is the ISMS clauses (14 controls) plus one control per Annex A control
-  (93): 107 in total. Every leaf requirement of all four frameworks is mapped (tested). The
-  crosswalk is original work and labelled as a starting point.
+  (93), plus 11 privacy and 10 AI governance controls added in round 3: 128 in total. Every leaf requirement of all
+  twelve frameworks is mapped (tested). Privacy controls also serve ISO 27001 A.5.34; AI governance controls have no
+  ISO 27001 counterpart and map only to ISO 42001 (the test allows exactly that). The crosswalk is original work and
+  labelled as a starting point.
+- **Round 3 packs.** EU legislation (NIS2, DORA, GDPR) may be reused, but the packs still carry short summaries at
+  article level, so all non-public-domain packs follow one rule: titles of 80 characters or fewer, no descriptions.
+  ISO/IEC 27701 uses the 2019 numbering because most certificates still reference it; the 2025 edition restructures
+  the standard and will need its own pack. PCI DSS is listed at the x.y level; the x.y.z defined-approach
+  requirements can be imported from a licensed copy. Packs new to an existing installation are added switched off at
+  start-up (`loader.sync_bundled`), so an upgrade never changes what an organisation reports against.
 
 ## Microsoft Graph realities (collector)
 

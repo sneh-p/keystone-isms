@@ -47,6 +47,10 @@ def create_app(migrate: bool = True) -> FastAPI:
         if migrate:
             dbmod.configure()
             dbmod.migrate()
+            from keystone.frameworks.loader import sync_bundled
+
+            with dbmod.session_scope() as s:
+                sync_bundled(s)  # new framework packs and controls for existing installations (added switched off)
         from keystone.scheduler import start_scheduler, stop_scheduler
 
         start_scheduler()

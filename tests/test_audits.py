@@ -57,7 +57,7 @@ def test_needs_lead_auditor(content, session, users):
 
 def test_control_coverage(content, session, users):
     before = aud.control_coverage(session)
-    assert before["audited"] == 0 and before["applicable"] == 107
+    assert before["audited"] == 0 and before["applicable"] == 128  # 107 + 11 privacy + 10 AI governance controls
     a = _audit(session, users)
     assert aud.control_coverage(session)["audited"] == 0  # planned audits don't count
     aud.advance(session, users["isms_manager"], a.id)
@@ -85,7 +85,10 @@ def test_management_review_inputs_and_finalise(content, session, users):
     assert i["d1_nonconformities"]["open_major"] == 1
     assert i["d3_audits"]["findings"] == {"major_nc": 1}
     assert i["f_risk"]["by_level"] == {"Critical": 1} and i["f_risk"]["above_appetite_untreated"] == ["RSK-0001 Big risk"]
-    assert set(i["d2_monitoring"]["framework_implemented_pct"]) == {"ISO27001_2022", "NIST_CSF_2_0", "SOC2_TSC_2017", "CIS_V8_1"}
+    from keystone.frameworks.models import Framework
+
+    enabled = {f.code for f in session.query(Framework).filter(Framework.enabled.is_(True))}
+    assert set(i["d2_monitoring"]["framework_implemented_pct"]) == enabled and "ISO27001_2022" in enabled
     assert r.period_start == date.today() - timedelta(days=365)
 
     item = mr.raise_improvement(session, mgr, r.id, "Fund phishing-resistant MFA")

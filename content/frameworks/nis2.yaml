@@ -1,0 +1,38 @@
+# NIS2: Directive (EU) 2022/2555, the articles that set obligations for essential and important entities.
+# Titles are Keystone-written summaries (EU legislation may be reused, but summaries keep the pack consistent). The
+# Directive is transposed into national law; check your country's act for the exact wording and deadlines.
+framework:
+  code: NIS2
+  name: NIS2 Directive
+  version: "2022/2555"
+  publisher: European Union
+  license: eu_law
+  text_level: summary
+  source_url: https://eur-lex.europa.eu/eli/dir/2022/2555/oj
+  notice: "Keystone-written summaries of the Directive's obligations. National transpositions may add requirements."
+
+requirements:
+  - {ref: "Art.20", kind: article, title: "Governance"}
+  - {ref: "20.1", parent: "Art.20", kind: obligation, title: "Management body approves and oversees the measures, and is accountable"}
+  - {ref: "20.2", parent: "Art.20", kind: obligation, title: "Management body is trained; staff are offered training regularly"}
+  - {ref: "Art.21", kind: article, title: "Cybersecurity risk-management measures"}
+  - {ref: "21.1", parent: "Art.21", kind: obligation, title: "Appropriate, proportionate measures, all-hazards approach"}
+  - {ref: "21.2.a", parent: "Art.21", kind: measure, title: "Risk analysis and information system security policies"}
+  - {ref: "21.2.b", parent: "Art.21", kind: measure, title: "Incident handling"}
+  - {ref: "21.2.c", parent: "Art.21", kind: measure, title: "Business continuity: backup management, disaster recovery and crisis management"}
+  - {ref: "21.2.d", parent: "Art.21", kind: measure, title: "Supply chain security, including direct suppliers and service providers"}
+  - {ref: "21.2.e", parent: "Art.21", kind: measure, title: "Secure acquisition, development and maintenance; vulnerability handling"}
+  - {ref: "21.2.f", parent: "Art.21", kind: measure, title: "Policies and procedures to assess the effectiveness of the measures"}
+  - {ref: "21.2.g", parent: "Art.21", kind: measure, title: "Basic cyber hygiene practices and cybersecurity training"}
+  - {ref: "21.2.h", parent: "Art.21", kind: measure, title: "Policies and procedures on cryptography and, where appropriate, encryption"}
+  - {ref: "21.2.i", parent: "Art.21", kind: measure, title: "Human resources security, access control policies and asset management"}
+  - {ref: "21.2.j", parent: "Art.21", kind: measure, title: "MFA or continuous authentication; secured and emergency communications"}
+  - {ref: "21.3", parent: "Art.21", kind: obligation, title: "Supply chain measures consider suppliers' vulnerabilities and practices"}
+  - {ref: "21.4", parent: "Art.21", kind: obligation, title: "Non-compliance with the measures is corrected without undue delay"}
+  - {ref: "Art.23", kind: article, title: "Reporting obligations"}
+  - {ref: "23.1", parent: "Art.23", kind: obligation, title: "Notify significant incidents to the CSIRT or authority and inform recipients"}
+  - {ref: "23.4.a", parent: "Art.23", kind: obligation, title: "Early warning within 24 hours of becoming aware of a significant incident"}
+  - {ref: "23.4.b", parent: "Art.23", kind: obligation, title: "Incident notification within 72 hours with an initial assessment"}
+  - {ref: "23.4.c", parent: "Art.23", kind: obligation, title: "Intermediate report on request"}
+  - {ref: "23.4.d", parent: "Art.23", kind: obligation, title: "Final report within one month of the incident notification"}
+  - {ref: "Art.27", kind: article, title: "Register with the authority (where national law requires it)"}

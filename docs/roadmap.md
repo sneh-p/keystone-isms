@@ -15,7 +15,7 @@ access, logins, uploads or outbound connections follow the secure coding standar
 | 7 | External attack surface (passive: certificate transparency, DNS, TLS/HTTP; verified domains only) | Done |
 | 8 | Cloud posture: AWS Security Hub, Microsoft Defender for Cloud, Google Security Command Center | Done (not yet validated against live accounts) |
 | 9 | Ticketing: Jira, ServiceNow, ConnectWise PSA, Autotask | Done (not yet validated against live instances) |
-| 10 | Frameworks: NIS2, DORA, GDPR, ISO 27701, ISO 42001, PCI DSS, Cyber Essentials, Essential Eight | Planned |
+| 10 | Frameworks: NIS2, DORA, GDPR, ISO 27701, ISO 42001, PCI DSS, Cyber Essentials, Essential Eight | Done |
 | 11 | Privacy: records of processing, DPIAs, data subject requests, breach log | Planned |
 | 12 | Business continuity: BIA, recovery objectives, continuity tests | Planned |
 | 13 | Policy e-signature and versioned PDF export | Planned |

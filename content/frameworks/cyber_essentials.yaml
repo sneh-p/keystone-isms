@@ -1,0 +1,40 @@
+# Cyber Essentials (UK, NCSC / IASME) - the five technical control themes with Keystone-written summaries of what
+# each requires. Check the current "Requirements for IT Infrastructure" document for the exact wording and thresholds.
+framework:
+  code: CYBER_ESSENTIALS
+  name: Cyber Essentials
+  version: "v3.2"
+  publisher: NCSC / IASME
+  license: crown_copyright
+  text_level: summary
+  source_url: https://www.ncsc.gov.uk/cyberessentials/overview
+  notice: "Keystone-written summaries. The NCSC requirements document is authoritative and is updated each year."
+
+requirements:
+  - {ref: "SCOPE", kind: theme, title: "Scope"}
+  - {ref: "SCOPE.1", parent: "SCOPE", kind: requirement, title: "Scope covers every device, server, cloud service and account with access"}
+  - {ref: "FW", kind: theme, title: "Firewalls"}
+  - {ref: "FW.1", parent: "FW", kind: requirement, title: "A firewall protects every device and the internet boundary"}
+  - {ref: "FW.2", parent: "FW", kind: requirement, title: "Default firewall administrator passwords are changed"}
+  - {ref: "FW.3", parent: "FW", kind: requirement, title: "Firewall admin not exposed to the internet without MFA or an IP allow list"}
+  - {ref: "FW.4", parent: "FW", kind: requirement, title: "Inbound connections are blocked unless approved, documented and still needed"}
+  - {ref: "FW.5", parent: "FW", kind: requirement, title: "Devices on untrusted networks use a software firewall"}
+  - {ref: "SC", kind: theme, title: "Secure configuration"}
+  - {ref: "SC.1", parent: "SC", kind: requirement, title: "Unnecessary user accounts and software are removed or disabled"}
+  - {ref: "SC.2", parent: "SC", kind: requirement, title: "Default and guessable passwords are changed"}
+  - {ref: "SC.3", parent: "SC", kind: requirement, title: "Auto-run of untrusted content is disabled"}
+  - {ref: "SC.4", parent: "SC", kind: requirement, title: "Devices unlock with a PIN, password or biometric, protected from guessing"}
+  - {ref: "SUM", kind: theme, title: "Security update management"}
+  - {ref: "SUM.1", parent: "SUM", kind: requirement, title: "Software is licensed and supported; unsupported software is removed"}
+  - {ref: "SUM.2", parent: "SUM", kind: requirement, title: "Critical and high-risk updates are installed within 14 days of release"}
+  - {ref: "SUM.3", parent: "SUM", kind: requirement, title: "Automatic updates are on where possible"}
+  - {ref: "UAC", kind: theme, title: "User access control"}
+  - {ref: "UAC.1", parent: "UAC", kind: requirement, title: "Accounts are created and removed through an approval process"}
+  - {ref: "UAC.2", parent: "UAC", kind: requirement, title: "People have only the access their job needs"}
+  - {ref: "UAC.3", parent: "UAC", kind: requirement, title: "Administrators use separate accounts for admin work only"}
+  - {ref: "UAC.4", parent: "UAC", kind: requirement, title: "Multi-factor authentication on every cloud service"}
+  - {ref: "UAC.5", parent: "UAC", kind: requirement, title: "Password-based sign-in is protected (length, no common passwords, throttling)"}
+  - {ref: "MP", kind: theme, title: "Malware protection"}
+  - {ref: "MP.1", parent: "MP", kind: requirement, title: "Anti-malware or application allow-listing on every in-scope device"}
+  - {ref: "MP.2", parent: "MP", kind: requirement, title: "Anti-malware is kept up to date and scans files and web pages"}
+  - {ref: "MP.3", parent: "MP", kind: requirement, title: "Connections to known malicious websites are blocked"}

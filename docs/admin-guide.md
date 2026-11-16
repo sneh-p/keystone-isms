@@ -250,10 +250,20 @@ Replace the code (or the image) and restart. Migrations run on start. Back up fi
 
 ## Framework content
 
+Twelve frameworks are bundled: ISO/IEC 27001:2022, NIST CSF 2.0, SOC 2, CIS Controls v8.1, NIS2, DORA, GDPR,
+ISO/IEC 27701 (2019 numbering), ISO/IEC 42001:2023, PCI DSS 4.0.1, Cyber Essentials and the Essential Eight. All of
+them map to the same 128 Keystone common controls (including 11 privacy and 10 AI governance controls), so evidence
+and status are shared: implementing "Secure authentication" counts towards ISO A.8.5, NIS2 21(2)(j), PCI DSS 8.3,
+Cyber Essentials and the Essential Eight MFA levels at once.
+
 **Frameworks → Content management** can re-apply the bundled packs (safe: your own mappings,
 control status and SoA decisions are kept), turn frameworks on or off, and import licensed
-official text for ISO 27001, SOC 2 or CIS. Licensed text stays in your database and is only
-exported when someone explicitly chooses the "with licensed text" download.
+official text for ISO 27001, ISO 27701, ISO 42001, PCI DSS, SOC 2 or CIS. Licensed text stays in your database and is only
+exported when someone explicitly chooses the "with licensed text" download. When Keystone is upgraded, packs that
+are new to your installation are added **switched off**; turn on the ones that apply.
+
+NIS2 is transposed into national law, and DORA is detailed by regulatory technical standards: the packs list the
+obligations of the Directive and Regulation themselves, so check national requirements and the RTS as well.
 
 ## Entra exposure
 

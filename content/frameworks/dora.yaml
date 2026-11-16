@@ -1,0 +1,40 @@
+# DORA: Regulation (EU) 2022/2554 on digital operational resilience for the financial sector. Article-level
+# obligations with Keystone-written summaries. Regulatory technical standards (RTS/ITS) add detail not listed here.
+framework:
+  code: DORA
+  name: Digital Operational Resilience Act
+  version: "2022/2554"
+  publisher: European Union
+  license: eu_law
+  text_level: summary
+  source_url: https://eur-lex.europa.eu/eli/reg/2022/2554/oj
+  notice: "Keystone-written summaries of the Regulation's articles. The RTS and ITS add detailed requirements."
+
+requirements:
+  - {ref: "II", kind: chapter, title: "ICT risk management"}
+  - {ref: "5", parent: "II", kind: article, title: "Management body owns the ICT risk framework and is trained"}
+  - {ref: "6", parent: "II", kind: article, title: "ICT risk framework and resilience strategy, reviewed at least yearly"}
+  - {ref: "7", parent: "II", kind: article, title: "ICT systems, protocols and tools are reliable, sized for need and resilient"}
+  - {ref: "8", parent: "II", kind: article, title: "Identify and classify functions, ICT assets and dependencies; assess risk"}
+  - {ref: "9", parent: "II", kind: article, title: "Protection: access control, strong authentication, patching, change, encryption"}
+  - {ref: "10", parent: "II", kind: article, title: "Detection of anomalous activities and ICT-related incidents"}
+  - {ref: "11", parent: "II", kind: article, title: "ICT business continuity policy, response and recovery plans, tested regularly"}
+  - {ref: "12", parent: "II", kind: article, title: "Backup, restoration and recovery, with segregated backup systems"}
+  - {ref: "13", parent: "II", kind: article, title: "Learning: post-incident reviews, threat awareness and ICT training"}
+  - {ref: "14", parent: "II", kind: article, title: "Crisis communication plans for ICT-related incidents"}
+  - {ref: "III", kind: chapter, title: "ICT-related incident management, classification and reporting"}
+  - {ref: "17", parent: "III", kind: article, title: "Process to detect, manage, record and notify ICT-related incidents"}
+  - {ref: "18", parent: "III", kind: article, title: "Classify incidents and cyber threats by impact using the regulatory criteria"}
+  - {ref: "19", parent: "III", kind: article, title: "Report major incidents (initial, intermediate, final) and inform clients"}
+  - {ref: "IV", kind: chapter, title: "Digital operational resilience testing"}
+  - {ref: "24", parent: "IV", kind: article, title: "Risk-based resilience testing programme, run by independent testers"}
+  - {ref: "25", parent: "IV", kind: article, title: "Test ICT systems: vulnerability scans, scenario and penetration tests"}
+  - {ref: "26", parent: "IV", kind: article, title: "Threat-led penetration testing every three years (designated entities)"}
+  - {ref: "V", kind: chapter, title: "Managing ICT third-party risk"}
+  - {ref: "28.1", parent: "V", kind: article, title: "ICT third-party risk strategy and policy, as part of the ICT risk framework"}
+  - {ref: "28.3", parent: "V", kind: article, title: "Register of information on all contracts with ICT third-party service providers"}
+  - {ref: "28.4", parent: "V", kind: article, title: "Assess providers and concentration risk before contracting"}
+  - {ref: "28.7", parent: "V", kind: article, title: "Termination rights and exit strategies for critical functions"}
+  - {ref: "30", parent: "V", kind: article, title: "Contracts include the key provisions, including security, audit and exit"}
+  - {ref: "VI", kind: chapter, title: "Information sharing"}
+  - {ref: "45", parent: "VI", kind: article, title: "Voluntary cyber threat information sharing, notified to the authority"}

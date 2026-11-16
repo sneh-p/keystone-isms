@@ -1,0 +1,46 @@
+# ASD Essential Eight Maturity Model - the eight mitigation strategies at maturity levels one to three, with
+# Keystone-written summaries of what each level adds. The model is published by the Australian Signals Directorate
+# (CC BY 4.0); see the source for the full list of requirements at each level.
+framework:
+  code: ESSENTIAL_EIGHT
+  name: Essential Eight
+  version: "2023"
+  publisher: Australian Signals Directorate
+  license: cc_by
+  text_level: summary
+  source_url: https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight
+  notice: "Keystone-written summaries of the maturity levels. The ASD maturity model lists the detailed requirements."
+
+requirements:
+  - {ref: "PA", kind: strategy, title: "Patch applications"}
+  - {ref: "PA.ML1", parent: "PA", kind: maturity_level, title: "Internet-facing apps patched in 2 weeks (48 h if exploited); unsupported removed"}
+  - {ref: "PA.ML2", parent: "PA", kind: maturity_level, title: "Office, browser, email, PDF and security software patched in two weeks"}
+  - {ref: "PA.ML3", parent: "PA", kind: maturity_level, title: "All other apps patched in a month; exploited ones in 48 hours"}
+  - {ref: "PO", kind: strategy, title: "Patch operating systems"}
+  - {ref: "PO.ML1", parent: "PO", kind: maturity_level, title: "Internet-facing OS patched in 2 weeks (48 h if exploited); unsupported removed"}
+  - {ref: "PO.ML2", parent: "PO", kind: maturity_level, title: "Patch workstations, servers and network devices within two weeks; scan weekly"}
+  - {ref: "PO.ML3", parent: "PO", kind: maturity_level, title: "Latest or previous OS release; exploited vulnerabilities fixed in 48 hours"}
+  - {ref: "MFA", kind: strategy, title: "Multi-factor authentication"}
+  - {ref: "MFA.ML1", parent: "MFA", kind: maturity_level, title: "MFA for online services holding sensitive data and for internet-facing services"}
+  - {ref: "MFA.ML2", parent: "MFA", kind: maturity_level, title: "MFA for privileged users and administrators; MFA events logged"}
+  - {ref: "MFA.ML3", parent: "MFA", kind: maturity_level, title: "Phishing-resistant MFA for all users and data repositories"}
+  - {ref: "RA", kind: strategy, title: "Restrict administrative privileges"}
+  - {ref: "RA.ML1", parent: "RA", kind: maturity_level, title: "Privileged access validated; no web or email from privileged accounts"}
+  - {ref: "RA.ML2", parent: "RA", kind: maturity_level, title: "Yearly reviews, 45-day inactivity disable, separate admin environments"}
+  - {ref: "RA.ML3", parent: "RA", kind: maturity_level, title: "Just-in-time admin, Credential Guard, centrally monitored privileged events"}
+  - {ref: "AC", kind: strategy, title: "Application control"}
+  - {ref: "AC.ML1", parent: "AC", kind: maturity_level, title: "Only approved programs and scripts run from user and temporary folders"}
+  - {ref: "AC.ML2", parent: "AC", kind: maturity_level, title: "Also on internet-facing servers; allowed and blocked events logged"}
+  - {ref: "AC.ML3", parent: "AC", kind: maturity_level, title: "Covers drivers and all servers; Microsoft block rules; validated yearly"}
+  - {ref: "OM", kind: strategy, title: "Restrict Microsoft Office macros"}
+  - {ref: "OM.ML1", parent: "OM", kind: maturity_level, title: "Macros off unless needed; internet macros blocked; settings locked"}
+  - {ref: "OM.ML2", parent: "OM", kind: maturity_level, title: "Macros can't call Win32 APIs; macro execution is logged; antivirus scans macros"}
+  - {ref: "OM.ML3", parent: "OM", kind: maturity_level, title: "Only macros signed by trusted publishers or in sandboxed trusted locations run"}
+  - {ref: "UH", kind: strategy, title: "User application hardening"}
+  - {ref: "UH.ML1", parent: "UH", kind: maturity_level, title: "Browsers don't run Java or web ads; Internet Explorer 11 disabled or removed"}
+  - {ref: "UH.ML2", parent: "UH", kind: maturity_level, title: "Office and PDF apps hardened; PowerShell in constrained language mode"}
+  - {ref: "UH.ML3", parent: "UH", kind: maturity_level, title: ".NET 3.5 and PowerShell 2.0 removed; script events logged centrally"}
+  - {ref: "RB", kind: strategy, title: "Regular backups"}
+  - {ref: "RB.ML1", parent: "RB", kind: maturity_level, title: "Important data and settings backed up per continuity needs; restores tested"}
+  - {ref: "RB.ML2", parent: "RB", kind: maturity_level, title: "Unprivileged accounts can't read others' backups or change any"}
+  - {ref: "RB.ML3", parent: "RB", kind: maturity_level, title: "Only backup admins can change backups; DR exercises include restores"}

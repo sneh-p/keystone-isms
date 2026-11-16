@@ -1,0 +1,49 @@
+# GDPR: Regulation (EU) 2016/679, the articles most relevant to running a privacy programme, with Keystone-written
+# summaries.
+framework:
+  code: GDPR
+  name: General Data Protection Regulation
+  version: "2016/679"
+  publisher: European Union
+  license: eu_law
+  text_level: summary
+  source_url: https://eur-lex.europa.eu/eli/reg/2016/679/oj
+  notice: "Keystone-written summaries of selected articles; national laws and guidance from your authority also apply."
+
+requirements:
+  - {ref: "II", kind: chapter, title: "Principles"}
+  - {ref: "5.1", parent: "II", kind: article, title: "Principles: lawfulness, purpose and storage limits, minimisation, security"}
+  - {ref: "5.2", parent: "II", kind: article, title: "Accountability: be able to demonstrate compliance with the principles"}
+  - {ref: "6", parent: "II", kind: article, title: "Each processing has a lawful basis"}
+  - {ref: "7", parent: "II", kind: article, title: "Conditions for valid consent, including withdrawal"}
+  - {ref: "9", parent: "II", kind: article, title: "Special categories of data are processed only under a specific condition"}
+  - {ref: "III", kind: chapter, title: "Rights of the data subject"}
+  - {ref: "12", parent: "III", kind: article, title: "Clear information and easy exercise of rights, answered within one month"}
+  - {ref: "13", parent: "III", kind: article, title: "Information given when data is collected from the person"}
+  - {ref: "14", parent: "III", kind: article, title: "Information given when data is obtained from elsewhere"}
+  - {ref: "15", parent: "III", kind: article, title: "Right of access"}
+  - {ref: "16", parent: "III", kind: article, title: "Right to rectification"}
+  - {ref: "17", parent: "III", kind: article, title: "Right to erasure"}
+  - {ref: "18", parent: "III", kind: article, title: "Right to restriction of processing"}
+  - {ref: "19", parent: "III", kind: article, title: "Tell recipients about rectification, erasure or restriction"}
+  - {ref: "20", parent: "III", kind: article, title: "Right to data portability"}
+  - {ref: "21", parent: "III", kind: article, title: "Right to object"}
+  - {ref: "22", parent: "III", kind: article, title: "Safeguards for solely automated decisions with significant effects"}
+  - {ref: "IV", kind: chapter, title: "Controller and processor"}
+  - {ref: "24", parent: "IV", kind: article, title: "Controller implements and reviews appropriate measures and policies"}
+  - {ref: "25", parent: "IV", kind: article, title: "Data protection by design and by default"}
+  - {ref: "26", parent: "IV", kind: article, title: "Arrangements between joint controllers"}
+  - {ref: "28", parent: "IV", kind: article, title: "Processors give guarantees, sign a contract; sub-processors authorised"}
+  - {ref: "30", parent: "IV", kind: article, title: "Records of processing activities"}
+  - {ref: "32", parent: "IV", kind: article, title: "Security of processing appropriate to the risk"}
+  - {ref: "33", parent: "IV", kind: article, title: "Notify breaches to the authority within 72 hours; document every breach"}
+  - {ref: "34", parent: "IV", kind: article, title: "Tell affected people about high-risk breaches without undue delay"}
+  - {ref: "35", parent: "IV", kind: article, title: "Data protection impact assessment for high-risk processing"}
+  - {ref: "36", parent: "IV", kind: article, title: "Prior consultation with the authority when residual risk stays high"}
+  - {ref: "37", parent: "IV", kind: article, title: "Designate a data protection officer where required"}
+  - {ref: "38", parent: "IV", kind: article, title: "DPO is involved, independent and resourced"}
+  - {ref: "39", parent: "IV", kind: article, title: "DPO tasks: inform, advise, monitor, cooperate with the authority"}
+  - {ref: "V", kind: chapter, title: "Transfers outside the EEA"}
+  - {ref: "45", parent: "V", kind: article, title: "Transfers based on an adequacy decision"}
+  - {ref: "46", parent: "V", kind: article, title: "Transfers with appropriate safeguards (e.g. standard contractual clauses)"}
+  - {ref: "49", parent: "V", kind: article, title: "Derogations for specific situations"}

@@ -1,0 +1,89 @@
+# PCI DSS v4.0.1 - principal requirement identifiers with SHORT TITLES WRITTEN BY KEYSTONE; no text from the
+# standard. PCI DSS is copyright PCI Security Standards Council. The detailed defined approach requirements
+# (x.y.z) and testing procedures are in the standard; import them from your copy if you need them.
+framework:
+  code: PCI_DSS_4_0_1
+  name: PCI DSS
+  version: "4.0.1"
+  publisher: PCI Security Standards Council
+  license: proprietary
+  text_level: summary
+  source_url: https://www.pcisecuritystandards.org/document_library/
+  notice: "Requirement identifiers and Keystone-written summaries only. Import official text from your copy."
+
+requirements:
+  - {ref: "1", kind: requirement, title: "Network security controls"}
+  - {ref: "1.1", parent: "1", kind: sub_requirement, title: "Processes and roles for network security controls"}
+  - {ref: "1.2", parent: "1", kind: sub_requirement, title: "Configure and maintain network security controls"}
+  - {ref: "1.3", parent: "1", kind: sub_requirement, title: "Restrict network access to and from the cardholder data environment"}
+  - {ref: "1.4", parent: "1", kind: sub_requirement, title: "Control connections between trusted and untrusted networks"}
+  - {ref: "1.5", parent: "1", kind: sub_requirement, title: "Mitigate risks from devices that connect to both"}
+  - {ref: "2", kind: requirement, title: "Secure configurations"}
+  - {ref: "2.1", parent: "2", kind: sub_requirement, title: "Processes and roles for secure configuration"}
+  - {ref: "2.2", parent: "2", kind: sub_requirement, title: "Configure and manage system components securely"}
+  - {ref: "2.3", parent: "2", kind: sub_requirement, title: "Configure wireless environments securely"}
+  - {ref: "3", kind: requirement, title: "Protect stored account data"}
+  - {ref: "3.1", parent: "3", kind: sub_requirement, title: "Processes and roles for protecting stored data"}
+  - {ref: "3.2", parent: "3", kind: sub_requirement, title: "Keep storage of account data to a minimum"}
+  - {ref: "3.3", parent: "3", kind: sub_requirement, title: "Don't store sensitive authentication data after authorisation"}
+  - {ref: "3.4", parent: "3", kind: sub_requirement, title: "Restrict display and copying of full PAN"}
+  - {ref: "3.5", parent: "3", kind: sub_requirement, title: "Make stored PAN unreadable"}
+  - {ref: "3.6", parent: "3", kind: sub_requirement, title: "Secure cryptographic keys"}
+  - {ref: "3.7", parent: "3", kind: sub_requirement, title: "Key management processes across the key life cycle"}
+  - {ref: "4", kind: requirement, title: "Protect cardholder data in transmission"}
+  - {ref: "4.1", parent: "4", kind: sub_requirement, title: "Processes and roles for protecting data in transit"}
+  - {ref: "4.2", parent: "4", kind: sub_requirement, title: "Strong cryptography for PAN over open, public networks"}
+  - {ref: "5", kind: requirement, title: "Protect against malicious software"}
+  - {ref: "5.1", parent: "5", kind: sub_requirement, title: "Processes and roles for anti-malware"}
+  - {ref: "5.2", parent: "5", kind: sub_requirement, title: "Prevent or detect and address malware"}
+  - {ref: "5.3", parent: "5", kind: sub_requirement, title: "Keep anti-malware active, maintained and monitored"}
+  - {ref: "5.4", parent: "5", kind: sub_requirement, title: "Protect users against phishing"}
+  - {ref: "6", kind: requirement, title: "Secure systems and software"}
+  - {ref: "6.1", parent: "6", kind: sub_requirement, title: "Processes and roles for secure systems and software"}
+  - {ref: "6.2", parent: "6", kind: sub_requirement, title: "Develop bespoke and custom software securely"}
+  - {ref: "6.3", parent: "6", kind: sub_requirement, title: "Identify and address security vulnerabilities"}
+  - {ref: "6.4", parent: "6", kind: sub_requirement, title: "Protect public-facing web applications"}
+  - {ref: "6.5", parent: "6", kind: sub_requirement, title: "Manage changes to system components securely"}
+  - {ref: "7", kind: requirement, title: "Restrict access by business need to know"}
+  - {ref: "7.1", parent: "7", kind: sub_requirement, title: "Processes and roles for access restriction"}
+  - {ref: "7.2", parent: "7", kind: sub_requirement, title: "Define and assign access appropriately"}
+  - {ref: "7.3", parent: "7", kind: sub_requirement, title: "Manage access through access control systems"}
+  - {ref: "8", kind: requirement, title: "Identify users and authenticate access"}
+  - {ref: "8.1", parent: "8", kind: sub_requirement, title: "Processes and roles for identification and authentication"}
+  - {ref: "8.2", parent: "8", kind: sub_requirement, title: "Manage user identification and accounts"}
+  - {ref: "8.3", parent: "8", kind: sub_requirement, title: "Strong authentication for users and administrators"}
+  - {ref: "8.4", parent: "8", kind: sub_requirement, title: "Multi-factor authentication into the CDE"}
+  - {ref: "8.5", parent: "8", kind: sub_requirement, title: "Configure MFA systems to prevent misuse"}
+  - {ref: "8.6", parent: "8", kind: sub_requirement, title: "Manage application and system accounts"}
+  - {ref: "9", kind: requirement, title: "Restrict physical access"}
+  - {ref: "9.1", parent: "9", kind: sub_requirement, title: "Processes and roles for physical access"}
+  - {ref: "9.2", parent: "9", kind: sub_requirement, title: "Physical access controls for the CDE"}
+  - {ref: "9.3", parent: "9", kind: sub_requirement, title: "Authorise and manage physical access for staff and visitors"}
+  - {ref: "9.4", parent: "9", kind: sub_requirement, title: "Secure, store, distribute and destroy media"}
+  - {ref: "9.5", parent: "9", kind: sub_requirement, title: "Protect point-of-interaction devices from tampering"}
+  - {ref: "10", kind: requirement, title: "Log and monitor access"}
+  - {ref: "10.1", parent: "10", kind: sub_requirement, title: "Processes and roles for logging and monitoring"}
+  - {ref: "10.2", parent: "10", kind: sub_requirement, title: "Enable audit logs to detect anomalies"}
+  - {ref: "10.3", parent: "10", kind: sub_requirement, title: "Protect audit logs"}
+  - {ref: "10.4", parent: "10", kind: sub_requirement, title: "Review audit logs"}
+  - {ref: "10.5", parent: "10", kind: sub_requirement, title: "Retain audit log history"}
+  - {ref: "10.6", parent: "10", kind: sub_requirement, title: "Synchronise time"}
+  - {ref: "10.7", parent: "10", kind: sub_requirement, title: "Detect and respond to failures of critical security controls"}
+  - {ref: "11", kind: requirement, title: "Test security regularly"}
+  - {ref: "11.1", parent: "11", kind: sub_requirement, title: "Processes and roles for security testing"}
+  - {ref: "11.2", parent: "11", kind: sub_requirement, title: "Identify and manage wireless access points"}
+  - {ref: "11.3", parent: "11", kind: sub_requirement, title: "Internal and external vulnerability scans"}
+  - {ref: "11.4", parent: "11", kind: sub_requirement, title: "Penetration testing"}
+  - {ref: "11.5", parent: "11", kind: sub_requirement, title: "Detect intrusions and unexpected file changes"}
+  - {ref: "11.6", parent: "11", kind: sub_requirement, title: "Detect unauthorised changes on payment pages"}
+  - {ref: "12", kind: requirement, title: "Policies and programmes"}
+  - {ref: "12.1", parent: "12", kind: sub_requirement, title: "Information security policy"}
+  - {ref: "12.2", parent: "12", kind: sub_requirement, title: "Acceptable use policies for end-user technologies"}
+  - {ref: "12.3", parent: "12", kind: sub_requirement, title: "Identify and evaluate risks to the cardholder data environment"}
+  - {ref: "12.4", parent: "12", kind: sub_requirement, title: "Manage PCI DSS compliance (executive responsibility)"}
+  - {ref: "12.5", parent: "12", kind: sub_requirement, title: "Document and confirm PCI DSS scope"}
+  - {ref: "12.6", parent: "12", kind: sub_requirement, title: "Security awareness education"}
+  - {ref: "12.7", parent: "12", kind: sub_requirement, title: "Screen personnel"}
+  - {ref: "12.8", parent: "12", kind: sub_requirement, title: "Manage risk from third-party service providers"}
+  - {ref: "12.9", parent: "12", kind: sub_requirement, title: "Service providers support customers' compliance"}
+  - {ref: "12.10", parent: "12", kind: sub_requirement, title: "Respond to suspected and confirmed incidents"}

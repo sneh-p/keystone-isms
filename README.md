@@ -1,8 +1,9 @@
 # Keystone ISMS
 
-An information security management system (ISMS) for one organisation, built around a single set of **107 common
-controls** mapped to **ISO/IEC 27001:2022, NIST CSF 2.0, SOC 2 and CIS Controls v8.1**. Implement and evidence a control
-once and it counts towards every framework. Keystone covers the whole cycle: setting up the ISMS, risk, controls and
+An information security management system (ISMS) for one organisation, built around a single set of **128 common
+controls** mapped to **ISO/IEC 27001:2022, NIST CSF 2.0, SOC 2, CIS Controls v8.1, NIS2, DORA, GDPR, ISO/IEC 27701,
+ISO/IEC 42001, PCI DSS 4.0.1, Cyber Essentials and the Essential Eight**. Implement and evidence a control once and it
+counts towards every framework. Keystone covers the whole cycle: setting up the ISMS, risk, controls and
 evidence, policies, people, suppliers, incidents, audits and management review, plus a public Trust Center and
 **attack surface management** fed by your RMM, EDR, vulnerability scanner and Microsoft 365.
 
@@ -232,6 +233,10 @@ Shipped values are **calibration starting points**, labelled as such in the app.
 | ISO/IEC 27001:2022 | Identifiers with **short titles written by Keystone** |
 | SOC 2 Trust Services Criteria | Identifiers with **Keystone-written summaries** |
 | CIS Controls v8.1 | Safeguard identifiers with **Keystone-written titles** (CIS's CC BY-NC-ND licence forbids derivatives) |
+| NIS2, DORA, GDPR | Article-level obligations with **Keystone-written summaries** (EU legislation) |
+| ISO/IEC 27701 (2019 numbering), ISO/IEC 42001:2023 | Identifiers with **Keystone-written titles** |
+| PCI DSS 4.0.1 | Requirement identifiers (x.y) with **Keystone-written titles** |
+| Cyber Essentials, Essential Eight | Control themes and maturity levels with **Keystone-written summaries** |
 
 If you hold a licence for a standard, import its official wording under **Frameworks → Content management**; it is
 stored only in your database. The crosswalk, policy templates, task library, training, risk library and questionnaire

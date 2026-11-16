@@ -10,7 +10,10 @@ from keystone.core.rbac import PermissionDenied
 from keystone.frameworks import loader, service
 from keystone.frameworks.models import CommonControl, ControlMapping, Framework, Requirement
 
-EXPECTED_LEAVES = {"NIST_CSF_2_0": 106, "ISO27001_2022": 93 + 30, "SOC2_TSC_2017": 61, "CIS_V8_1": 153}
+EXPECTED_LEAVES = {"NIST_CSF_2_0": 106, "ISO27001_2022": 93 + 30, "SOC2_TSC_2017": 61, "CIS_V8_1": 153,
+                   # round 3 packs
+                   "NIS2": 21, "DORA": 22, "GDPR": 32, "ISO27701_2019": 54, "ISO42001_2023": 65, "PCI_DSS_4_0_1": 63,
+                   "CYBER_ESSENTIALS": 21, "ESSENTIAL_EIGHT": 24}
 
 
 def _leaf_count(s, code):
@@ -25,7 +28,7 @@ def test_pack_sizes(content, session):
     annex = [r for r in fw.requirements if r.kind == "annex_control"]
     assert len(annex) == 93
     assert {r.ref.split(".")[1] for r in annex} == {"5", "6", "7", "8"}
-    assert session.scalar(select(func.count(CommonControl.id))) == 107
+    assert session.scalar(select(func.count(CommonControl.id))) == 107 + 11 + 10  # + privacy and AI governance
 
 
 @pytest.mark.parametrize("code", list(EXPECTED_LEAVES))
@@ -38,6 +41,9 @@ def test_every_leaf_requirement_is_mapped(content, session, code):
 def test_every_control_maps_to_iso_and_something_else(content, session):
     for c in service.controls(session):
         fws = service.requirements_for_control(c)
+        if c.domain == "AI governance":  # ISO 42001 controls with no ISO 27001 counterpart
+            assert set(fws) == {"ISO42001_2023"}, c.code
+            continue
         assert "ISO27001_2022" in fws, c.code
     # Most controls should also satisfy at least one other framework.
     multi = [c for c in service.controls(session) if len(service.requirements_for_control(c)) > 1]
@@ -49,7 +55,7 @@ def test_reload_is_idempotent(content, db, users):
         before = s.scalar(select(func.count(ControlMapping.id)))
         loader.seed_content(s, users["admin"])
         assert s.scalar(select(func.count(ControlMapping.id))) == before
-        assert s.scalar(select(func.count(Framework.id))) == 4
+        assert s.scalar(select(func.count(Framework.id))) == 12
 
 
 def test_seed_requires_permission(db, users):
@@ -96,7 +102,7 @@ def test_crosswalk_refs_exist_and_are_well_formed():
         for ref, codes in mapping.items():
             assert codes and set(codes) <= ctl_codes, (fw, ref)
             assert len(codes) == len(set(codes)), (fw, ref)
-    assert all(re.fullmatch(r"KC-(GOV|ORG|PPL|PHY|TEC)-\d{2}", c) for c in ctl_codes)
+    assert all(re.fullmatch(r"KC-(GOV|ORG|PPL|PHY|TEC|PRV|AI)-\d{2}", c) for c in ctl_codes)
 
 
 def test_unknown_crosswalk_ref_rejected(content, db, users):
@@ -154,3 +160,28 @@ def test_user_mapping(content, session, users):
     assert m.source == "user"
     with pytest.raises(PermissionDenied):
         service.add_user_mapping(session, users["viewer"], ctl.id, leaf.id)
+
+
+def test_existing_installations_get_new_packs_switched_off(db, users):
+    """sync_bundled (run at start-up) adds packs an onboarded installation doesn't have yet, disabled, and never
+    touches a fresh one (onboarding loads content) or the organisation's choices."""
+    with db.session_scope() as s:
+        assert loader.sync_bundled(s) == []  # fresh install: nothing
+    with db.session_scope(users["admin"]) as s:
+        for name in loader.PACK_FILES[:4]:
+            loader.load_pack(s, users["admin"], loader.read_yaml(loader.CONTENT_DIR / name))
+        s.scalars(select(Framework).where(Framework.code == "SOC2_TSC_2017")).one().enabled = False  # an earlier choice
+    with db.session_scope() as s:
+        added = loader.sync_bundled(s)
+        assert set(added) == {"NIS2", "DORA", "GDPR", "ISO27701_2019", "ISO42001_2023", "PCI_DSS_4_0_1", "CYBER_ESSENTIALS", "ESSENTIAL_EIGHT"}
+        enabled = {f.code: f.enabled for f in s.scalars(select(Framework))}
+        assert not any(enabled[c] for c in added) and enabled["ISO27001_2022"] and not enabled["SOC2_TSC_2017"]
+        assert s.scalar(select(func.count(CommonControl.id))) == 128
+    with db.session_scope() as s:
+        assert loader.sync_bundled(s) == []  # idempotent
+
+
+def test_restricted_packs_hold_only_short_summaries():
+    for name in loader.PACK_FILES:
+        doc = loader.read_yaml(loader.CONTENT_DIR / name)
+        loader.check_pack(doc, name)  # raises for long text in proprietary or no-derivatives packs
