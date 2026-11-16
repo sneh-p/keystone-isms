@@ -2,6 +2,8 @@ import copy
 import json
 from pathlib import Path
 
+from datetime import datetime, timedelta
+
 import pytest
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -75,7 +77,8 @@ def users(db):
         for role in Role:
             if role is Role.ADMIN:
                 continue
-            out[role.value] = create_user(s, admin, username=role.value.replace("_", ""), display_name=role.value.replace("_", " ").title(), password=PASSWORD, role=role)
+            expiry = datetime.now() + timedelta(days=90) if role is Role.AUDITOR else None  # auditor accounts must expire
+            out[role.value] = create_user(s, admin, username=role.value.replace("_", ""), display_name=role.value.replace("_", " ").title(), password=PASSWORD, role=role, expires_at=expiry)
         out["admin2"] = create_user(s, admin, username="admin2", display_name="Second Admin", password=PASSWORD, role=Role.ADMIN)
     return out
 

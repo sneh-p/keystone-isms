@@ -40,7 +40,8 @@ def seed(session: Session, admin) -> dict:
     """Populate an empty database (after the first admin exists). Returns handles for tests."""
     people = {"admin": admin}
     for username, name, role in PEOPLE:
-        people[username] = auth.create_user(session, admin, username=username, display_name=name, password=DEMO_PASSWORD, role=role, email=f"{username}@alpineskihouse.example", must_change_password=False)
+        expiry = datetime.now() + timedelta(days=90) if role == Role.AUDITOR else None  # auditor accounts must expire
+        people[username] = auth.create_user(session, admin, username=username, display_name=name, password=DEMO_PASSWORD, role=role, email=f"{username}@alpineskihouse.example", must_change_password=False, expires_at=expiry)
     loader.seed_content(session, admin)
 
     org.save_org(

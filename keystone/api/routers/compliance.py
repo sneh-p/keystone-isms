@@ -150,7 +150,7 @@ def review_control(cid: int, user=Depends(perm("control.write")), db: Session = 
 # ---- evidence ------------------------------------------------------------------------
 
 def evidence_out(e) -> dict:
-    return ser(e, ("id", "common_control_id", "title", "kind", "description", "attachment_id", "url", "collected_on", "valid_until", "reviewed_by_id", "reviewed_at", "superseded", "created_by_id"), state=ctl.evidence_state(e))
+    return ser(e, ("id", "common_control_id", "title", "kind", "description", "attachment_id", "url", "collected_on", "valid_until", "reviewed_by_id", "reviewed_at", "superseded", "created_by_id"), state=ctl.evidence_state(e), filename=e.attachment.filename if e.attachment else None)
 
 
 @router.get("/evidence")

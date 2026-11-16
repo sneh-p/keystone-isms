@@ -59,6 +59,13 @@ export function downloadUrl(path: string) {
   return `/api${path}`;
 }
 
+/** Fetches a file as bytes (for the document viewer), with the same error handling as api(). */
+export async function fetchBytes(path: string, extraHeaders: Record<string, string> = {}): Promise<ArrayBuffer> {
+  const res = await fetch(`/api${path}`, { credentials: "same-origin", headers: extraHeaders });
+  if (!res.ok) await parse(res);
+  return res.arrayBuffer();
+}
+
 /** Downloads a file that needs request headers (for example an access token, which must not go in the URL). */
 export async function saveDownload(path: string, extraHeaders: Record<string, string> = {}): Promise<void> {
   const res = await fetch(`/api${path}`, { credentials: "same-origin", headers: extraHeaders });

@@ -35,6 +35,8 @@ class User(Audited, TimestampMixin, Base):
     failed_logins: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Time-limited accounts (required for auditors): sign-in and every request are refused after this moment.
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
         return f"<User {self.username} ({self.role})>"
@@ -77,7 +79,18 @@ def _normalise(username: str) -> str:
     return username.strip().lower()
 
 
-def create_user(session: Session, actor, *, username: str, display_name: str, password: str, role: Role | str = Role.VIEWER, email: str | None = None, must_change_password: bool = True) -> User:
+def expired(user: User, now: datetime | None = None) -> bool:
+    return user.expires_at is not None and user.expires_at <= (now or utcnow())
+
+
+def _check_expiry(role: str, expires_at: datetime | None, changing: bool) -> None:
+    if role == Role.AUDITOR.value and expires_at is None:
+        raise ValueError("Auditor accounts need an expiry date.")
+    if changing and expires_at is not None and expires_at <= utcnow():
+        raise ValueError("The expiry must be in the future.")
+
+
+def create_user(session: Session, actor, *, username: str, display_name: str, password: str, role: Role | str = Role.VIEWER, email: str | None = None, must_change_password: bool = True, expires_at: datetime | None = None) -> User:
     """Create an account. The very first account may be created without an actor (bootstrap) and is always admin."""
     bootstrap = session.scalar(select(func.count(User.id))) == 0
     if not bootstrap:
@@ -89,11 +102,14 @@ def create_user(session: Session, actor, *, username: str, display_name: str, pa
     if session.scalar(select(User).where(User.username == username)):
         raise ValueError(f"user {username!r} already exists")
     check_password_policy(password, username)
+    final_role = (Role.ADMIN if bootstrap else Role(role)).value
+    _check_expiry(final_role, expires_at, changing=True)
     user = User(
+        expires_at=expires_at,
         username=username,
         display_name=display_name.strip() or username,
         email=email,
-        role=(Role.ADMIN if bootstrap else Role(role)).value,
+        role=final_role,
         password_hash=hash_password(password),
         must_change_password=must_change_password and not bootstrap,
     )
@@ -117,8 +133,8 @@ def authenticate(session: Session, username: str, password: str) -> User:
         log_event(session, None, "login_failed", "User", None, "Unknown username")
         raise AuthError("Invalid username or password.")
     now = utcnow()
-    if not user.active:
-        log_event(session, user, "login_failed", "User", user.id, "Account disabled")
+    if not user.active or expired(user, now):
+        log_event(session, user, "login_failed", "User", user.id, "Account disabled" if not user.active else "Account expired")
         raise AuthError("Invalid username or password.")
     if user.locked_until and user.locked_until > now:
         log_event(session, user, "login_failed", "User", user.id, "Account locked")
@@ -168,11 +184,19 @@ def admin_reset_password(session: Session, actor, user: User, new: str) -> None:
     session.flush()
 
 
-def update_user(session: Session, actor, user: User, *, role: str | None = None, active: bool | None = None, display_name: str | None = None, email: str | None = None) -> User:
+_UNSET = object()
+
+
+def update_user(session: Session, actor, user: User, *, role: str | None = None, active: bool | None = None, display_name: str | None = None, email: str | None = None, expires_at=_UNSET) -> User:
     require(actor, "users.manage")
     session.info["actor"] = actor
-    if user.id == actor.id and (active is False or (role and role != Role.ADMIN.value)):
-        raise ValueError("You cannot disable or demote your own account.")
+    if user.id == actor.id and (active is False or (role and role != Role.ADMIN.value) or (expires_at is not _UNSET and expires_at is not None)):
+        raise ValueError("You cannot disable, demote or set an expiry on your own account.")
+    new_role = Role(role).value if role is not None else user.role
+    new_expiry = user.expires_at if expires_at is _UNSET else expires_at
+    _check_expiry(new_role, new_expiry, changing=expires_at is not _UNSET)
+    if expires_at is not _UNSET:
+        user.expires_at = expires_at
     if role is not None:
         user.role = Role(role).value
     if active is not None:

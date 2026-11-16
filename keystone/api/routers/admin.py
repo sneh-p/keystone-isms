@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
@@ -12,7 +14,7 @@ from ..deps import get_db, perm
 from ..serialize import ser
 
 router = APIRouter(tags=["admin"])
-USER_FIELDS = ("id", "username", "display_name", "email", "role", "active", "must_change_password", "last_login_at", "locked_until", "created_at")
+USER_FIELDS = ("id", "username", "display_name", "email", "role", "active", "must_change_password", "last_login_at", "locked_until", "created_at", "expires_at")
 
 
 class UserIn(BaseModel):
@@ -22,6 +24,7 @@ class UserIn(BaseModel):
     password: str
     role: str = "viewer"
     email: str | None = None
+    expires_at: datetime | None = None
 
 
 class UserPatch(BaseModel):
@@ -30,11 +33,19 @@ class UserPatch(BaseModel):
     active: bool | None = None
     display_name: str | None = None
     email: str | None = None
+    expires_at: datetime | None = None
 
 
 class ResetIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     password: str
+
+
+def _naive_utc(dt: datetime | None) -> datetime | None:
+    """Stored times are naive UTC; accept an aware value from the client and convert it."""
+    if dt is None or dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 @router.get("/people-directory")
@@ -55,15 +66,20 @@ def list_users(user=Depends(perm("users.manage")), db: Session = Depends(get_db)
 
 @router.post("/users")
 def create_user(body: UserIn, user=Depends(perm("users.manage")), db: Session = Depends(get_db)):
-    u = auth.create_user(db, user, username=body.username, display_name=body.display_name, password=body.password, role=body.role, email=body.email)
+    u = auth.create_user(db, user, username=body.username, display_name=body.display_name, password=body.password, role=body.role, email=body.email, expires_at=_naive_utc(body.expires_at))
     return ser(u, USER_FIELDS)
 
 
 @router.patch("/users/{user_id}")
 def update_user(user_id: int, body: UserPatch, user=Depends(perm("users.manage")), db: Session = Depends(get_db)):
     target = get_or_404(db, auth.User, user_id)
-    auth.update_user(db, user, target, **body.model_dump(exclude_unset=True))
-    if body.active is False:
+    fields = body.model_dump(exclude_unset=True)
+    if "expires_at" in fields:
+        fields["expires_at"] = _naive_utc(fields["expires_at"])
+    old_role = target.role
+    auth.update_user(db, user, target, **fields)
+    # SC-AUTHN-003: sessions end when an account is disabled or its role changes.
+    if body.active is False or target.role != old_role:
         sessions.destroy_all_for(db, target.id)
     return ser(target, USER_FIELDS)
 

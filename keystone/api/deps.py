@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from keystone.core import db as dbmod
 from keystone.core import sessions
-from keystone.core.auth import User
+from keystone.core.auth import User, expired as auth_expired
 from keystone.core.rbac import has_permission
 
 COOKIE = "ks_session"
@@ -35,6 +35,8 @@ def current_user(ws: sessions.WebSession = Depends(current_session), db: Session
     user = db.get(User, ws.user_id)
     if user is None or not user.active:
         raise HTTPException(401, "Account disabled.")
+    if auth_expired(user):  # checked on every request, so a session can't outlive the account
+        raise HTTPException(401, "Account expired.")
     db.info["actor"] = user
     return user
 

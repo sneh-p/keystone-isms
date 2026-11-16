@@ -14,6 +14,7 @@ import { Markdown } from "@/components/Markdown";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
+import { ViewAttachment } from "@/components/DocumentViewer";
 
 export const CONTROL_STATUS = [
   { value: "not_started", label: "Not started" },
@@ -196,7 +197,7 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
                 {data.evidence.map((e: any) => (
                   <li key={e.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                     <span className="min-w-0 truncate">{e.title}</span>
-                    <span className="flex items-center gap-2 text-xs text-muted-foreground">{e.valid_until && `until ${fmtDate(e.valid_until)}`}<StatusBadge status={e.state} /></span>
+                    <span className="flex items-center gap-2 text-xs text-muted-foreground">{e.valid_until && `until ${fmtDate(e.valid_until)}`}<StatusBadge status={e.state} />{e.attachment_id && <ViewAttachment id={e.attachment_id} filename={e.filename ?? ""} title={e.title} size="icon" />}</span>
                   </li>
                 ))}
               </ul>

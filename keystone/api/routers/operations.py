@@ -1,11 +1,12 @@
 from datetime import date, datetime
 
+from pydantic import Field
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from keystone.audits import review as mr
 from keystone.audits import service as aud
-from keystone.audits.models import Audit, ManagementReview
+from keystone.audits.models import Audit, AuditRequest, ManagementReview
 from keystone.core.services import get_or_404
 from keystone.improvement import service as imp
 from keystone.improvement.models import Nonconformity
@@ -227,6 +228,78 @@ def update_audit(aid: int, body: AuditIn, user=Depends(perm("audit.manage")), db
 @router.post("/audits/{aid}/advance")
 def advance(aid: int, user=Depends(perm("audit.manage")), db: Session = Depends(get_db)):
     return aud_out(aud.advance(db, user, aid))
+
+
+# ---- evidence request list ("PBC") and audit pack ---------------------------------------------------
+
+def req_out(r) -> dict:
+    return ser(r, ("id", "audit_id", "title", "description", "common_control_id", "due_date", "status", "created_by_id", "created_at"),
+               evidence=[{"id": e.id, "title": e.title, "attachment_id": e.attachment_id, "filename": e.attachment.filename if e.attachment else None, "url": e.url, "common_control_id": e.common_control_id} for e in r.evidence],
+               comments=[ser(c, ("id", "body", "created_by_id", "created_at")) for c in r.comments])
+
+
+@router.get("/audits/{aid}/requests")
+def audit_requests(aid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
+    return [req_out(r) for r in aud.requests_for(db, aid)]
+
+
+class RequestIn(In):
+    title: str = Field(max_length=300)
+    description: str | None = Field(default=None, max_length=5000)
+    common_control_id: int | None = None
+    due_date: date | None = None
+
+
+@router.post("/audits/{aid}/requests")
+def add_request(aid: int, body: RequestIn, user=Depends(perm("audit.findings")), db: Session = Depends(get_db)):
+    return req_out(aud.add_request(db, user, aid, **body.model_dump()))
+
+
+class CommentIn(In):
+    body: str = Field(max_length=5000)
+
+
+@router.post("/audit-requests/{rid}/comments")
+def comment_request(rid: int, body: CommentIn, user=Depends(perm("audit.findings")), db: Session = Depends(get_db)):
+    aud.comment_request(db, user, rid, body.body)
+    return req_out(get_or_404(db, AuditRequest, rid))
+
+
+class RespondIn(In):
+    body: str | None = Field(default=None, max_length=5000)
+    evidence_ids: list[int] | None = Field(default=None, max_length=200)
+
+
+@router.post("/audit-requests/{rid}/respond")
+def respond_request(rid: int, body: RespondIn, user=Depends(perm("evidence.write")), db: Session = Depends(get_db)):
+    return req_out(aud.respond_request(db, user, rid, body=body.body, evidence_ids=body.evidence_ids))
+
+
+class RequestStatusIn(In):
+    status: str
+
+
+@router.post("/audit-requests/{rid}/status")
+def request_status(rid: int, body: RequestStatusIn, user=Depends(perm("audit.findings")), db: Session = Depends(get_db)):
+    return req_out(aud.set_request_status(db, user, rid, body.status))
+
+
+@router.get("/audits/{aid}/pack.zip")
+def audit_pack(aid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
+    from fastapi.responses import StreamingResponse
+
+    from keystone.audits import pack
+
+    f, name, _n = pack.build(db, user, aid)
+
+    def chunks():
+        try:
+            while data := f.read(1024 * 1024):
+                yield data
+        finally:
+            f.close()
+
+    return StreamingResponse(chunks(), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{name}"', "X-Content-Type-Options": "nosniff"})
 
 
 class FindingIn(In):

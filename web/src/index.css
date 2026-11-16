@@ -67,3 +67,11 @@
 
 /* WCAG 1.4.3: the critical red is too dark for text on dark surfaces; fills keep the brand red. */
 .dark .text-critical { color: #ff8a8a; }
+
+/* Toast text colours darkened to reach WCAG AA 4.5:1 on sonner's tinted backgrounds (light theme). */
+html [data-sonner-toaster][data-theme="light"] {
+  --success-text: hsl(140, 100%, 20%);
+  --warning-text: hsl(31, 92%, 28%);
+  --error-text: hsl(360, 100%, 38%);
+  --info-text: hsl(210, 92%, 35%);
+}

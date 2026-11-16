@@ -12,6 +12,7 @@ import { PageHeader, Skeleton, Stat } from "@/components/ui/misc";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
+import { previewKind, ViewAttachment } from "@/components/DocumentViewer";
 
 const EVIDENCE_PAGE = 1000; // matches the API default page size (SC-ERR-004)
 
@@ -58,6 +59,7 @@ export default function Evidence() {
           { key: "state", header: "State", cell: (e: any) => <StatusBadge status={e.state} />, sort: (e: any) => e.state },
           { key: "act", header: "", className: "w-40", cell: (e: any) => (
             <div className="flex justify-end gap-1">
+              {e.attachment_id && previewKind(e.filename) && <ViewAttachment id={e.attachment_id} filename={e.filename} title={e.title} size="icon" />}
               {e.attachment_id && <a href={downloadUrl(`/attachments/${e.attachment_id}`)} onClick={(x) => x.stopPropagation()}><Button size="icon" variant="ghost" aria-label="Download"><Download /></Button></a>}
               {e.url && <a href={e.url} target="_blank" rel="noreferrer noopener" className="self-center text-xs text-primary hover:underline">Open link</a>}
               {can("evidence.write") && e.state !== "superseded" && <Button size="sm" variant="ghost" onClick={() => review.mutate({ id: e.id, superseded: false })}>Reviewed</Button>}

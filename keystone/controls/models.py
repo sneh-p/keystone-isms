@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from keystone.core.db import Audited, Base, OwnedMixin, TimestampMixin
 
@@ -54,3 +54,4 @@ class Evidence(Audited, OwnedMixin, TimestampMixin, Base):
     reviewed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
     superseded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    attachment = relationship("Attachment", lazy="selectin", viewonly=True)  # for the file name in listings

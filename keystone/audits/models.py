@@ -80,3 +80,40 @@ class ManagementReview(Audited, OwnedMixin, TimestampMixin, Base):
     actions: Mapped[str | None] = mapped_column(Text)
     finalized_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     finalized_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+REQUEST_STATUSES = ("open", "provided", "accepted")
+
+audit_request_evidence = Table(
+    "audit_request_evidence",
+    Base.metadata,
+    Column("request_id", ForeignKey("audit_requests.id", ondelete="CASCADE"), primary_key=True),
+    Column("evidence_id", ForeignKey("evidence.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class AuditRequest(Audited, OwnedMixin, TimestampMixin, Base):
+    """One item on an audit's evidence request list (the "PBC list"): what the auditor asked for and what was given."""
+
+    __tablename__ = "audit_requests"
+    REF_PREFIX = "PBC"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    audit_id: Mapped[int] = mapped_column(ForeignKey("audits.id", ondelete="CASCADE"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    common_control_id: Mapped[int | None] = mapped_column(ForeignKey("common_controls.id"))
+    due_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    evidence = relationship("Evidence", secondary=audit_request_evidence, lazy="selectin")
+    comments: Mapped[list[AuditRequestComment]] = relationship(back_populates="request", cascade="all, delete-orphan", order_by="AuditRequestComment.id")
+
+
+class AuditRequestComment(Audited, OwnedMixin, TimestampMixin, Base):
+    __tablename__ = "audit_request_comments"
+    REF_PREFIX = "PBCC"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[int] = mapped_column(ForeignKey("audit_requests.id", ondelete="CASCADE"), nullable=False, index=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    request: Mapped[AuditRequest] = relationship(back_populates="comments")

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CheckCircle2, ClipboardCheck, Plus, RefreshCw, Search, Stamp, Wrench } from "lucide-react";
-import { api } from "@/lib/api";
+import { CheckCircle2, ClipboardCheck, Download, Plus, RefreshCw, Search, Stamp, Wrench } from "lucide-react";
+import { api, downloadUrl } from "@/lib/api";
+import { ViewAttachment } from "@/components/DocumentViewer";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { fmtDate, titleCase } from "@/lib/utils";
@@ -207,8 +208,95 @@ function AuditDrawer({ id, audits, onClose, onCreated }: { id: string; audits: a
             )}
           </Section>
         )}
+        {a && <AuditRequests audit={a} controls={controls.data ?? []} />}
       </div>
     </Sheet>
+  );
+}
+
+const REQ_TONE: Record<string, "warning" | "primary" | "good"> = { open: "warning", provided: "primary", accepted: "good" };
+
+/** Evidence request list ("PBC list"): auditors ask, staff answer with evidence, auditors accept. */
+function AuditRequests({ audit, controls }: { audit: any; controls: any[] }) {
+  const { can } = useAuth();
+  const { name } = usePeople();
+  const reqs = useApi<any[]>(`/audits/${audit.id}/requests`);
+  const evidence = useApi<any[]>(can("evidence.write") ? "/evidence?limit=5000" : null);
+  const [nr, setNr] = useState({ title: "", description: "", common_control_id: null as string | null, due_date: null as string | null });
+  const [reply, setReply] = useState<Record<number, { body: string; evidence_ids: string[] }>>({});
+  const inv = [`/audits/${audit.id}/requests`];
+  const add = useAction(() => api(`/audits/${audit.id}/requests`, { body: clean({ ...nr, common_control_id: nr.common_control_id ? Number(nr.common_control_id) : null }) }), { success: "Request added.", invalidate: inv, onSuccess: () => setNr({ title: "", description: "", common_control_id: null, due_date: null }) });
+  const comment = useAction((v: { id: number; body: string }) => api(`/audit-requests/${v.id}/comments`, { body: { body: v.body } }), { invalidate: inv, onSuccess: () => setReply({}) });
+  const respond = useAction((v: { id: number; body: string; evidence_ids: string[] }) => api(`/audit-requests/${v.id}/respond`, { body: { body: v.body || null, evidence_ids: v.evidence_ids.map(Number) } }), { success: "Response sent.", invalidate: inv, onSuccess: () => setReply({}) });
+  const status = useAction((v: { id: number; status: string }) => api(`/audit-requests/${v.id}/status`, { body: { status: v.status } }), { invalidate: inv });
+  const open = audit.status !== "closed";
+  const code = (id: number | null) => controls.find((c) => c.id === id)?.code;
+  return (
+    <Section title={`Evidence requests (${reqs.data?.length ?? 0})`} action={<a href={downloadUrl(`/audits/${audit.id}/pack.zip`)} className="inline-flex items-center gap-1 text-sm text-primary hover:underline"><Download className="size-4" aria-hidden /> Audit pack (ZIP)</a>}>
+      <p className="mb-3 text-xs text-muted-foreground">The audit pack holds the Statement of Applicability, approved policies, current evidence for the controls in scope and everything linked to these requests, with a manifest of SHA-256 hashes.</p>
+      <div className="space-y-2">
+        {(reqs.data ?? []).length === 0 && <p className="text-sm text-muted-foreground">No requests yet.</p>}
+        {(reqs.data ?? []).map((r) => {
+          const rp = reply[r.id] ?? { body: "", evidence_ids: [] };
+          const setRp = (v: Partial<typeof rp>) => setReply({ ...reply, [r.id]: { ...rp, ...v } });
+          return (
+            <details key={r.id} className="rounded-lg border p-3 text-sm">
+              <summary className="flex cursor-pointer flex-wrap items-center gap-2">
+                <Badge tone={REQ_TONE[r.status]}>{titleCase(r.status)}</Badge>
+                <span className="font-medium">{r.title}</span>
+                {r.common_control_id && <Badge tone="outline" className="font-mono">{code(r.common_control_id)}</Badge>}
+                {r.due_date && <span className="text-xs text-muted-foreground">due {fmtDate(r.due_date)}</span>}
+                <span className="ml-auto text-xs text-muted-foreground">{r.evidence.length} evidence · {r.comments.length} comments</span>
+              </summary>
+              <div className="mt-3 space-y-3">
+                {r.description && <p className="whitespace-pre-wrap">{r.description}</p>}
+                {r.evidence.length > 0 && (
+                  <ul className="divide-y rounded-md border">
+                    {r.evidence.map((e: any) => (
+                      <li key={e.id} className="flex items-center justify-between gap-2 px-3 py-1.5">
+                        <span className="min-w-0 truncate">{e.title} <span className="text-xs text-muted-foreground">{code(e.common_control_id)}</span></span>
+                        <span className="flex items-center">
+                          {e.attachment_id && <ViewAttachment id={e.attachment_id} filename={e.filename ?? ""} title={e.title} size="icon" />}
+                          {e.attachment_id && <a href={downloadUrl(`/attachments/${e.attachment_id}`)}><Button size="icon" variant="ghost" aria-label={`Download ${e.title}`}><Download /></Button></a>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {r.comments.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {r.comments.map((c: any) => <li key={c.id} className="rounded-md bg-muted/60 px-3 py-2"><div className="text-xs text-muted-foreground">{name(c.created_by_id)} · {fmtDate(c.created_at, true)}</div><div className="whitespace-pre-wrap">{c.body}</div></li>)}
+                  </ul>
+                )}
+                {open && (
+                  <div className="space-y-2">
+                    <Textarea aria-label="Comment" placeholder={can("evidence.write") ? "Note for the auditor (optional)" : "Comment"} value={rp.body} onChange={(e) => setRp({ body: e.target.value })} maxLength={5000} />
+                    {can("evidence.write") && <MultiSelect value={rp.evidence_ids} onChange={(v) => setRp({ evidence_ids: v })} placeholder="Link evidence…" options={(evidence.data ?? []).filter((e) => !r.common_control_id || e.common_control_id === r.common_control_id || rp.evidence_ids.includes(String(e.id))).map((e) => ({ value: String(e.id), label: `${code(e.common_control_id) ?? ""} ${e.title}` }))} />}
+                    <div className="flex flex-wrap gap-2">
+                      {can("evidence.write") && <Button size="sm" disabled={!rp.body && !rp.evidence_ids.length} loading={respond.isPending} onClick={() => respond.mutate({ id: r.id, ...rp })}>Send response</Button>}
+                      {can("audit.findings") && !can("evidence.write") && <Button size="sm" disabled={!rp.body} loading={comment.isPending} onClick={() => comment.mutate({ id: r.id, body: rp.body })}>Comment</Button>}
+                      {can("audit.findings") && r.status !== "accepted" && <Button size="sm" variant="outline" onClick={() => status.mutate({ id: r.id, status: "accepted" })}><CheckCircle2 /> Accept</Button>}
+                      {can("audit.findings") && r.status !== "open" && <Button size="sm" variant="ghost" onClick={() => status.mutate({ id: r.id, status: "open" })}>Reopen</Button>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </details>
+          );
+        })}
+      </div>
+      {open && can("audit.findings") && (
+        <div className="mt-3 space-y-2 rounded-lg border border-dashed p-3">
+          <Input aria-label="What do you need?" placeholder="What do you need? (e.g. Backup restore test results, last two quarters)" value={nr.title} onChange={(e) => setNr({ ...nr, title: e.target.value })} maxLength={300} />
+          <Textarea aria-label="Details" placeholder="Details (optional)" value={nr.description} onChange={(e) => setNr({ ...nr, description: e.target.value })} maxLength={5000} />
+          <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
+            <Select value={nr.common_control_id} onChange={(v) => setNr({ ...nr, common_control_id: v })} allowEmpty emptyLabel="No specific control" ariaLabel="Control" options={controls.map((c) => ({ value: String(c.id), label: `${c.code} ${c.title}` }))} />
+            <DateInput value={nr.due_date} onChange={(v) => setNr({ ...nr, due_date: v })} ariaLabel="Due date" />
+          </div>
+          <Button size="sm" disabled={!nr.title} loading={add.isPending} onClick={() => add.mutate(undefined)}><Plus /> Add request</Button>
+        </div>
+      )}
+    </Section>
   );
 }
 

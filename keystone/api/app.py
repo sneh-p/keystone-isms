@@ -32,7 +32,9 @@ def security_headers() -> dict[str, str]:
         "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "same-origin",
         "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-        "Content-Security-Policy": f"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors {ancestors}; base-uri 'self'; form-action 'self'",
+        # frame-src blob: lets the document viewer show a PDF the app fetched itself; the viewer only ever creates
+        # blobs with a type it sets (application/pdf), never one taken from the server or the file (SC-XSS).
+        "Content-Security-Policy": f"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; frame-ancestors {ancestors}; base-uri 'self'; form-action 'self'",
     }
     if ancestors == "'self'":
         headers["X-Frame-Options"] = "SAMEORIGIN"
