@@ -10,6 +10,24 @@ The sidebar groups screens by area; click a group heading to fold it away (Keyst
 **Improvement** (nonconformities, audits, management review) and **Settings** each have tabs across the top.
 Press Ctrl+K (⌘K on a Mac) to jump to any screen by name.
 
+The **Overview** starts with **Next steps**: up to four gaps worth closing next, worked out from your data (scope not
+approved, controls without an owner, draft policies, approvals waiting, implemented controls without evidence, no
+integration connected, employees with portal tasks open, Trust Center not published). Each links to a filtered list.
+The figures below it link to their registers and show how they moved over the last 12 weeks: hover the small line for
+a week's value. Keystone records the figures once a day; the line shows the last value of each week.
+
+**Registers.** Filters on Controls (domain, status, owner, needs attention) and Tasks (assignee, framework, control,
+due window) are kept in the page address, so you can bookmark or share a filtered view. Tick rows to change several at
+once: owner and status for controls (marking not applicable stays one at a time, with a reason), assignee and due
+date for open tasks (list view). Every changed record gets its own audit entry, and if any one change is refused,
+nothing changes. Control and risk details open read-only; choose **Edit** to change them. Keystone asks before
+discarding unsaved edits.
+
+**Import from CSV.** Assets, Risks, Vendors and People have **Import CSV**. Download the template, fill it in (one row
+per record; owners by username or email; dates as YYYY-MM-DD; yes/no for flags), and choose the file. Keystone checks
+every row with the same rules as the forms and lists the problems by row number. Nothing is saved until every row is
+valid and you confirm; the import is all or nothing, up to 1,000 rows at a time.
+
 ## Getting started (ISMS manager)
 
 1. **Onboarding wizard**: after the first sign-in, describe the company (size, where systems are

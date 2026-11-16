@@ -1,3 +1,5 @@
+import { useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "./api";
@@ -26,4 +28,29 @@ export function usePeople() {
   const q = useApi<Person[]>("/people-directory");
   const byId = new Map((q.data ?? []).map((p) => [p.id, p.display_name]));
   return { people: q.data ?? [], name: (id?: number | null) => (id ? byId.get(id) ?? `User ${id}` : "—") };
+}
+
+/**
+ * Warns before unsaved edits are lost: `confirmDiscard()` asks when `dirty`, and leaving or reloading the page
+ * triggers the browser's own prompt.
+ */
+export function useUnsavedGuard(dirty: boolean) {
+  useEffect(() => {
+    if (!dirty) return;
+    const fn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", fn);
+    return () => window.removeEventListener("beforeunload", fn);
+  }, [dirty]);
+  return () => !dirty || window.confirm("Discard your unsaved changes?");
+}
+
+/** One filter kept in the URL query string (shareable, and linkable from the dashboard). */
+export function useUrlFilter(key: string) {
+  const [params, setParams] = useSearchParams();
+  const set = useCallback((v: string | null) => setParams((prev) => {
+    const next = new URLSearchParams(prev);
+    if (v) next.set(key, v); else next.delete(key);
+    return next;
+  }), [key, setParams]);
+  return [params.get(key), set] as const;
 }

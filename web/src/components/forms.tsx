@@ -27,8 +27,8 @@ export function EnumSelect({ value, onChange, values, allowEmpty, disabled, labe
   return <Select value={value ?? null} onChange={onChange} allowEmpty={allowEmpty} options={values.map((v) => ({ value: v, label: labels?.[v] ?? titleCase(v) }))} disabled={disabled} />;
 }
 
-export function DateInput({ value, onChange, disabled }: { value: string | null | undefined; onChange: (v: string | null) => void; disabled?: boolean }) {
-  return <Input type="date" value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} disabled={disabled} />;
+export function DateInput({ value, onChange, disabled, ariaLabel }: { value: string | null | undefined; onChange: (v: string | null) => void; disabled?: boolean; ariaLabel?: string }) {
+  return <Input type="date" value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} disabled={disabled} aria-label={ariaLabel} />;
 }
 
 export function TriSelect({ value, onChange, disabled }: { value: boolean | null | undefined; onChange: (v: boolean | null) => void; disabled?: boolean }) {

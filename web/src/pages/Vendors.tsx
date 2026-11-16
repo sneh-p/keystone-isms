@@ -16,6 +16,7 @@ import { LevelBadge, StatusBadge } from "@/components/ui/status";
 import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
 import { clean, DateInput, EnumSelect, OwnerSelect } from "@/components/forms";
+import { ImportButton } from "@/components/ImportDialog";
 
 const TIER_TONE: Record<number, any> = { 1: "critical", 2: "serious", 3: "warning", 4: "neutral" };
 
@@ -28,7 +29,7 @@ export default function Vendors() {
   const a = data.attention;
   return (
     <div className="animate-fade-in">
-      <PageHeader icon={Handshake} title="Vendors" description="Suppliers and service providers, tiered by the data they handle and the access they have." actions={can("vendor.write") && <Button onClick={() => setParams({ open: "new" })}><Plus /> New vendor</Button>} />
+      <PageHeader icon={Handshake} title="Vendors" description="Suppliers and service providers, tiered by the data they handle and the access they have." actions={can("vendor.write") && <><ImportButton register="vendors" noun="vendors" invalidate={["/vendors", "/dashboard"]} /><Button onClick={() => setParams({ open: "new" })}><Plus /> New vendor</Button></>} />
       <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Reviews overdue" value={a.review_overdue.length} tone={a.review_overdue.length ? "warning" : undefined} />
         <Stat label="Contracts ending soon" value={a.contract_ending.length} />

@@ -115,3 +115,20 @@ def session_scope(actor=None) -> Iterator[Session]:
         raise
     finally:
         session.close()
+
+
+@contextmanager
+def rollback_scope(actor=None) -> Iterator[Session]:
+    """A session whose work is always rolled back: for dry runs that must apply real rules but save nothing.
+    Callers holding another write transaction (SQLite) must commit it first, or this session waits for its lock."""
+    if _SessionLocal is None:
+        configure()
+    if _SessionLocal is None:
+        raise RuntimeError("Database is not configured.")
+    session = _SessionLocal()
+    session.info["actor"] = actor
+    try:
+        yield session
+    finally:
+        session.rollback()
+        session.close()

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from keystone.controls.models import Evidence
 from keystone.core.attachments import Attachment, attachments_for, save_attachment
 from keystone.core.db import utcnow
-from keystone.core.services import apply_fields, authorize, get_or_404, require_text, today
+from keystone.core.services import apply_fields, authorize, bulk_targets, get_or_404, require_active_user, require_text, today
 from keystone.core.settings import PROJECT_ROOT
 from keystone.frameworks.models import CommonControl
 
@@ -49,6 +49,21 @@ def save_task(session: Session, actor, task_id: int | None = None, *, control_id
     session.add(t)
     session.flush()
     return t
+
+
+def bulk_update_tasks(session: Session, actor, ids: list[int], **fields) -> list[Task]:
+    """Reassign and/or reschedule many open tasks at once; all-or-nothing, each change audited per task."""
+    authorize(session, actor, "task.write")
+    if not fields or set(fields) - {"assignee_id", "due_date"}:
+        raise ValueError("Bulk changes can set the assignee and the due date only.")
+    if "assignee_id" in fields:
+        require_active_user(session, fields["assignee_id"])
+    targets = bulk_targets(session, Task, ids)
+    if any(t.status in ("done", "not_relevant") for t in targets):
+        raise ValueError("Completed tasks are records and cannot be edited; deselect them.")
+    for t in targets:
+        save_task(session, actor, t.id, **fields)
+    return targets
 
 
 def start(session: Session, actor, task_id: int) -> Task:

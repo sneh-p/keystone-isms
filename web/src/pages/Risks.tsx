@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from "recharts";
-import { Calculator, CheckCircle2, Gauge, Plus, ShieldAlert } from "lucide-react";
+import { Calculator, CheckCircle2, Gauge, Pencil, Plus, ShieldAlert } from "lucide-react";
 import { api } from "@/lib/api";
-import { useAction, useApi, usePeople } from "@/lib/hooks";
+import { useAction, useApi, usePeople, useUnsavedGuard } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { fmtDate, fmtMoney, fmtNum, titleCase } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
 import { HeatMap } from "@/components/viz/HeatMap";
 import { clean, DateInput, EnumSelect, OwnerSelect, RangeInput } from "@/components/forms";
+import { ImportButton } from "@/components/ImportDialog";
 
 const CATEGORIES = ["strategic", "operational", "technology", "third_party", "compliance", "people", "physical", "privacy"];
 const TREATMENTS = ["mitigate", "accept", "transfer", "avoid"];
@@ -39,7 +40,7 @@ export default function Risks() {
   return (
     <div className="animate-fade-in">
       <PageHeader icon={Gauge} title="Risk register" description={`Risk appetite: residual risk up to ${matrix.data.appetite_max_level}. Matrix and appetite are calibration starting points in config/risk_matrix.yaml.`}
-        actions={can("risk.write") && <Button onClick={() => setParams({ open: "new" })}><Plus /> New risk</Button>} />
+        actions={can("risk.write") && <><ImportButton register="risks" noun="risks" invalidate={["/risks", "/dashboard"]} /><Button onClick={() => setParams({ open: "new" })}><Plus /> New risk</Button></>} />
       <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Open risks" value={data.risks.filter((r: any) => r.status !== "closed").length} />
         <Stat label="Above appetite, untreated" value={att.above_appetite_untreated.length} tone={att.above_appetite_untreated.length ? "critical" : undefined} />
@@ -85,11 +86,19 @@ export default function Risks() {
 function RiskDrawer({ id, matrix, onClose, onCreated }: { id: string; matrix: any; onClose: () => void; onCreated: (id: number) => void }) {
   const isNew = id === "new";
   const { data } = useApi<any>(isNew ? null : `/risks/${id}`);
+  const { can } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const confirmDiscard = useUnsavedGuard(dirty);
+  const stopEditing = () => { setEditing(false); setDirty(false); };
   return (
-    <Sheet open onOpenChange={(o) => !o && onClose()} title={isNew ? "New risk" : data ? `${data.ref} · ${data.title}` : "Loading…"} subtitle={!isNew && data ? <span className="flex items-center gap-2"><StatusBadge status={data.status} /> <LevelBadge level={data.current_level} /></span> : undefined}>
-      {isNew ? <RiskForm matrix={matrix} onSaved={(r) => onCreated(r.id)} /> : !data ? <Skeleton className="h-64" /> : (
+    <Sheet open onOpenChange={(o) => { if (!o && confirmDiscard()) onClose(); }} title={isNew ? "New risk" : data ? `${data.ref} · ${data.title}` : "Loading…"} subtitle={!isNew && data ? <span className="flex items-center gap-2"><StatusBadge status={data.status} /> <LevelBadge level={data.current_level} /></span> : undefined}
+      actions={!isNew && data && can("risk.write") && !editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil /> Edit</Button>}>
+      {isNew ? <RiskForm matrix={matrix} onSaved={(r) => onCreated(r.id)} onDirty={setDirty} /> : !data ? <Skeleton className="h-64" /> : (
         <Tabs tabs={[
-          { value: "details", label: "Details", content: <RiskForm risk={data} matrix={matrix} /> },
+          { value: "details", label: "Details", content: editing
+            ? <RiskForm risk={data} matrix={matrix} onDirty={setDirty} onSaved={stopEditing} onCancel={() => { if (confirmDiscard()) stopEditing(); }} />
+            : <RiskView risk={data} matrix={matrix} /> },
           { value: "treat", label: `Treatment (${data.actions.length})`, content: <Treatment risk={data} /> },
           { value: "fair", label: "FAIR", content: <Fair risk={data} /> },
         ]} />
@@ -113,7 +122,34 @@ function LI({ label, lk, im, matrix, onL, onI, disabled }: any) {
   );
 }
 
-function RiskForm({ risk, matrix, onSaved }: { risk?: any; matrix: any; onSaved?: (r: any) => void }) {
+function RiskView({ risk, matrix }: { risk: any; matrix: any }) {
+  const { name } = usePeople();
+  const assets = useApi<any[]>("/assets");
+  const controls = useApi<any[]>("/controls");
+  const li = (l: number | null, i: number | null) => (l && i ? <span className="flex flex-wrap items-center gap-2"><LevelBadge level={matrix.grid[i - 1][l - 1]} /> likelihood {l} · {matrix.likelihood[l]}, impact {i} · {matrix.impact[i]}</span> : "Not assessed");
+  const text = (v: string | null) => v || <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="space-y-5">
+      <KeyValue items={[
+        ["Category", titleCase(risk.category)],
+        ["Risk owner", risk.owner_id ? name(risk.owner_id) : "No owner"],
+        ["Inherent risk", li(risk.inherent_likelihood, risk.inherent_impact)],
+        ["Residual risk", li(risk.residual_likelihood, risk.residual_impact)],
+        ["Treatment", risk.treatment_option ? titleCase(risk.treatment_option) : "Not decided"],
+        ["Next review", fmtDate(risk.review_date)],
+      ]} />
+      <KeyValue items={[["Description", text(risk.description)], ["Threat", text(risk.threat)], ["Vulnerability", text(risk.vulnerability)], ["Consequence", text(risk.consequence)], ["Treatment rationale", text(risk.treatment_rationale)]]} />
+      <div className="space-y-2 text-sm">
+        <div className="font-medium">Affected assets</div>
+        <div className="flex flex-wrap gap-1.5">{risk.asset_ids.length ? risk.asset_ids.map((a: number) => <Badge key={a} tone="outline">{assets.data?.find((x) => x.id === a)?.name ?? `Asset ${a}`}</Badge>) : <span className="text-muted-foreground">None linked</span>}</div>
+        <div className="pt-2 font-medium">Treating controls</div>
+        <div className="flex flex-wrap gap-1.5">{risk.control_ids.length ? risk.control_ids.map((c: number) => { const x = controls.data?.find((y) => y.id === c); return <Link key={c} to={`/controls?open=${c}`}><Badge tone="primary" className="font-mono">{x ? x.code : `Control ${c}`}</Badge></Link>; }) : <span className="text-muted-foreground">None linked</span>}</div>
+      </div>
+    </div>
+  );
+}
+
+function RiskForm({ risk, matrix, onSaved, onDirty, onCancel }: { risk?: any; matrix: any; onSaved?: (r: any) => void; onDirty?: (d: boolean) => void; onCancel?: () => void }) {
   const { can } = useAuth();
   const assets = useApi<any[]>("/assets");
   const controls = useApi<any[]>("/controls");
@@ -131,6 +167,8 @@ function RiskForm({ risk, matrix, onSaved }: { risk?: any; matrix: any; onSaved?
   const save = useAction((body: any) => (risk ? api(`/risks/${risk.id}`, { method: "PATCH", body }) : api("/risks", { body })), { success: "Risk saved.", invalidate: ["/risks", "/dashboard", "/soa", "/controls"], onSuccess: onSaved });
   const editable = can("risk.write");
   const submit = () => save.mutate({ ...clean(f), asset_ids: f.asset_ids.map(Number), control_ids: f.control_ids.map(Number) });
+  const dirty = JSON.stringify(f) !== JSON.stringify(init());
+  useEffect(() => { onDirty?.(dirty); }, [dirty, onDirty]);
   return (
     <div className="space-y-4">
       <Field label="Title" required><Input value={f.title} onChange={(e) => s("title")(e.target.value)} disabled={!editable} /></Field>
@@ -155,7 +193,12 @@ function RiskForm({ risk, matrix, onSaved }: { risk?: any; matrix: any; onSaved?
       <Field label="Treatment rationale"><Textarea value={f.treatment_rationale} onChange={(e) => s("treatment_rationale")(e.target.value)} disabled={!editable} /></Field>
       <Field label="Affected assets"><MultiSelect value={f.asset_ids} onChange={s("asset_ids")} options={(assets.data ?? []).map((a) => ({ value: String(a.id), label: a.name }))} /></Field>
       <Field label="Treating controls"><MultiSelect value={f.control_ids} onChange={s("control_ids")} options={(controls.data ?? []).map((c) => ({ value: String(c.id), label: `${c.code} ${c.title}` }))} /></Field>
-      {editable && <Button loading={save.isPending} onClick={submit}>{risk ? "Save changes" : "Create risk"}</Button>}
+      {editable && (
+        <div className="flex gap-2">
+          <Button loading={save.isPending} disabled={!!risk && !dirty} onClick={submit}>{risk ? "Save changes" : "Create risk"}</Button>
+          {onCancel && <Button variant="ghost" onClick={onCancel}>Cancel</Button>}
+        </div>
+      )}
     </div>
   );
 }

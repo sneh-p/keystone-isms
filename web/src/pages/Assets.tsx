@@ -12,6 +12,7 @@ import { PageHeader, Skeleton } from "@/components/ui/misc";
 import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/table";
 import { clean, EnumSelect, OwnerSelect } from "@/components/forms";
+import { ImportButton } from "@/components/ImportDialog";
 
 const TYPES = ["information", "application", "hardware", "software", "cloud_service", "service", "people", "site"];
 const CLASSES = ["public", "internal", "confidential", "restricted"];
@@ -29,7 +30,7 @@ export default function Assets() {
   const blank = { name: "", asset_type: "information", classification: "internal", confidentiality: 3, integrity: 3, availability: 3, contains_personal_data: false, owner_id: null, location: "", custodian: "", description: "", status: "active", tags: "" };
   return (
     <div className="animate-fade-in">
-      <PageHeader icon={Boxes} title="Assets" description="Information, systems, services and sites in scope, with owners and CIA ratings." actions={can("asset.write") && <Button onClick={() => setEdit(blank)}><Plus /> New asset</Button>} />
+      <PageHeader icon={Boxes} title="Assets" description="Information, systems, services and sites in scope, with owners and CIA ratings." actions={can("asset.write") && <><ImportButton register="assets" noun="assets" invalidate={["/assets", "/dashboard"]} /><Button onClick={() => setEdit(blank)}><Plus /> New asset</Button></>} />
       <DataTable
         rows={data}
         rowKey={(a: any) => a.id}

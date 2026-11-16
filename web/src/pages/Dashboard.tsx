@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowRight, CheckCircle2, Gauge, Handshake, LayoutDashbo
 import { useApi } from "@/lib/hooks";
 import { fmtDate, daysUntil, cn } from "@/lib/utils";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { PageHeader, Progress, Skeleton, Stat, Empty } from "@/components/ui/misc";
+import { PageHeader, Progress, Skeleton, Stat, Empty, type StatTrend } from "@/components/ui/misc";
 import { HeatMap } from "@/components/viz/HeatMap";
 import { StatusBar, CONTROL_SEGMENTS } from "@/components/viz/StatusBar";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ export default function Dashboard() {
   const nav = useNavigate();
   if (isLoading || !data) return <div className="space-y-4"><Skeleton className="h-10 w-72" /><div className="grid gap-4 md:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-24" />)}</div><Skeleton className="h-72" /></div>;
   const lv = data.risk_levels;
+  const trend = (key: string, upIsGood: boolean | null): StatTrend | undefined =>
+    data.trend?.series?.[key] ? { values: data.trend.series[key], days: data.trend.days, upIsGood } : undefined;
   return (
     <div className="animate-fade-in">
       <PageHeader icon={LayoutDashboard} title={data.org?.name ?? "Overview"} description={data.org ? (data.org.scope_approved ? "ISMS scope approved." : "ISMS scope not approved yet.") : "Start by setting up your organisation."}
@@ -27,12 +29,33 @@ export default function Dashboard() {
           </div>
         </Card>
       )}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Stat label="Open risks" value={data.open_risks} icon={Gauge} hint={`${lv.Critical + lv.High} critical or high`} tone={lv.Critical ? "critical" : undefined} />
-        <Stat label="Open incidents" value={data.open_incidents} icon={Siren} tone={data.open_incidents ? "warning" : undefined} />
-        <Stat label="Open nonconformities" value={data.open_ncs} icon={Wrench} />
-        <Stat label="Vendors" value={data.vendors} icon={Handshake} />
-        <Stat label="Controls audited (3 yrs)" value={`${data.audit_coverage_pct}%`} icon={ShieldCheck} />
+      {data.next_steps.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader title="Next steps" description="The gaps that move readiness most, in the order to tackle them." />
+          <CardBody className="p-0">
+            <ol className="grid divide-y sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
+              {data.next_steps.map((s: any, i: number) => (
+                <li key={s.key} className="sm:border-t sm:[&:nth-child(-n+2)]:border-t-0 lg:border-t-0">
+                  <Link to={s.page} className="flex h-full gap-3 p-4 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary" aria-hidden>{i + 1}</span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">{s.title}</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">{s.detail}</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          </CardBody>
+        </Card>
+      )}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+        <Stat label="Open risks" value={data.open_risks} icon={Gauge} to="/risks" hint={`${lv.Critical + lv.High} critical or high`} tone={lv.Critical ? "critical" : undefined} trend={trend("open_risks", false)} />
+        <Stat label="Open incidents" value={data.open_incidents} icon={Siren} to="/incidents" tone={data.open_incidents ? "warning" : undefined} trend={trend("open_incidents", false)} />
+        <Stat label="Open nonconformities" value={data.open_ncs} icon={Wrench} to="/nonconformities" trend={trend("open_ncs", false)} />
+        <Stat label="Vendors" value={data.vendors} icon={Handshake} to="/vendors" trend={trend("vendors", null)} />
+        <Stat label="Controls audited in 3 years" value={<>{data.audit_coverage.audited} <span className="text-base font-normal text-muted-foreground">of {data.audit_coverage.applicable}</span></>} icon={ShieldCheck} to="/audits"
+          hint={`${data.audit_coverage_pct}% of applicable controls`} trend={trend("controls_audited", true)} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

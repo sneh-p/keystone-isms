@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from keystone.core.attachments import save_attachment
 from keystone.core.db import utcnow
-from keystone.core.services import authorize, get_or_404, require_text, today
+from keystone.core.services import authorize, bulk_targets, get_or_404, require_active_user, require_text, today
 from keystone.frameworks.models import CONTROL_STATUSES, CommonControl, Framework, Requirement
 from keystone.frameworks.service import derive_status, leaf_requirements
 from keystone.risk.models import Risk, risk_controls
@@ -43,6 +43,21 @@ def update_control(session: Session, actor, control_id: int, **fields) -> Common
         c.next_review_date = today() + timedelta(days=c.review_interval_days)
     session.flush()
     return c
+
+
+def bulk_update_controls(session: Session, actor, ids: list[int], **fields) -> list[CommonControl]:
+    """Set the owner and/or status of many controls at once; all-or-nothing, each change audited per control."""
+    authorize(session, actor, "control.write")
+    if not fields or set(fields) - {"status", "owner_id"}:
+        raise ValueError("Bulk changes can set the owner and the status only.")
+    if fields.get("status") == "not_applicable":
+        raise ValueError("Mark controls not applicable one at a time, with the reason for each.")
+    if "owner_id" in fields:
+        require_active_user(session, fields["owner_id"])
+    targets = bulk_targets(session, CommonControl, ids)
+    for c in targets:
+        update_control(session, actor, c.id, **fields)
+    return targets
 
 
 def review_control(session: Session, actor, control_id: int) -> CommonControl:

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from keystone.audits import service as aud
@@ -12,6 +13,7 @@ from keystone.frameworks import service as fw
 from keystone.improvement import service as imp
 from keystone.incidents import service as inc
 from keystone.policies import service as pol
+from keystone.reporting.models import MetricSnapshot
 from keystone.risk import service as risk
 from keystone.tprm import service as tprm
 
@@ -32,6 +34,7 @@ def overview(session: Session, on: date | None = None) -> dict:
     vatt = tprm.vendor_attention(session, on)
     patt = pol.policy_attention(session, on)
     coverage = [(f.name + " " + f.version, fw.coverage_summary(fw.coverage(session, f.id))) for f in fw.frameworks(session)]
+    audit_cov = aud.control_coverage(session, on)
     attention = []
 
     def add(n, text, page):
@@ -69,9 +72,95 @@ def overview(session: Session, on: date | None = None) -> dict:
         "open_incidents": len(iatt["open"]),
         "open_ncs": len(natt["open"]),
         "vendors": len(tprm.list_vendors(session)),
-        "audit_coverage_pct": aud.control_coverage(session, on)["pct"],
+        "audit_coverage_pct": audit_cov["pct"],
+        "audit_coverage": {"audited": audit_cov["audited"], "applicable": audit_cov["applicable"]},
         "attention": attention,
     }
+
+
+def next_steps(session: Session, limit: int = 4) -> list[dict]:
+    """The most useful things to do next, from real gaps in the ISMS, in setup order. Each has a count and a page."""
+    from keystone.frameworks.models import CommonControl
+    from keystone.integrations.models import Integration
+    from keystone.org.service import get_org
+    from keystone.people import service as ppl
+    from keystone.trust.models import TrustSettings
+
+    steps: list[dict] = []
+
+    def add(n: int, key: str, title: str, detail: str, page: str) -> None:
+        if n:
+            steps.append({"key": key, "count": n, "title": title, "detail": detail, "page": page})
+
+    org = get_org(session)
+    add(int(bool(org and not org.scope_approved_at)), "scope", "Approve the ISMS scope", "The scope statement is the first thing an auditor reads.", "/settings/organisation")
+    unowned = session.scalar(select(func.count()).select_from(CommonControl).where(CommonControl.owner_id.is_(None), CommonControl.status != "not_applicable")) or 0
+    add(unowned, "owners", f"Assign owners to {unowned} control{'s' if unowned != 1 else ''}", "Every applicable control needs someone accountable for it.", "/controls?owner=none")
+    patt = pol.policy_attention(session)
+    drafts = len(patt["never_approved"])
+    add(drafts, "policies", f"Finish and approve {drafts} draft polic{'ies' if drafts != 1 else 'y'}", "Policies count towards readiness once approved.", "/policies")
+    add(len(patt["awaiting_approval"]), "approvals", f"Review {len(patt['awaiting_approval'])} policy version{'s' if len(patt['awaiting_approval']) != 1 else ''} awaiting approval", "Someone other than the author must approve.", "/policies")
+    no_ev = len(ctl.control_attention(session)["implemented_without_evidence"])
+    add(no_ev, "evidence", f"Upload evidence for {no_ev} implemented control{'s' if no_ev != 1 else ''}", "Without current evidence, implemented controls don't count as passing.", "/controls?flag=no_evidence")
+    has_integration = session.scalar(select(func.count()).select_from(Integration)) or 0
+    add(int(not has_integration), "integrations", "Connect an integration", "Automated checks collect evidence for you (GitHub, AWS, website).", "/integrations")
+    not_ready = sum(1 for _, st in ppl.people_overview(session) if st is not None and not st.complete)
+    add(not_ready, "people", f"Follow up {not_ready} employee{'s' if not_ready != 1 else ''} with portal tasks open", "Policies to accept, training or a device check outstanding.", "/people")
+    trust = session.scalar(select(TrustSettings))
+    add(int(trust is None or not trust.published), "trust", "Publish your Trust Center", "Share your security posture with customers and handle document requests.", "/trust-center")
+    return steps[:limit]
+
+
+# ---- trends --------------------------------------------------------------------------------------
+
+TREND_POINTS = 12
+
+
+def metrics(session: Session, on: date | None = None, ov: dict | None = None) -> dict[str, float]:
+    """Headline numbers for one day. Stored daily so the dashboard can show how they moved."""
+    ov = ov or overview(session, on)
+    cov = [c for _, c in ov["coverage"]]
+    from keystone.tasks import service as tsk
+
+    on = on or date.today()
+    return {
+        "open_risks": ov["open_risks"],
+        "high_risks": ov["risk_levels"]["Critical"] + ov["risk_levels"]["High"],
+        "open_incidents": ov["open_incidents"],
+        "open_ncs": ov["open_ncs"],
+        "vendors": ov["vendors"],
+        "controls_audited": ov["audit_coverage"]["audited"],
+        "controls_implemented": ov["control_status"].get("implemented", 0),
+        "readiness_pct": round(sum(c["progress_pct"] for c in cov) / len(cov), 1) if cov else 0.0,
+        "tasks_overdue": sum(1 for t in tsk.list_tasks(session, include_closed=False) if tsk.overdue(t, on)),
+    }
+
+
+def take_snapshot(session: Session, on: date | None = None) -> MetricSnapshot:
+    """Record today's metrics (idempotent: re-running the same day replaces that day's values)."""
+    on = on or date.today()
+    values = metrics(session, on)
+    snap = session.scalar(select(MetricSnapshot).where(MetricSnapshot.day == on))
+    if snap is None:
+        snap = MetricSnapshot(day=on, values=values, taken_at=datetime.now())
+        session.add(snap)
+    else:
+        snap.values, snap.taken_at = values, datetime.now()
+    session.flush()
+    return snap
+
+
+def trend(session: Session, current: dict[str, float], on: date | None = None, points: int = TREND_POINTS) -> dict:
+    """Weekly series (the last snapshot in each of the previous weeks) ending with today's live values."""
+    on = on or date.today()
+    week_start = on - timedelta(days=on.weekday())
+    since = week_start - timedelta(weeks=points - 1)
+    weekly: dict[date, MetricSnapshot] = {}
+    for s in session.scalars(select(MetricSnapshot).where(MetricSnapshot.day >= since, MetricSnapshot.day < week_start).order_by(MetricSnapshot.day)):
+        weekly[s.day - timedelta(days=s.day.weekday())] = s
+    days = [s.day.isoformat() for s in weekly.values()] + [on.isoformat()]
+    series = {k: [s.values.get(k) for s in weekly.values()] + [v] for k, v in current.items()}
+    return {"days": days, "series": series}
 
 
 def my_tasks(session: Session, user, on: date | None = None) -> list[dict]:

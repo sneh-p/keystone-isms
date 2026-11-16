@@ -4,6 +4,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import Response
+from pydantic import Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,7 @@ from keystone.frameworks.models import CommonControl, Framework, STATUS_LABELS
 from keystone.org.service import get_org
 from keystone.reporting import exports
 from keystone.risk.models import Risk, risk_controls
+from keystone.tasks import service as tsk
 
 from ..deps import get_db, perm
 from ..serialize import ser
@@ -91,11 +93,17 @@ def controls(user=Depends(perm("read")), db: Session = Depends(get_db)):
     att = ctl.control_attention(db)
     no_ev = {c.id for c in att["implemented_without_evidence"]}
     overdue = {c.id for c in att["review_overdue"]}
+    current: dict[int, int] = {}
+    for e in db.scalars(select(Evidence).where(Evidence.superseded.is_(False))):
+        if ctl.evidence_state(e) in ("current", "expiring"):
+            current[e.common_control_id] = current.get(e.common_control_id, 0) + 1
     out = []
     for c in fw.controls(db):
         d = control_summary(c)
         d["needs_evidence"] = c.id in no_ev
         d["review_overdue"] = c.id in overdue
+        d["evidence_current"] = current.get(c.id, 0)
+        d["readiness"] = tsk.control_readiness(db, c).score if c.status != "not_applicable" else None
         out.append(d)
     return out
 
@@ -121,6 +129,17 @@ class ControlPatch(In):
 @router.patch("/controls/{cid}")
 def update_control(cid: int, body: ControlPatch, user=Depends(perm("control.write")), db: Session = Depends(get_db)):
     return control_summary(ctl.update_control(db, user, cid, **body.model_dump(exclude_unset=True)))
+
+
+class ControlBulkIn(In):
+    ids: list[int] = Field(min_length=1, max_length=500)
+    status: str | None = None
+    owner_id: int | None = None
+
+
+@router.post("/controls/bulk")
+def bulk_update_controls(body: ControlBulkIn, user=Depends(perm("control.write")), db: Session = Depends(get_db)):
+    return {"updated": len(ctl.bulk_update_controls(db, user, body.ids, **body.model_dump(exclude_unset=True, exclude={"ids"})))}
 
 
 @router.post("/controls/{cid}/review")

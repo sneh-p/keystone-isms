@@ -22,3 +22,12 @@ def run_due_integrations() -> None:
                 integ.run(s, None, iid)
         except Exception:  # noqa: BLE001 - one failing integration must not stop the others
             _LOG.exception("integration %s failed", iid)
+
+
+@register("metric-snapshot", minutes=360)
+def snapshot_metrics() -> None:
+    """Record today's headline numbers for dashboard trends (idempotent per day)."""
+    from keystone.reporting import dashboard
+
+    with db.session_scope() as s:
+        dashboard.take_snapshot(s)

@@ -25,7 +25,7 @@ this straight away after deploying.
 
 One process serves everything: the web app, the API under `/api` (interactive docs at `/api/docs` only
 when `KEYSTONE_API_DOCS=1`), the public Trust Center under `/trust/<slug>`, and a background scheduler that
-runs integration checks every 15 minutes. Run **one** instance per database, or set
+runs integration checks every 15 minutes and records the dashboard's daily figures (for its trend lines). Run **one** instance per database, or set
 `KEYSTONE_DISABLE_SCHEDULER=1` on all but one.
 
 ### Behind nginx (HTTPS)

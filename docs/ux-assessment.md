@@ -6,6 +6,16 @@ practices) on every screen, an open drawer, the sign-in page, the employee porta
 keyboard focus checks; load timing; and a heuristic review of the core journeys (onboarding, tasks, controls, risks,
 policies, portal, Trust Center).
 
+## Status
+
+| Group | Findings | Status |
+|---|---|---|
+| Accessibility and bugs | A1–A7, B1–B2 | Done (commit "UX phase 1"); axe-core WCAG 2.1 AA check in the e2e suite |
+| Navigation and naming | N1–N4 | Done (commit "UX phase 2") |
+| Dashboard and registers | D1–D3, R1–R5 | Done (commit "UX phase 3"). Also: two-column KPI grid on phones (part of M1), keyboard-operable table rows |
+| Phones, Trust Center, speed | M1–M3, T1–T2, P1 | Next |
+| Features | Notifications, vendor portal, auditor workspace, SSO | Planned, each with a security design note (SC-AGT-006) |
+
 ## Summary
 
 The product looks consistent and modern, loads quickly (median 0.86 s per screen, no console errors), has no

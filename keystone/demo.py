@@ -5,7 +5,7 @@ Everything is invented (".example" domains, made-up people). Never put real data
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -155,7 +155,33 @@ def seed(session: Session, admin) -> dict:
     rv = reviews.create_review(session, mia, title="Management review Q4", held_on=date.today(), attendees="CEO, CFO, ISO (Mia Novak)")
     reviews.update_review(session, mia, rv.id, discussion="Phishing incident and MFA gap discussed.", decisions="Approve budget for phishing-resistant MFA.", actions="Lena Fischer: FIDO2 for all staff by end of Q1.")
     _seed_workflows(session, people, fab, nw)
+    _seed_trend_history(session)
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
+
+
+def _seed_trend_history(session: Session, weeks: int = 11) -> None:
+    """Fictional weekly snapshots so the demo dashboard has trends: earlier weeks had more open work."""
+    from keystone.reporting import dashboard
+    from keystone.reporting.models import MetricSnapshot
+
+    now = dashboard.metrics(session)
+    today = date.today()
+    sunday = today - timedelta(days=today.weekday() + 1)
+    for w in range(weeks, 0, -1):
+        day = sunday - timedelta(weeks=w - 1)
+        f = (w + 1) / (weeks + 1)  # near 1.0 for the oldest week, falling towards last week
+        v = dict(now)
+        v["readiness_pct"] = round(max(0.0, now["readiness_pct"] * (1 - 0.6 * f)), 1)
+        v["controls_implemented"] = round(now["controls_implemented"] * (1 - 0.6 * f))
+        v["controls_audited"] = round(now["controls_audited"] * (1 - f))
+        v["open_risks"] = now["open_risks"] + round(3 * f)
+        v["high_risks"] = now["high_risks"] + round(2 * f)
+        v["tasks_overdue"] = now["tasks_overdue"] + round(6 * f)
+        v["open_incidents"] = now["open_incidents"] + (1 if w in (4, 5) else 0)
+        v["open_ncs"] = max(0, now["open_ncs"] - (1 if w > 6 else 0))
+        v["vendors"] = max(1, now["vendors"] - (1 if w > 8 else 0))
+        session.add(MetricSnapshot(day=day, values=v, taken_at=datetime.combine(day, datetime.min.time())))
+    session.flush()
 
 
 def _seed_workflows(session: Session, people: dict, fab, nw) -> None:

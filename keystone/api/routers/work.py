@@ -3,6 +3,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 from keystone.core.attachments import attachments_for
@@ -51,6 +52,17 @@ class TaskIn(In):
 @router.post("/tasks")
 def create(body: TaskIn, user=Depends(perm("task.write")), db: Session = Depends(get_db)):
     return task_out(db, tsk.save_task(db, user, **body.model_dump(exclude_unset=True)), True)
+
+
+class TaskBulkIn(In):
+    ids: list[int] = Field(min_length=1, max_length=500)
+    assignee_id: int | None = None
+    due_date: date | None = None
+
+
+@router.post("/tasks/bulk")
+def bulk_update(body: TaskBulkIn, user=Depends(perm("task.write")), db: Session = Depends(get_db)):
+    return {"updated": len(tsk.bulk_update_tasks(db, user, body.ids, **body.model_dump(exclude_unset=True, exclude={"ids"})))}
 
 
 @router.patch("/tasks/{tid}")

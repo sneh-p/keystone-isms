@@ -48,3 +48,32 @@ def authorize(session: Session, actor, permission: str) -> None:
 
     require(actor, permission)
     session.info["actor"] = actor
+
+
+BULK_MAX = 500
+
+
+def bulk_targets(session: Session, model, ids: Iterable[int]) -> list:
+    """Load every record a bulk change names, or refuse the whole change (no partial updates)."""
+    from sqlalchemy import select
+
+    wanted = set(ids)
+    if not wanted:
+        raise ValueError("Select at least one record.")
+    if len(wanted) > BULK_MAX:
+        raise ValueError(f"Change at most {BULK_MAX} records at a time.")
+    found = list(session.scalars(select(model).where(model.id.in_(wanted)).order_by(model.id)))
+    if len(found) != len(wanted):
+        raise NotFound(f"{len(wanted) - len(found)} of the selected records no longer exist")
+    return found
+
+
+def require_active_user(session: Session, user_id: int | None) -> None:
+    """Owners and assignees must be existing, active users."""
+    if user_id is None:
+        return
+    from .auth import User
+
+    u = session.get(User, user_id)
+    if u is None or not u.active:
+        raise ValueError("Choose an active user.")

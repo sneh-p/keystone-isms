@@ -22,3 +22,4 @@ from keystone.trust.models import AccessRequest, TrustDocument, TrustFaq, TrustS
 from keystone.integrations.models import CheckResult, Integration  # noqa: F401
 from keystone.ai.models import AiSettings, AiUsage  # noqa: F401
 from keystone.answers.models import KnowledgeEntry, QuestionnaireItem, SecurityQuestionnaire  # noqa: F401
+from keystone.reporting.models import MetricSnapshot

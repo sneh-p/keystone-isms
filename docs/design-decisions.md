@@ -90,6 +90,17 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   on the roadmap.
 - **No device agent.** Device checks are self-attested by employees with an optional
   screenshot, and expire after a set period.
+- **Dashboard trends** come from a `metric_snapshots` table: one row per day (a scheduled job, idempotent per day),
+  shown weekly (the last snapshot of each of the previous 11 weeks plus today's live values). Snapshots are derived
+  data, so they are not audited. The demo seeds 11 weeks of fictional history.
+- **Bulk changes** go through the same service function as a single edit, once per record, inside one transaction:
+  each record is audited, and one refusal rolls back the lot. Bulk status can't be "not applicable", which needs a
+  reason per control.
+- **CSV import without file upload.** The browser reads and parses the CSV and sends the rows as JSON (at most 1,000,
+  bounded like every request body), so the server never stores or parses a file. Columns come from a fixed list per
+  register (unknown columns are refused), values are converted strictly, and each row is saved through the
+  register's service. A preview runs the import in a separate transaction that is always rolled back, so it applies
+  the real rules (including duplicates within the file) and saves nothing; the import itself is all or nothing.
 - SQLite by default; models avoid SQLite-only types so PostgreSQL works. Migrations are applied
   at start-up. The audit-log immutability triggers exist for SQLite and PostgreSQL.
 - The Docker image has not been built in the development environment (Docker was unavailable).

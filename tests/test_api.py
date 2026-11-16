@@ -347,3 +347,74 @@ def test_hsts_only_over_https(api):
     assert "strict-transport-security" not in api.get("/api/auth/status").headers
     h = api.get("/api/auth/status", headers={"X-Forwarded-Proto": "https"}).headers
     assert h["strict-transport-security"].startswith("max-age=31536000")
+
+
+def test_dashboard_next_steps_and_trend(api, users):
+    """Next steps are management actions: shown to roles that can act on controls, not to read-only roles."""
+    api_login(api, "admin")
+    d = api.get("/api/dashboard").json()
+    assert {"next_steps", "trend", "audit_coverage"} <= set(d)
+    assert d["trend"]["days"] and all(len(v) == len(d["trend"]["days"]) for v in d["trend"]["series"].values())
+    api_login(api, "viewer")
+    assert api.get("/api/dashboard").json()["next_steps"] == []
+    api.cookies.clear()
+    assert api.get("/api/dashboard").status_code == 401
+
+
+def test_bulk_update_controls(api, ready_users, content, db):
+    from keystone.core.audit import AuditLog
+    from keystone.frameworks.models import CommonControl
+
+    with db.session_scope() as s:
+        ids = [c.id for c in s.query(CommonControl).order_by(CommonControl.id).limit(3)]
+        before = s.query(AuditLog).count()
+    owner = ready_users["control_owner"].id
+    api_login(api, "viewer")
+    assert api.post("/api/controls/bulk", json={"ids": ids, "owner_id": owner}).status_code == 403
+    api_login(api, "controlowner")
+    r = api.post("/api/controls/bulk", json={"ids": ids, "owner_id": owner, "status": "planned"})
+    assert r.status_code == 200 and r.json() == {"updated": 3}
+    with db.session_scope() as s:
+        assert {(c.owner_id, c.status) for c in s.query(CommonControl).filter(CommonControl.id.in_(ids))} == {(owner, "planned")}
+        assert s.query(AuditLog).count() >= before + 3  # one audited change per control
+    # Clearing the owner is an explicit null; leaving it out changes nothing.
+    assert api.post("/api/controls/bulk", json={"ids": ids[:1], "owner_id": None}).status_code == 200
+    with db.session_scope() as s:
+        assert s.get(CommonControl, ids[0]).owner_id is None and s.get(CommonControl, ids[1]).owner_id == owner
+    # Refusals leave every record unchanged (all-or-nothing).
+    assert api.post("/api/controls/bulk", json={"ids": ids, "status": "not_applicable"}).status_code == 400
+    assert api.post("/api/controls/bulk", json={"ids": ids, "status": "bogus"}).status_code == 400
+    assert api.post("/api/controls/bulk", json={"ids": [*ids, 999999], "status": "implemented"}).status_code == 404
+    assert api.post("/api/controls/bulk", json={"ids": ids, "owner_id": 999999}).status_code == 400
+    assert api.post("/api/controls/bulk", json={"ids": ids}).status_code == 400
+    assert api.post("/api/controls/bulk", json={"ids": []}).status_code == 422
+    assert api.post("/api/controls/bulk", json={"ids": list(range(1, 502)), "status": "planned"}).status_code == 422
+    assert api.post("/api/controls/bulk", json={"ids": ids, "implementation_notes": "x"}).status_code == 422
+    with db.session_scope() as s:
+        assert {c.status for c in s.query(CommonControl).filter(CommonControl.id.in_(ids))} == {"planned"}
+    rows = api.get("/api/controls").json()
+    assert {"readiness", "evidence_current"} <= set(rows[0])
+
+
+def test_bulk_update_tasks(api, ready_users, content, db):
+    from keystone.tasks.models import Task
+
+    with db.session_scope(ready_users["admin"]) as s:
+        from keystone.tasks import service as tsk
+
+        ids = [tsk.save_task(s, ready_users["admin"], title=f"T{i}").id for i in range(3)]
+        done = s.get(Task, ids[2])
+        done.status = "done"
+    assignee = ready_users["risk_owner"].id
+    api_login(api, "auditor")
+    assert api.post("/api/tasks/bulk", json={"ids": ids[:2], "assignee_id": assignee}).status_code == 403
+    api_login(api, "riskowner")
+    r = api.post("/api/tasks/bulk", json={"ids": ids[:2], "assignee_id": assignee, "due_date": "2027-01-31"})
+    assert r.status_code == 200 and r.json() == {"updated": 2}
+    with db.session_scope() as s:
+        assert {(t.assignee_id, t.due_date.isoformat()) for t in s.query(Task).filter(Task.id.in_(ids[:2]))} == {(assignee, "2027-01-31")}
+    r = api.post("/api/tasks/bulk", json={"ids": ids, "due_date": "2027-02-28"})
+    assert r.status_code == 400 and "Completed" in r.json()["detail"]
+    with db.session_scope() as s:
+        assert s.get(Task, ids[0]).due_date.isoformat() == "2027-01-31"
+    assert api.post("/api/tasks/bulk", json={"ids": ids[:2], "title": "x"}).status_code == 422
