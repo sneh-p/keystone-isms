@@ -5,7 +5,7 @@
 **Python** (3.11 or later) and **Node.js** 22 (to build the web app once):
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e .
+python3 -m venv .venv && .venv/bin/pip install --require-hashes -r requirements.lock && .venv/bin/pip install --no-deps -e .
 (cd web && npm ci && npm run build)
 KEYSTONE_DATA_DIR=/srv/keystone .venv/bin/uvicorn keystone.api.app:create_app --factory --host 127.0.0.1 --port 8000
 ```
@@ -23,8 +23,8 @@ On start, Keystone runs its database migrations (Alembic) automatically. The fir
 sees a setup screen to create the first administrator, followed by the onboarding wizard. Do
 this straight away after deploying.
 
-One process serves everything: the web app, the API under `/api` (OpenAPI docs at
-`/api/docs`), the public Trust Center under `/trust/<slug>`, and a background scheduler that
+One process serves everything: the web app, the API under `/api` (interactive docs at `/api/docs` only
+when `KEYSTONE_API_DOCS=1`), the public Trust Center under `/trust/<slug>`, and a background scheduler that
 runs integration checks every 15 minutes. Run **one** instance per database, or set
 `KEYSTONE_DISABLE_SCHEDULER=1` on all but one.
 
@@ -74,6 +74,7 @@ marked `Secure` automatically when the request arrived over HTTPS.
 | `KEYSTONE_FRAME_ANCESTORS` | `'self'` | Who may embed Keystone in a frame (CSP source list), e.g. `https://intranet.example` |
 | `KEYSTONE_DISABLE_SCHEDULER` | unset | Set to `1` to stop this instance running scheduled integration checks |
 | `ANTHROPIC_API_KEY` | unset | Optional key for AI features, used when no key is stored under **Settings → AI** |
+| `KEYSTONE_API_DOCS` | unset | Set to `1` to serve the interactive API docs and OpenAPI schema (development only) |
 
 Don't put secrets in the repository. Pass database credentials through the environment.
 

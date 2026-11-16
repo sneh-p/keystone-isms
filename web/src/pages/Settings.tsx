@@ -191,7 +191,9 @@ export function AiSettings() {
   const { data } = useApi<any>("/ai/settings");
   const [form, setForm] = useState<any>(null);
   const [key, setKey] = useState("");
-  useEffect(() => { if (data) setForm({ enabled: data.enabled, model: data.model, effort: data.effort }); }, [data?.enabled, data?.model, data?.effort]); // eslint-disable-line react-hooks/exhaustive-deps
+  const loadedKey = data ? `${data.enabled}|${data.model}|${data.effort}` : null;
+  const [formKey, setFormKey] = useState<string | null>(null);
+  if (data && loadedKey !== formKey) { setFormKey(loadedKey); setForm({ enabled: data.enabled, model: data.model, effort: data.effort }); } // reload after save
   const save = useAction((extra: any) => api("/ai/settings", { method: "PATCH", body: { ...form, ...(key ? { api_key: key } : {}), ...extra } }), { success: "AI settings saved.", invalidate: ["/ai"], onSuccess: () => setKey("") });
   if (!data || !form) return <Skeleton className="h-96" />;
   const keyLabel = data.key_source === "settings" ? "Stored in Keystone (encrypted)" : data.key_source === "environment" ? "From the ANTHROPIC_API_KEY environment variable" : "No key";

@@ -115,3 +115,20 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   approver before they are exported.
 - **Accounting.** Every call, including failures and refusals, is stored with user, feature,
   model and token counts and written to the audit log.
+
+## Secure coding standard
+
+- The "Secure Coding Standard for Coding Agents" assumes TypeScript on Node with zod and pino. Keystone's backend is
+  Python, so the bundle keeps the structure, rule IDs, OKF v0.2 trust fields and enforcement design, and changes the
+  examples and tools: Pydantic models (`In`, `extra="forbid"`) instead of zod, the standard `logging` module and the
+  audit log instead of pino, ruff's bandit rules plus Semgrep instead of the TypeScript ESLint security rules, and
+  pip-audit with a hash-locked `requirements.lock` next to `npm audit`. The web app keeps the ESLint controls.
+- `npm run` scripts became `scripts/security-check.sh <gate>`, because the repository root is a Python project.
+- Single-organisation tenancy: "cross-tenant 404" tests become out-of-boundary tests (employee portal and public
+  Trust Center), alongside the existing route-level 401 and 403 matrix.
+- The web app does not enable typescript-eslint's `no-unsafe-*` rules: the browser is not the trust boundary here,
+  the API validates every input. Promise, eval and HTML-sink rules are enabled.
+- Python has no static type gate yet (no mypy); adding one is tracked separately.
+- Semgrep findings that existed when the standard was adopted are held back by `.semgrep/baseline-commit` and listed
+  in the adoption report; new findings fail the gate.
+- Semgrep runs from its own virtual environment, because it pins OpenTelemetry versions that conflict with FastAPI.

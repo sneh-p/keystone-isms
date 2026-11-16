@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, ExternalLink, Globe2, Lock, Plus, Trash2, Unlock, X } from "lucide-react";
-import { toast } from "sonner";
+import { Check, ExternalLink, Globe2, Lock, Plus, Trash2, Unlock, X } from "lucide-react";
+import { CopyButton } from "@/components/CopyButton";
 import { api, upload } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -132,7 +132,7 @@ export default function TrustCenterAdmin() {
         {faq && <div className="space-y-3"><Field label="Question"><Input value={faq.question} onChange={(e) => setFaq({ ...faq, question: e.target.value })} /></Field><Field label="Answer"><Textarea value={faq.answer} onChange={(e) => setFaq({ ...faq, answer: e.target.value })} /></Field></div>}
       </Dialog>
       <Dialog open={!!link} onOpenChange={(o) => !o && setLink(null)} title="Access approved" description="Send this personal link to the requester. It is shown only once and works until it expires or you revoke it.">
-        {link && <div className="flex gap-2"><Input readOnly value={link} onFocus={(e) => e.target.select()} /><Button variant="outline" onClick={() => { navigator.clipboard?.writeText(link); toast.success("Copied."); }}><Copy /></Button></div>}
+        {link && <div className="flex gap-2"><Input readOnly value={link} onFocus={(e) => e.target.select()} /><CopyButton text={link} size="md" /></div>}
       </Dialog>
     </div>
   );

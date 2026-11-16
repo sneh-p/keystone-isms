@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
+
 import httpx
 
 from .base import CheckDef, ConfigField, Outcome, Provider, SetupStep
 
 API = "https://api.github.com"
+ORG_LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}")
 
 
 class GitHubProvider(Provider):
@@ -58,10 +61,10 @@ class GitHubProvider(Provider):
 
     def run(self, config: dict, secrets: dict, session=None) -> list[Outcome]:
         org = (config.get("org") or "").strip()
-        if not org or "/" in org:
-            raise ValueError("Enter the organisation login.")
+        if not ORG_LOGIN.fullmatch(org):  # SC-VAL-002 / SC-SSRF-001: input only fills a validated path segment
+            raise ValueError("Enter the organisation login (letters, digits and single hyphens, up to 39 characters).")
         headers = {"Authorization": f"Bearer {secrets['token']}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
-        factory = self.client_factory or (lambda: httpx.Client(base_url=API, headers=headers, timeout=20.0))
+        factory = self.client_factory or (lambda: httpx.Client(base_url=API, headers=headers, timeout=20.0, follow_redirects=False))
         out = []
         with factory() as c:
             r = c.get(f"/orgs/{org}")

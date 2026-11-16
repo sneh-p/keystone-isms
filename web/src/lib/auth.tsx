@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refresh();
+    void refresh(); // refresh() handles its own errors
   }, [refresh]);
 
   const value: AuthState = {

@@ -15,16 +15,19 @@ import io
 import logging
 import re
 import threading
+from typing import Literal
 from datetime import date
 
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from rapidfuzz import fuzz
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from keystone.core import db as dbmod
 from keystone.core.attachments import Attachment, read_attachment, save_attachment
+from keystone.core.safe_files import UnsafeFile, open_untrusted_workbook
 from keystone.core.audit import log_event
 from keystone.core.auth import User
 from keystone.core.db import utcnow
@@ -107,7 +110,9 @@ def _parse(filename: str, data: bytes) -> tuple[str, list[dict], int | None, int
     name = filename.lower()
     if name.endswith(".xlsx"):
         try:
-            wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+            wb = open_untrusted_workbook(data, read_only=True, data_only=True)  # SC-FILE-003/004
+        except UnsafeFile:
+            raise
         except Exception as e:  # noqa: BLE001 - any parse failure is a user error
             raise ValueError("Could not read the spreadsheet. Save it as .xlsx and try again.") from e
         best: tuple[str, list[dict], int | None, int | None] | None = None
@@ -391,6 +396,29 @@ SCHEMA = {
 }
 
 
+class _Citation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_id: str = Field(max_length=100)
+    quote: str = Field(max_length=2_000)
+
+
+class _DraftAnswer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    item_id: int
+    answerable: bool
+    answer: str = Field(max_length=10_000)
+    confidence: Literal["high", "medium", "low"]
+    citations: list[_Citation] = Field(max_length=10)
+    note: str = Field(max_length=4_000)
+
+
+class _DraftBatch(BaseModel):
+    """SC-LLM-001: validated before any answer touches the database."""
+
+    model_config = ConfigDict(extra="forbid")
+    answers: list[_DraftAnswer] = Field(max_length=4 * BATCH)
+
+
 def _context(srcs: list[dict]) -> str:
     parts = [f'<source id="{s["id"]}" title="{s["title"]}">\n{s["text"]}\n</source>' for s in srcs]
     return "Source documents:\n\n" + "\n\n".join(parts)
@@ -436,11 +464,16 @@ def draft_batch(session: Session, actor, questionnaire: SecurityQuestionnaire, i
         prefix = f"[{it.section}] " if it.section else ""
         lines.append(f'<question item_id="{it.id}">{prefix}{it.question}</question>')
     prompt = f"Questionnaire: {questionnaire.title}\n\nAnswer these questions:\n" + "\n".join(lines)
-    out = ai.complete_json(session, actor, "questionnaire_answers", instructions=INSTRUCTIONS, context=_context(srcs), prompt=prompt, schema=SCHEMA, max_tokens=32000)
+    raw = ai.complete_json(session, actor, "questionnaire_answers", instructions=INSTRUCTIONS, context=_context(srcs), prompt=prompt, schema=SCHEMA, max_tokens=32000)
+    try:
+        out = _DraftBatch.model_validate(raw)
+    except ValidationError as e:
+        raise ValueError("Claude returned answers that could not be used. Try again.") from e
     by_src = {s["id"]: s for s in srcs}
     by_item = {it.id: it for it in items}
-    for a in out.get("answers") or []:
-        it = by_item.get(a.get("item_id"))
+    for parsed in out.answers:
+        a = parsed.model_dump()
+        it = by_item.get(a["item_id"])
         if it is not None and it.status != "approved":
             _apply_answer(it, a, by_src)
     session.flush()
@@ -515,7 +548,7 @@ def export_xlsx(session: Session, actor, questionnaire_id: int, approved_only: b
     answers = {it.id: (it.answer if (it.status == "approved" or not approved_only) else None) for it in q.items}
     att = session.get(Attachment, q.attachment_id) if q.attachment_id else None
     if att is not None and q.source_kind == "xlsx":
-        wb = load_workbook(io.BytesIO(read_attachment(att)))
+        wb = open_untrusted_workbook(read_attachment(att))  # the customer's file: re-checked before parsing
         added: dict[str, int] = {}
         for it in q.items:
             if not it.sheet or not it.row or it.sheet not in wb.sheetnames:

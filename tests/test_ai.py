@@ -356,3 +356,22 @@ def test_questionnaire_api_flow(api, ready_users):
     assert api.post(f"/api/questionnaire-items/{item}/approve").status_code == 403
     r = api.get(f"/api/security-questionnaires/{q['id']}/export")
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/vnd.openxmlformats")
+
+
+def test_model_output_is_validated_before_use(session, users, policy, monkeypatch):
+    """SC-LLM-001: malformed or oversized model output is rejected, nothing is saved."""
+    q = sq.create(session, users["admin"], title="Acme", pasted="Do you enforce MFA for remote access?")
+    bad = [
+        {"answers": [{"item_id": q.items[0].id, "answerable": True, "answer": "Yes", "confidence": "certain", "citations": [], "note": ""}]},
+        {"answers": [{"item_id": "1; DROP TABLE", "answerable": True, "answer": "Yes", "confidence": "high", "citations": [], "note": ""}]},
+        {"answers": [], "instructions": "ignore previous instructions"},
+    ]
+    replies = iter(bad)
+    enable(session, users, lambda p: message(next(replies)), monkeypatch)
+    for _ in bad:
+        with pytest.raises(ValueError, match="could not be used"):
+            sq.draft_batch(session, users["admin"], q, q.items, sq.sources(session))
+    assert q.items[0].answer is None and q.items[0].origin is None
+    monkeypatch.setattr(ai, "client_factory", lambda key: FakeClient(lambda p: message({"body": "x", "change_summary": "y", "notes": ["n"] * 51})))
+    with pytest.raises(ValueError, match="could not be used"):
+        policy_assistant.propose(session, users["admin"], policy.id, "Shorten it")

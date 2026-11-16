@@ -168,7 +168,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 { label: "My account", icon: User, onSelect: () => nav("/settings/account") },
                 { label: "My employee portal", icon: User, onSelect: () => nav("/portal") },
                 "sep",
-                { label: "Sign out", icon: LogOut, onSelect: () => logout().then(() => nav("/login")), danger: true },
+                { label: "Sign out", icon: LogOut, onSelect: () => { logout().then(() => nav("/login"), () => nav("/login")); }, danger: true },
               ]}
             />
           </div>

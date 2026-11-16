@@ -4,8 +4,8 @@
 # ---- 1. Build the React app -------------------------------------------------------------
 FROM node:22-slim AS web
 WORKDIR /web
-COPY web/package.json web/package-lock.json ./
-RUN npm ci --no-audit --no-fund
+COPY web/package.json web/package-lock.json web/.npmrc ./
+RUN npm ci --no-audit --no-fund   # .npmrc: ignore-scripts, exact versions (SC-DEP-003/004)
 COPY web/ ./
 RUN npm run build
 
@@ -21,8 +21,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN useradd --create-home --uid 10001 keystone
 WORKDIR /app
 
-COPY requirements.txt ./
-RUN pip install -r requirements.txt
+COPY requirements.lock ./
+RUN pip install --require-hashes -r requirements.lock   # SC-DEP-003: every package pinned and hash-checked
 
 COPY --chown=keystone:keystone keystone/ keystone/
 COPY --chown=keystone:keystone migrations/ migrations/

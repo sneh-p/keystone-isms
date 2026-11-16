@@ -1,0 +1,40 @@
+# Changes to security controls and security-sensitive code require AppSec approval.
+# Replace @your-org/appsec with your team, and enable "Require review from Code Owners" on main.
+
+# The standard and its enforcement (SC-AGT-002)
+/.knowledge/secure-coding/              @your-org/appsec
+/AGENTS.md                              @your-org/appsec
+/CLAUDE.md                              @your-org/appsec
+/ruff.toml                              @your-org/appsec
+/.semgrep/                              @your-org/appsec
+/.semgrepignore                         @your-org/appsec
+/.gitleaks.toml                         @your-org/appsec
+/web/eslint.config.js                   @your-org/appsec
+/web/.npmrc                             @your-org/appsec
+/web/tsconfig*.json                     @your-org/appsec
+/scripts/check-suppressions.sh          @your-org/appsec
+/scripts/security-check.sh              @your-org/appsec
+/.github/                               @your-org/appsec
+
+# Supply chain (SC-DEP)
+/requirements.lock                      @your-org/appsec
+/web/package-lock.json                  @your-org/appsec
+/Dockerfile                             @your-org/appsec
+/docker-compose.yml                     @your-org/appsec
+/deploy/                                @your-org/appsec
+
+# Security-sensitive code (SC-AGT-006 escalation areas)
+/keystone/core/auth.py                  @your-org/appsec
+/keystone/core/sessions.py              @your-org/appsec
+/keystone/core/rbac.py                  @your-org/appsec
+/keystone/core/audit.py                 @your-org/appsec
+/keystone/core/secrets.py               @your-org/appsec
+/keystone/core/attachments.py           @your-org/appsec
+/keystone/core/safe_files.py            @your-org/appsec
+/keystone/api/deps.py                   @your-org/appsec
+/keystone/api/app.py                    @your-org/appsec
+/keystone/api/routers/auth.py           @your-org/appsec
+/keystone/integrations/providers/       @your-org/appsec
+/keystone/ai/                           @your-org/appsec
+/collector/                             @your-org/appsec
+/tests/test_api.py                      @your-org/appsec

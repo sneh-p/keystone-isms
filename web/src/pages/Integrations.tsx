@@ -14,6 +14,7 @@ import { PageHeader, Section, Skeleton, Stat, Switch } from "@/components/ui/mis
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { CodeBlock } from "@/components/CopyButton";
+import { safeHref } from "@/lib/safe-url";
 
 const ICON: Record<string, any> = { website: Globe, github: Github, aws: Cloud, entra: ShieldCheck };
 
@@ -114,7 +115,8 @@ function SetupGuide({ provider, values }: { provider: any; values: Record<string
   return (
     <ol className="space-y-5">
       {provider.setup.map((st: any, i: number) => {
-        const link = st.link ? fillPlaceholders(st.link, provider, values) : "";
+        const filled = st.link ? fillPlaceholders(st.link, provider, values) : "";
+        const link = filled.startsWith("/") ? filled : (safeHref(filled) ?? "");
         return (
           <li key={i} className="relative pl-9">
             <span className={cn("absolute left-0 top-0 grid size-6 place-items-center rounded-full text-xs font-semibold", st.kind === "verify" ? "bg-good/15 text-good" : "bg-accent text-accent-foreground")}>

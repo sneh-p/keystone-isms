@@ -227,3 +227,36 @@ def test_collector_script_offered_with_hash(demo_api):
     assert meta["sha256"] == hashlib.sha256(on_disk).hexdigest().upper() and meta["script"].encode() == on_disk
     assert demo_api.get("/api/exposure/collector/script").content == on_disk
     assert demo_api.get("/api/exposure/collector/..%2Fkeystone.db").status_code == 404
+
+
+def test_unexpected_errors_are_generic_and_docs_are_off(api, ready_users, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from keystone.api import app as app_module
+    from keystone.reporting import dashboard as reporting
+
+    def boom(*a, **k):
+        raise RuntimeError("SELECT secret FROM internals at /srv/keystone/keystone.db")
+
+    monkeypatch.setattr(reporting, "overview", boom)
+    client = TestClient(app_module.create_app(migrate=False), raise_server_exceptions=False)
+    api_login(client, "admin")
+    r = client.get("/api/dashboard")
+    assert r.status_code == 500 and "request_id" in r.json() and "SELECT" not in r.text and "/srv" not in r.text
+    assert api.get("/api/docs").status_code == 404 and api.get("/api/openapi.json").status_code == 404
+    monkeypatch.setenv("KEYSTONE_API_DOCS", "1")
+    assert TestClient(app_module.create_app(migrate=False)).get("/api/openapi.json").status_code == 200
+
+
+def test_request_bodies_forbid_unknown_fields():
+    """SC-VAL-001 / SC-AUTHZ-004: every JSON body model rejects unknown keys (no mass assignment)."""
+    from pydantic import BaseModel
+
+    loose = []
+    for r in all_routes():
+        for param in r.dependant.body_params:
+            model = getattr(param.field_info, "annotation", None) or getattr(param, "type_", None)
+            if isinstance(model, type) and issubclass(model, BaseModel) and model.model_config.get("extra") != "forbid":
+                loose.append(f"{sorted(r.methods)} {r.path}: {model.__name__}")
+    assert not loose, "Request models must extend In (extra='forbid'):\n" + "\n".join(loose)
+    assert any(r.dependant.body_params for r in all_routes())  # the check actually saw bodies

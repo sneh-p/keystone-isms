@@ -39,7 +39,7 @@ export default function PublicTrust() {
     setErr(null);
     try { await api(`/public/trust/${slug}/requests`, { body: req }); setSent(true); } catch (x: any) { setErr(x.message); }
   };
-  const acceptNda = async () => { await api(`/public/trust/${slug}/access/${token}/nda`, { body: { signed_name: signed } }); grant.refetch(); };
+  const acceptNda = async () => { await api(`/public/trust/${slug}/access/${token}/nda`, { body: { signed_name: signed } }); await grant.refetch(); };
   const dl = (id: string) => `/api/public/trust/${slug}/documents/${id}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
   return (
     <div className="min-h-full bg-background">

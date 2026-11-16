@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, Copy, Link2, LogOut, Mail, Plus, Users as UsersIcon } from "lucide-react";
-import { toast } from "sonner";
+import { Check, Link2, LogOut, Mail, Plus, Users as UsersIcon } from "lucide-react";
+import { CopyButton } from "@/components/CopyButton";
 import { api } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -99,7 +99,7 @@ function PersonDrawer({ person: p, items, onClose }: { person: any; items: Recor
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">Send an invitation link so {p.full_name.split(" ")[0]} can sign in to the employee portal. Links work once and expire after 7 days.</p>
               {inviteUrl ? (
-                <div className="flex gap-2"><Input readOnly value={inviteUrl} onFocus={(e) => e.target.select()} /><Button variant="outline" onClick={() => { navigator.clipboard?.writeText(inviteUrl); toast.success("Link copied."); }}><Copy /> Copy</Button></div>
+                <div className="flex gap-2"><Input readOnly value={inviteUrl} onFocus={(e) => e.target.select()} /><CopyButton text={inviteUrl} size="md" /></div>
               ) : <Button onClick={() => invite.mutate(undefined)} loading={invite.isPending}><Mail /> Create invitation link</Button>}
               {users.data && (
                 <div className="flex items-end gap-2 border-t pt-3">

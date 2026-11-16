@@ -28,7 +28,7 @@ framework.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e ".[test]"
+.venv/bin/pip install --require-hashes -r requirements.lock && .venv/bin/pip install --no-deps -e ".[test]"
 (cd web && npm ci && npm run build)        # Node.js 22
 .venv/bin/uvicorn keystone.api.app:create_app --factory --port 8000
 ```
@@ -104,6 +104,16 @@ documents before relying on it for certification.
 - **AI**: off unless an administrator enables it. Only the documents a feature needs are sent;
   every call is logged; AI output is always a draft that a person approves.
 
+## Secure coding standard
+
+Changes to this repository, by people or coding agents, follow the secure coding standard in
+[`.knowledge/secure-coding/`](.knowledge/secure-coding/index.md): an OKF bundle of rules with stable IDs
+(`SC-INJ-001`, `SC-AUTHZ-005`, …), adapted to this stack. [AGENTS.md](AGENTS.md) tells agents how to load it, and
+`scripts/security-check.sh all` runs the gates that prove compliance (ruff, ESLint, Semgrep, gitleaks, pip-audit,
+npm audit, the suppression check and the tests). CI runs the same gates (`.github/workflows/security.yml`), and
+`.github/CODEOWNERS` requires AppSec review for the controls themselves. Exceptions to a MUST rule exist only in the
+[exception register](.knowledge/secure-coding/exceptions.md). Every concept is a draft until AppSec signs it off.
+
 ## Configuration
 
 | Setting | Where |
@@ -115,6 +125,7 @@ documents before relying on it for certification.
 | Encryption key for stored credentials | `KEYSTONE_SECRET_KEY` (default: generated in the data dir) |
 | AI (optional) | **Settings → AI**, or `ANTHROPIC_API_KEY` |
 | Framing (CSP `frame-ancestors`) | `KEYSTONE_FRAME_ANCESTORS` (default `'self'`) |
+| Interactive API docs (`/api/docs`) | `KEYSTONE_API_DOCS=1` (default off) |
 | Risk matrix, appetite, review intervals | `config/risk_matrix.yaml` |
 | Vendor tiering | `config/tprm.yaml` |
 | Incident notification deadline and containment targets | `config/incidents.yaml` |
@@ -126,7 +137,8 @@ All shipped values are **calibration starting points**. The UI labels them as su
 
 ```bash
 .venv/bin/python -m pytest tests/ -v                     # Python (≈500 tests)
-(cd web && npm run typecheck && npm run lint)            # web app
+(cd web && npm run typecheck && npm run lint && npm test)  # web app
+scripts/security-check.sh all                            # every security gate (see AGENTS.md)
 KEYSTONE_E2E=1 .venv/bin/python -m pytest tests/e2e      # browser journeys (pip install -e ".[e2e]")
 pwsh -c "Invoke-Pester ./tests/collector"                # PowerShell collector (22 tests)
 ```

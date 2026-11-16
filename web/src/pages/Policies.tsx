@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CheckCircle2, Download, FilePlus2, Plus, ScrollText, Send, Sparkles, Stamp, Undo2 } from "lucide-react";
 import { api, downloadUrl, upload } from "@/lib/api";
@@ -108,7 +108,8 @@ function DocumentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   const [note, setNote] = useState("");
   const [major, setMajor] = useState(true);
   const ov = data?.versions.find((v: any) => ["draft", "in_review"].includes(v.status));
-  useEffect(() => { if (ov) { setBody(ov.body ?? ""); setSummary(ov.change_summary ?? ""); } }, [ov?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
+  if (ov && ov.id !== loadedVersion) { setLoadedVersion(ov.id); setBody(ov.body ?? ""); setSummary(ov.change_summary ?? ""); } // reset the editor when another version opens
   const inv = ["/policies", "/dashboard"];
   const start = useAction(() => api(`/policies/${id}/versions`, { body: { change_summary: summary || null, major } }), { success: "Draft version started.", invalidate: inv });
   const saveDraft = useAction(async () => { const fd = new FormData(); fd.append("body", body); fd.append("change_summary", summary); if (file) fd.append("file", file); return upload(`/policies/versions/${ov.id}`, fd, "PATCH"); }, { success: "Draft saved.", invalidate: inv });

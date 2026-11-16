@@ -13,7 +13,7 @@ export function useAction<V = any, R = any>(fn: (v: V) => Promise<R>, opts: { su
     mutationFn: fn,
     onSuccess: (r) => {
       if (opts.success) toast.success(typeof opts.success === "function" ? opts.success(r) : opts.success);
-      (opts.invalidate ?? [""]).forEach((k) => qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0] ?? "").startsWith(k) }));
+      (opts.invalidate ?? [""]).forEach((k) => { void qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0] ?? "").startsWith(k) }); });
       opts.onSuccess?.(r);
     },
     onError: (e) => toast.error(e.message),

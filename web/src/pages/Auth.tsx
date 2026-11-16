@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { safeRedirectPath } from "@/lib/safe-url";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
@@ -48,7 +49,7 @@ export function Login() {
     setErr(null);
     try {
       await login(u, p);
-      nav((loc.state as any)?.from ?? "/");
+      nav(safeRedirectPath((loc.state as any)?.from));
     } catch (x: any) {
       setErr(x.message);
     } finally {

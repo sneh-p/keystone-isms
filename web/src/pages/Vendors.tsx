@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Handshake, Plus } from "lucide-react";
 import { api } from "@/lib/api";
@@ -105,7 +105,8 @@ function VendorForm({ vendor, tiers, onSaved }: { vendor?: any; tiers: any[]; on
     asset_ids: (vendor?.asset_ids ?? []).map(String), risk_ids: (vendor?.risk_ids ?? []).map(String),
   });
   const [f, setF] = useState<any>(init);
-  useEffect(() => setF(init()), [vendor?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [formFor, setFormFor] = useState(vendor?.id);
+  if (formFor !== vendor?.id) { setFormFor(vendor?.id); setF(init()); } // reset the form when another vendor opens
   const s = (k: string) => (v: any) => setF((p: any) => ({ ...p, [k]: v }));
   const save = useAction((b: any) => (vendor ? api(`/vendors/${vendor.id}`, { method: "PATCH", body: b }) : api("/vendors", { body: b })), { success: "Vendor saved.", invalidate: ["/vendors"], onSuccess: onSaved });
   const review = useAction(() => api(`/vendors/${vendor.id}/review`, { method: "POST" }), { success: "Review recorded.", invalidate: ["/vendors"] });

@@ -103,7 +103,8 @@ def session_scope(actor=None) -> Iterator[Session]:
     """Transactional session. `actor` (a User) is recorded on audit entries."""
     if _SessionLocal is None:
         configure()
-    assert _SessionLocal is not None
+    if _SessionLocal is None:  # explicit check: asserts are stripped under python -O
+        raise RuntimeError("Database is not configured.")
     session = _SessionLocal()
     session.info["actor"] = actor
     try:

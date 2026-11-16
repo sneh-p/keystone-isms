@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from "recharts";
 import { Calculator, CheckCircle2, Gauge, Plus, ShieldAlert } from "lucide-react";
@@ -125,7 +125,8 @@ function RiskForm({ risk, matrix, onSaved }: { risk?: any; matrix: any; onSaved?
     asset_ids: (risk?.asset_ids ?? []).map(String), control_ids: (risk?.control_ids ?? []).map(String),
   });
   const [f, setF] = useState<any>(init);
-  useEffect(() => setF(init()), [risk?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [formFor, setFormFor] = useState(risk?.id);
+  if (formFor !== risk?.id) { setFormFor(risk?.id); setF(init()); } // reset the form when another risk opens
   const s = (k: string) => (v: any) => setF((p: any) => ({ ...p, [k]: v }));
   const save = useAction((body: any) => (risk ? api(`/risks/${risk.id}`, { method: "PATCH", body }) : api("/risks", { body })), { success: "Risk saved.", invalidate: ["/risks", "/dashboard", "/soa", "/controls"], onSuccess: onSaved });
   const editable = can("risk.write");

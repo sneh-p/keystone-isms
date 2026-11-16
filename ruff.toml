@@ -1,0 +1,25 @@
+# Python lint for the secure coding standard (.knowledge/secure-coding/). Style is not enforced here;
+# every selected rule maps to a rule ID. Protected file (SC-AGT-002): changes need AppSec review.
+line-length = 250
+extend-exclude = [".tools", "web", "output", "data", ".semgrep/tests"]  # rule test cases contain deliberate violations
+
+[lint]
+select = [
+  "S",        # flake8-bandit: SC-INJ, SC-CRY, SC-SEC, SC-FILE-004, SC-ERR-004 (S113)
+  "BLE001",   # SC-ERR-003: broad except must be deliberate and explained
+  "E722",     # SC-ERR-003: no bare except
+  "G004",     # SC-LOG-002: no f-strings in log messages
+  "PGH004",   # SC-AGT-001: no blanket "# noqa"
+]
+
+[lint.per-file-ignores]
+# Baseline decisions from the initial triage (2026-11-16). Each needs AppSec review like an exception.
+"tests/**" = [
+  "S101",  # pytest asserts are how tests check results
+  "S105",  # fixed, fake test passwords (tests/conftest.py, tests/e2e/conftest.py)
+  "S106",  # fake credentials passed to functions under test
+  "S603",  # e2e tests start their own server with a fixed argument list (no shell)
+]
+"keystone/demo.py" = [
+  "S105",  # the documented password of the fictional demo organisation (README); not used in production
+]

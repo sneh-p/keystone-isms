@@ -257,3 +257,37 @@ def test_https_redirects_followed_and_guarded():
 
     loop = _headers_result(_site(lambda req: httpx.Response(302, headers={"location": "https://shop.example/again"})))
     assert loop.result == "error" and "redirects" in loop.summary
+
+
+def test_aws_region_and_github_org_are_strictly_validated():
+    for bad in ("eu-west-1.evil.example", "eu-west-1#", "../x", "EU-WEST-1", ""):
+        with pytest.raises(ValueError, match="AWS region"):
+            AwsProvider()._session({"region": bad or " "}, {"access_key_id": "x", "secret_access_key": "y"})
+    assert AwsProvider()._session({"region": "eu-west-1"}, {"access_key_id": "x", "secret_access_key": "y"}).region_name == "eu-west-1"
+    for bad in ("acme/../user", "acme?x=1", "-acme", "acme--x", "a" * 40, ".."):
+        with pytest.raises(ValueError, match="organisation login"):
+            GitHubProvider(client_factory=lambda: None).run({"org": bad}, {"token": "t"})
+
+
+def test_aws_real_client_gets_timeouts(monkeypatch):
+    import boto3
+
+    seen = []
+
+    class FakeSession:
+        def __init__(self, **kw):
+            pass
+
+        def client(self, name, config=None):
+            seen.append((name, config.connect_timeout, config.read_timeout))
+
+            class Denied:
+                def __getattr__(self, op):
+                    def call(*a, **k):
+                        raise ClientError({"Error": {"Code": "AccessDenied", "Message": "no"}}, op)
+                    return call
+            return Denied()
+
+    monkeypatch.setattr(boto3.session, "Session", FakeSession)
+    AwsProvider().run({"region": "eu-west-1"}, {"access_key_id": "x", "secret_access_key": "y"})
+    assert seen and all(c == 10 and r == 20 for _, c, r in seen) and len({n for n, _, _ in seen}) > 1

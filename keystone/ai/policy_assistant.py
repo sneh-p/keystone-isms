@@ -3,6 +3,7 @@ version, which then goes through the normal review and approval workflow."""
 
 from __future__ import annotations
 
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -42,6 +43,15 @@ SCHEMA = {
 }
 
 
+class ProposedRevision(BaseModel):
+    """SC-LLM-001: the model's output is validated like any other untrusted input."""
+
+    model_config = ConfigDict(extra="forbid")
+    body: str = Field(max_length=200_000)
+    change_summary: str = Field(max_length=2_000)
+    notes: list[str] = Field(default_factory=list, max_length=50)
+
+
 def _org_context(session: Session) -> str:
     org = session.scalar(select(Organisation).limit(1))
     if org is None:
@@ -72,8 +82,12 @@ def propose(session: Session, actor, document_id: int, instruction: str) -> dict
     linked = ", ".join(f"{c.code} {c.title}" for c in doc.controls)
     if linked:
         prompt += f"\n\nThe document supports these controls: {linked}"
-    out = ai.complete_json(session, actor, "policy_assistant", instructions=INSTRUCTIONS, context=_org_context(session), prompt=prompt, schema=SCHEMA, max_tokens=64000)
-    body = (out.get("body") or "").strip()
+    raw = ai.complete_json(session, actor, "policy_assistant", instructions=INSTRUCTIONS, context=_org_context(session), prompt=prompt, schema=SCHEMA, max_tokens=64000)
+    try:
+        out = ProposedRevision.model_validate(raw)
+    except ValidationError as e:
+        raise ValueError("Claude returned a response that could not be used. Try again.") from e
+    body = out.body.strip()
     if not body:
         raise ValueError("Claude returned an empty document. Try a more specific instruction.")
     return {
@@ -81,8 +95,8 @@ def propose(session: Session, actor, document_id: int, instruction: str) -> dict
         "base_label": base.version_label if base else None,
         "base_body": base_body,
         "body": body,
-        "change_summary": (out.get("change_summary") or "").strip()[:1000],
-        "notes": [str(n)[:500] for n in (out.get("notes") or [])][:20],
+        "change_summary": out.change_summary.strip()[:1000],
+        "notes": [n.strip()[:500] for n in out.notes if n.strip()][:20],
     }
 
 

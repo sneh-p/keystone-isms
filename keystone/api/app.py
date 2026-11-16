@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -20,6 +22,7 @@ from keystone.core.settings import PROJECT_ROOT
 from keystone.core.workflow import InvalidTransition
 
 WEB_DIST = PROJECT_ROOT / "web" / "dist"
+_LOG = logging.getLogger(__name__)
 
 def security_headers() -> dict[str, str]:
     # Who may embed Keystone in a frame. Default: only Keystone itself. Set
@@ -48,7 +51,9 @@ def create_app(migrate: bool = True) -> FastAPI:
         yield
         stop_scheduler()
 
-    app = FastAPI(title="Keystone ISMS API", version=__version__, docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None, lifespan=lifespan)
+    # SC-CFG-005: interactive API docs are off unless explicitly enabled (KEYSTONE_API_DOCS=1).
+    docs = os.environ.get("KEYSTONE_API_DOCS", "").strip() == "1"
+    app = FastAPI(title="Keystone ISMS API", version=__version__, docs_url="/api/docs" if docs else None, openapi_url="/api/openapi.json" if docs else None, redoc_url=None, lifespan=lifespan)
 
     headers = security_headers()
 
@@ -75,6 +80,14 @@ def create_app(migrate: bool = True) -> FastAPI:
     app.add_exception_handler(InvalidTransition, err(400))
     app.add_exception_handler(ValueError, err(400))
     app.add_exception_handler(LookupError, err(404))
+
+    async def unexpected(request: Request, exc: Exception):
+        # SC-ERR-002: no stack traces or library details to the client; the request ID links to the log.
+        request_id = secrets.token_hex(8)
+        _LOG.error("unhandled error %s on %s %s", request_id, request.method, request.url.path, exc_info=exc)
+        return JSONResponse({"detail": "Internal error. Quote this reference to your administrator.", "request_id": request_id}, status_code=500)
+
+    app.add_exception_handler(Exception, unexpected)
 
     from .routers import ROUTERS
 

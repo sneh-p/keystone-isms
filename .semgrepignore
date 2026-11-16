@@ -1,0 +1,10 @@
+# Paths Semgrep does not scan. Protected file (SC-AGT-002).
+.venv/
+.tools/
+.git/
+web/node_modules/
+web/dist/
+data/
+output/
+# The custom rules' own test cases contain deliberate violations.
+.semgrep/tests/
