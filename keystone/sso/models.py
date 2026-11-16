@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from keystone.core.db import Audited, Base, TimestampMixin, utcnow
 
-PROVIDERS = ("entra", "google")
+PROVIDERS = ("entra", "google", "okta")
 JIT_ROLES = ("employee", "viewer")  # automatic accounts never get more than a basic role
 
 
@@ -26,6 +26,7 @@ class SsoProvider(Audited, TimestampMixin, Base):
     client_id: Mapped[str | None] = mapped_column(String(200))
     client_secret_enc: Mapped[str | None] = mapped_column(Text)
     tenant_id: Mapped[str | None] = mapped_column(String(36))  # Entra ID: the organisation's tenant (single-tenant only)
+    org_domain: Mapped[str | None] = mapped_column(String(253))  # Okta: the organisation's Okta domain (Okta-hosted only)
     allowed_domains: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     jit_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     jit_role: Mapped[str] = mapped_column(String(30), nullable=False, default="employee")

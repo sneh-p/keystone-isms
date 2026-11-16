@@ -45,7 +45,8 @@ class FakeIdP:
         if self.challenges.get(nonce) != challenge or form.get("client_secret") != "s3cret-client":
             return httpx.Response(400, json={"error": "invalid_grant"})
         now = int(time.time())
-        iss = "https://accounts.google.com" if "googleapis" in request.url.host else f"https://login.microsoftonline.com/{TENANT}/v2.0"
+        iss = ("https://accounts.google.com" if "googleapis" in request.url.host else f"https://{request.url.host}" if request.url.host.endswith(".okta.com")
+               else f"https://login.microsoftonline.com/{TENANT}/v2.0")
         claims = {"iss": iss, "aud": CLIENT, "sub": "sub-1", "iat": now, "exp": now + 600, "nonce": nonce, "tid": TENANT,
                   "email": "dana@alpine.example", "name": "Dana Doe", **self.claims}
         claims = {k: v for k, v in claims.items() if v is not None}
@@ -104,7 +105,7 @@ def test_settings_validation(api, ready_users, idp):
     r = api.put("/api/settings/sso/entra", json={"client_id": CLIENT, "client_secret": "s3cret-client", "tenant_id": TENANT, "enabled": True})
     assert r.status_code == 200 and r.json()["client_secret_set"] and "s3cret" not in r.text
     assert "s3cret" not in api.get("/api/settings/sso").text
-    assert api.put("/api/settings/sso/okta", json={}).status_code == 404
+    assert api.put("/api/settings/sso/github", json={}).status_code == 404  # unknown provider
     assert api.get("/api/auth/status").json()["sso"] == ["entra"]
     api_login(api, "viewer")
     assert api.get("/api/settings/sso").status_code == 403
@@ -232,3 +233,32 @@ def test_secret_never_logged(api, ready_users, db, idp):
     with db.session_scope() as s:
         assert all("s3cret" not in (a.summary + str(a.changes or "")) for a in s.scalars(select(AuditLog)))
     assert idp.last_form["client_secret"] == "s3cret-client"  # sent only to the provider's token endpoint
+
+
+# ---- Okta (round 3) --------------------------------------------------------------------------------------------
+
+def test_okta_sign_in_needs_a_verified_email_and_an_okta_hosted_domain(api, ready_users, db, idp):
+    api_login(api, "admin")
+    for bad in ("login.evil.example", "acme.okta.com.evil.example", "https://10.0.0.1"):
+        r = api.put("/api/settings/sso/okta", json={"org_domain": bad})
+        assert r.status_code == 400, bad
+    api.cookies.clear()
+    api.headers.pop("X-CSRF-Token", None)
+    _configure(api, "okta", org_domain="https://acme.okta.com/")
+    with db.session_scope() as s:
+        from keystone.core import auth
+
+        auth.create_user(s, s.get(auth.User, ready_users["admin"].id), username="dana", display_name="Dana Doe", password=PASSWORD, email="dana@alpine.example")
+    idp.claims = {"email_verified": None}  # Okta didn't vouch for the address
+    assert "error=" in _login(api, idp, "okta")
+    api.cookies.clear()
+    idp.claims = {"email_verified": True, "tid": None}
+    assert _login(api, idp, "okta") == "/"
+    assert idp.last_form["redirect_uri"] == "https://isms.example.com/api/auth/oidc/okta/callback"
+
+
+def test_changing_the_okta_domain_drops_the_secret(api, ready_users, db, idp):
+    _configure(api, "okta", org_domain="acme.okta.com")
+    api_login(api, "admin")
+    body = api.put("/api/settings/sso/okta", json={"org_domain": "other.okta.com", "enabled": False}).json()
+    assert body["client_secret_set"] is False and body["org_domain"] == "other.okta.com"

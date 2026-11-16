@@ -45,6 +45,8 @@ from .models import JIT_ROLES, PROVIDERS, OidcLogin, SsoPolicy, SsoProvider  # S
 
 LOGIN_TTL = timedelta(minutes=10)
 GUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+# Okta-hosted org domains only (no custom domains), so the issuer can't be pointed at an arbitrary host (SC-SSRF-001).
+OKTA_DOMAIN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(okta|oktapreview|okta-emea|okta-gov)\.com$")
 DOMAIN = re.compile(r"^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 ALGORITHMS = ["RS256"]
 LEEWAY = 60
@@ -71,6 +73,12 @@ def endpoints(p: SsoProvider) -> dict:
         base = f"https://login.microsoftonline.com/{tid}"
         return {"issuer": f"{base}/v2.0", "authorize": f"{base}/oauth2/v2.0/authorize", "token": f"{base}/oauth2/v2.0/token",
                 "jwks": f"{base}/discovery/v2.0/keys"}
+    if p.kind == "okta":
+        dom = p.org_domain or ""
+        if not OKTA_DOMAIN.match(dom):
+            raise SsoError("not_configured", "Okta domain missing or invalid")
+        base = f"https://{dom}"  # the org authorization server
+        return {"issuer": base, "authorize": f"{base}/oauth2/v1/authorize", "token": f"{base}/oauth2/v1/token", "jwks": f"{base}/oauth2/v1/keys"}
     raise SsoError("not_configured", "unknown provider")
 
 
@@ -104,7 +112,7 @@ def provider(session: Session, kind: str) -> SsoProvider:
 
 def view(p: SsoProvider) -> dict:
     base = get_settings().public_url
-    return {"kind": p.kind, "enabled": p.enabled, "client_id": p.client_id, "client_secret_set": bool(p.client_secret_enc), "tenant_id": p.tenant_id,
+    return {"kind": p.kind, "enabled": p.enabled, "client_id": p.client_id, "client_secret_set": bool(p.client_secret_enc), "tenant_id": p.tenant_id, "org_domain": p.org_domain,
             "allowed_domains": p.allowed_domains or [], "jit_enabled": p.jit_enabled, "jit_role": p.jit_role,
             "redirect_uri": f"{base}/api/auth/oidc/{p.kind}/callback" if base else None, "public_url_set": bool(base)}
 
@@ -112,7 +120,7 @@ def view(p: SsoProvider) -> dict:
 def update(session: Session, actor, kind: str, **fields) -> SsoProvider:
     authorize(session, actor, "users.manage")
     p = provider(session, kind)
-    allowed = {"enabled", "client_id", "client_secret", "clear_secret", "tenant_id", "allowed_domains", "jit_enabled", "jit_role"}
+    allowed = {"enabled", "client_id", "client_secret", "clear_secret", "tenant_id", "org_domain", "allowed_domains", "jit_enabled", "jit_role"}
     if set(fields) - allowed:
         raise ValueError(f"fields not editable here: {', '.join(sorted(set(fields) - allowed))}")
     if "client_id" in fields:
@@ -125,6 +133,13 @@ def update(session: Session, actor, kind: str, **fields) -> SsoProvider:
         if tid and not GUID.match(tid):
             raise ValueError("Enter the tenant ID (a GUID), not a domain or 'common': only your organisation's tenant is trusted.")
         p.tenant_id = tid or None
+    if "org_domain" in fields:
+        dom = (fields["org_domain"] or "").strip().lower().removeprefix("https://").rstrip("/")
+        if dom and not OKTA_DOMAIN.match(dom):
+            raise ValueError("Enter your Okta domain, for example yourcompany.okta.com (custom domains aren't supported).")
+        if dom != (p.org_domain or "") and p.client_secret_enc and not fields.get("client_secret"):
+            p.client_secret_enc = None  # SC-SSRF-003: a secret is only ever sent to the Okta org it was entered for
+        p.org_domain = dom or None
     if "allowed_domains" in fields:
         domains = sorted({(d or "").strip().lower().lstrip("@") for d in fields["allowed_domains"] or [] if (d or "").strip()})
         bad = [d for d in domains if not DOMAIN.match(d)]
@@ -248,7 +263,7 @@ def verify_id_token(id_token: str, p: SsoProvider, nonce: str) -> dict:
 
 
 def _email(p: SsoProvider, claims: dict) -> str | None:
-    if p.kind == "google":
+    if p.kind in ("google", "okta"):
         if claims.get("email_verified") is not True:
             return None
         return (claims.get("email") or "").strip().lower() or None

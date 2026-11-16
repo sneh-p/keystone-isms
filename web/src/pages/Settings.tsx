@@ -323,7 +323,9 @@ export function EmailSettings() {
   );
 }
 
-const SSO_NAMES: Record<string, string> = { entra: "Microsoft Entra ID", google: "Google" };
+const SSO_NAMES: Record<string, string> = { entra: "Microsoft Entra ID", google: "Google", okta: "Okta" };
+const SSO_HELP: Record<string, string> = { entra: "App registration in your Entra tenant (single tenant), web platform.", google: "OAuth client (web application) in your Google Cloud project.",
+  okta: "OIDC web app integration in your Okta org (Applications > Create App Integration > OIDC, Web Application), with the email scope." };
 
 export function SsoSettings() {
   const { data } = useApi<any[]>("/settings/sso");
@@ -356,18 +358,19 @@ function SsoRequired() {
 }
 
 function SsoCard({ p }: { p: any }) {
-  const [f, setF] = useState(() => ({ enabled: p.enabled, client_id: p.client_id ?? "", tenant_id: p.tenant_id ?? "", domains: (p.allowed_domains ?? []).join(", "), jit_enabled: p.jit_enabled, jit_role: p.jit_role }));
+  const [f, setF] = useState(() => ({ enabled: p.enabled, client_id: p.client_id ?? "", tenant_id: p.tenant_id ?? "", org_domain: p.org_domain ?? "", domains: (p.allowed_domains ?? []).join(", "), jit_enabled: p.jit_enabled, jit_role: p.jit_role }));
   const [secret, setSecret] = useState("");
   const save = useAction(() => api(`/settings/sso/${p.kind}`, { method: "PUT", body: {
-    enabled: f.enabled, client_id: f.client_id || null, ...(p.kind === "entra" ? { tenant_id: f.tenant_id || null } : {}),
+    enabled: f.enabled, client_id: f.client_id || null, ...(p.kind === "entra" ? { tenant_id: f.tenant_id || null } : {}), ...(p.kind === "okta" ? { org_domain: f.org_domain || null } : {}),
     allowed_domains: f.domains.split(/[\s,]+/).filter(Boolean), jit_enabled: f.jit_enabled, jit_role: f.jit_role, ...(secret ? { client_secret: secret } : {}),
   } }), { success: `${SSO_NAMES[p.kind]} sign-in saved.`, invalidate: ["/settings/sso"], onSuccess: () => setSecret("") });
   return (
     <Card>
-      <CardHeader title={SSO_NAMES[p.kind]} description={p.kind === "entra" ? "App registration in your Entra tenant (single tenant), web platform." : "OAuth client (web application) in your Google Cloud project."} />
+      <CardHeader title={SSO_NAMES[p.kind] ?? p.kind} description={SSO_HELP[p.kind]} />
       <CardBody className="space-y-4">
         <div><Switch checked={f.enabled} onChange={(v) => setF({ ...f, enabled: v })} label={f.enabled ? "Sign-in is on" : "Sign-in is off"} /></div>
         {p.redirect_uri && <Field label="Redirect URI to register"><div className="flex items-center gap-2"><code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1.5 text-xs">{p.redirect_uri}</code><CopyButton text={p.redirect_uri} /></div></Field>}
+        {p.kind === "okta" && <Field label="Okta domain" hint="For example yourcompany.okta.com. Changing it removes the stored client secret."><Input value={f.org_domain} onChange={(e) => setF({ ...f, org_domain: e.target.value })} autoComplete="off" placeholder="yourcompany.okta.com" /></Field>}
         {p.kind === "entra" && <Field label="Tenant ID" hint="Directory (tenant) ID, a GUID. Only accounts from this tenant can sign in."><Input value={f.tenant_id} onChange={(e) => setF({ ...f, tenant_id: e.target.value })} autoComplete="off" /></Field>}
         <Field label="Client ID"><Input value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value })} autoComplete="off" /></Field>
         <Field label="Client secret" hint={p.client_secret_set ? "Stored (encrypted, write-only). Leave empty to keep it." : "Not set."}><Input type="password" value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="new-password" placeholder={p.client_secret_set ? "•••••••• (set)" : ""} /></Field>
@@ -441,6 +444,52 @@ export function SystemHealth() {
           { key: "o", header: "Result", cell: (r: any) => r.last_ok == null ? <Badge tone="outline">Not run</Badge> : r.last_ok ? <Badge tone="good">OK</Badge> : <Badge tone="critical">Failed{r.consecutive_failures > 1 ? ` ×${r.consecutive_failures}` : ""}{r.last_error ? `: ${r.last_error}` : ""}</Badge> },
         ]} />
       </Card>
+    </div>
+  );
+}
+
+/** SCIM provisioning: tokens an identity provider uses to create, update and deactivate accounts. */
+export function Provisioning() {
+  const { data } = useApi<any>("/settings/scim");
+  const [f, setF] = useState<any>(null);
+  const [shown, setShown] = useState<string | null>(null);
+  const create = useAction(() => api<any>("/settings/scim", { body: { label: f.label, default_role: f.default_role, days: f.days ? Number(f.days) : null } }), { invalidate: ["/settings/scim"], onSuccess: (r: any) => { setF(null); setShown(r.token); } });
+  const revoke = useAction((id: number) => api(`/settings/scim/${id}/revoke`, { method: "POST" }), { success: "Token revoked.", invalidate: ["/settings/scim"] });
+  if (!data) return <Skeleton className="h-96" />;
+  return (
+    <div className="animate-fade-in space-y-5">
+      <PageHeader icon={UserCog} title="Provisioning (SCIM)" description="Let Microsoft Entra ID, Okta or another identity provider create, update and deactivate Keystone accounts."
+        actions={<Button onClick={() => setF({ label: "", default_role: "employee", days: 365 })}><Plus /> New token</Button>} />
+      <Card>
+        <CardHeader title="Connection details" description="Enter these in the identity provider's provisioning settings (Entra: Enterprise app > Provisioning; Okta: app > Provisioning > Integration)." />
+        <CardBody>
+          {data.base_url ? <KeyValue items={[["Tenant URL", <span key="u" className="flex items-center gap-2"><code className="break-all">{data.base_url}</code><CopyButton text={data.base_url} /></span>], ["Secret token", "Create one below; it's shown once"]]} />
+            : <p className="text-sm text-critical">Set KEYSTONE_PUBLIC_URL on the server first: the identity provider needs Keystone's public address.</p>}
+          <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            <li>New accounts get the token's basic role and sign in with single sign-on only. Give other roles in Users.</li>
+            <li>The identity provider can deactivate accounts it manages; it can never see, change or deactivate administrators.</li>
+            <li>Removing a user in the identity provider deactivates the account; its history stays in the audit log.</li>
+          </ul>
+        </CardBody>
+      </Card>
+      <DataTable rows={data.tokens} rowKey={(t: any) => t.id} empty="No tokens yet." columns={[
+        { key: "l", header: "Token", cell: (t: any) => <div><div className="font-medium">{t.label}</div><div className="text-xs text-muted-foreground">New accounts: {titleCase(t.default_role)}</div></div> },
+        { key: "c", header: "Created", cell: (t: any) => fmtDate(t.created_at) },
+        { key: "e", header: "Expires", cell: (t: any) => (t.expires_at ? fmtDate(t.expires_at) : "Never") },
+        { key: "u", header: "Last used", cell: (t: any) => (t.last_used_at ? fmtDate(t.last_used_at, true) : "Never") },
+        { key: "s", header: "", cell: (t: any) => t.revoked_at ? <Badge tone="outline">Revoked {fmtDate(t.revoked_at)}</Badge> : <Button size="sm" variant="ghost" onClick={() => { if (confirm(`Revoke “${t.label}”? Provisioning stops until a new token is entered.`)) revoke.mutate(t.id); }}>Revoke</Button> },
+      ]} />
+      <Dialog open={!!f} onOpenChange={(o) => !o && setF(null)} title="New provisioning token" footer={<Button disabled={!f?.label?.trim()} loading={create.isPending} onClick={() => create.mutate(undefined)}>Create token</Button>}>
+        {f && <div className="space-y-4">
+          <Field label="Label" required hint="Which identity provider uses it."><Input value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder="Microsoft Entra ID" /></Field>
+          <Field label="Role for new accounts"><Select value={f.default_role} onChange={(v) => setF({ ...f, default_role: v })} options={[{ value: "employee", label: "Employee (portal only)" }, { value: "viewer", label: "Viewer (read-only)" }]} /></Field>
+          <Field label="Expires after (days)" hint="Up to three years. Set a reminder to rotate it."><Input type="number" min={1} max={1095} value={f.days} onChange={(e) => setF({ ...f, days: e.target.value })} /></Field>
+        </div>}
+      </Dialog>
+      <Dialog open={!!shown} onOpenChange={(o) => !o && setShown(null)} title="Copy the token now" description="It won't be shown again. Paste it into the identity provider's Secret Token field."
+        footer={<Button onClick={() => setShown(null)}>Done</Button>}>
+        {shown && <div className="flex items-center gap-2"><code className="min-w-0 flex-1 break-all rounded bg-muted px-2 py-1.5 text-xs">{shown}</code><CopyButton text={shown} /></div>}
+      </Dialog>
     </div>
   );
 }

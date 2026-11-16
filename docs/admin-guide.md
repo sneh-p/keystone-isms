@@ -150,16 +150,19 @@ Any account can have an **expiry date** (**Users → Expiry**); auditor accounts
 it passes, sign-in fails with the usual "Invalid username or password" and open sessions stop
 working at their next request.
 
-## Single sign-on (Microsoft Entra ID, Google)
+## Single sign-on (Microsoft Entra ID, Google, Okta)
 
 **Settings → Single sign-on.** `KEYSTONE_PUBLIC_URL` must be set: the provider sends people back
-to `<KEYSTONE_PUBLIC_URL>/api/auth/oidc/<entra|google>/callback`, shown on the page to copy.
+to `<KEYSTONE_PUBLIC_URL>/api/auth/oidc/<entra|google|okta>/callback`, shown on the page to copy.
 
 - **Entra ID:** register a single-tenant app (web platform) with that redirect URI and create a
   client secret. Enter the directory (tenant) ID, client ID and secret. Only accounts from that
   tenant can sign in (`common` and other multi-tenant endpoints are refused).
 - **Google:** create an OAuth client (web application) with that redirect URI. Only verified
   email addresses are accepted.
+- **Okta:** create an OIDC web app integration with that sign-in redirect URI and the `email` scope, and enter your
+  Okta domain (for example `yourcompany.okta.com`; Okta-hosted domains only), client ID and secret. Keystone uses the
+  org authorization server, requires a verified email, and drops the stored secret if the domain changes.
 
 Accounts: create the user under **Users** with the email they use at the provider (tick "single
 sign-on only" if they shouldn't have a password). Their first SSO sign-in links the account; from
@@ -173,6 +176,23 @@ The client secret is encrypted and write-only. Each SSO sign-in and each refusal
 **Require single sign-on** turns password sign-in off for everyone except administrators, who keep their password as
 the emergency route if the provider is down; keep administrators few and their passwords strong. It can only be turned
 on while a provider is on, and the last provider can't be turned off while it applies.
+
+## Provisioning (SCIM 2.0)
+
+**Settings → Provisioning** lets an identity provider create, update and deactivate accounts. Create a token (choose
+the role new accounts get: Employee or Viewer, and an expiry), then in the identity provider enter the **tenant URL**
+shown on the page (`<KEYSTONE_PUBLIC_URL>/api/scim/v2`) and the token as the secret. In Entra ID that's Enterprise
+applications → your Keystone app → Provisioning (automatic); in Okta, the app's Provisioning tab (SCIM 2.0, header
+bearer token, push new users, profile updates and deactivation).
+
+- Provisioned accounts sign in with single sign-on only (no password). SCIM never changes roles: give other roles
+  under Users.
+- Administrators are invisible to SCIM: an identity provider can't list, change or deactivate them, so they stay the
+  emergency route.
+- Removing or unassigning a user in the identity provider deactivates the account (sessions end at once); accounts
+  are never deleted, so the audit log keeps their history. Every SCIM change is logged as `scim:<token label>`.
+- Users only (no groups or bulk operations). Supported filters: `userName`, `externalId` and `emails.value` equal to
+  a value. Tokens are stored hashed, shown once, and can be revoked at any time.
 
 ## Email (notification digests)
 

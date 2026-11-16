@@ -73,7 +73,7 @@ export function Login() {
   );
 }
 
-const SSO_LABEL: Record<string, string> = { entra: "Microsoft", google: "Google" };
+const SSO_LABEL: Record<string, string> = { entra: "Microsoft", google: "Google", okta: "Okta" };
 const SSO_ERROR: Record<string, string> = {
   no_account: "There is no Keystone account for that sign-in. Ask an administrator to add you.",
   wrong_tenant: "That account belongs to a different organisation.",

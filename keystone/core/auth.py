@@ -42,6 +42,8 @@ class User(Audited, TimestampMixin, Base):
     # Single sign-on binding: set at the first SSO sign-in; afterwards the account is found by these only.
     sso_issuer: Mapped[str | None] = mapped_column(String(200), nullable=True)
     sso_subject: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # SCIM provisioning: the identity provider's id for this account (set when an IdP creates or claims it).
+    scim_external_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     def __repr__(self) -> str:
         return f"<User {self.username} ({self.role})>"

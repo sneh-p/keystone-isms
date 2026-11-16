@@ -15,7 +15,10 @@ PUBLIC = {"/auth/status", "/auth/bootstrap", "/auth/login", "/public/invite", "/
           # Vendor portal (reviewed design, docs/feature-security-designs.md): token in the X-Vendor-Token header.
           "/public/vendor-portal", "/public/vendor-portal/files", "/public/vendor-portal/files/{file_id}",
           # Single sign-on redirects (reviewed design): state, nonce, PKCE and a browser-binding cookie.
-          "/auth/oidc/{kind}/start", "/auth/oidc/{kind}/callback"}
+          "/auth/oidc/{kind}/start", "/auth/oidc/{kind}/callback",
+          # SCIM provisioning (reviewed design, round 3): no session; a hashed bearer token per identity provider,
+          # checked in keystone/scim/service.check_token. Unauthenticated calls get 401 (tested in test_scim.py).
+          "/scim/v2/ServiceProviderConfig", "/scim/v2/Users", "/scim/v2/Users/{uid}"}
 
 
 def all_routes():

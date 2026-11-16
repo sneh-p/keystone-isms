@@ -130,6 +130,7 @@ class SsoIn(BaseModel):
     client_secret: str | None = Field(default=None, max_length=1000)  # write-only
     clear_secret: bool | None = None
     tenant_id: str | None = Field(default=None, max_length=36)
+    org_domain: str | None = Field(default=None, max_length=253)
     allowed_domains: list[str] | None = Field(default=None, max_length=50)
     jit_enabled: bool | None = None
     jit_role: str | None = None
