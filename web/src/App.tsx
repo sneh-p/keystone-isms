@@ -12,6 +12,22 @@ const FrameworkDetail = lazy(() => import("@/pages/Frameworks").then((m) => ({ d
 const Controls = lazy(() => import("@/pages/Controls"));
 const Soa = lazy(() => import("@/pages/Soa"));
 const Evidence = lazy(() => import("@/pages/Evidence"));
+const Risks = lazy(() => import("@/pages/Risks"));
+const Assets = lazy(() => import("@/pages/Assets"));
+const Vendors = lazy(() => import("@/pages/Vendors"));
+const Questionnaires = lazy(() => import("@/pages/Questionnaires"));
+const Assessments = lazy(() => import("@/pages/Assessments"));
+const Exposure = lazy(() => import("@/pages/Exposure"));
+const Policies = lazy(() => import("@/pages/Policies"));
+const Incidents = lazy(() => import("@/pages/Incidents"));
+const Nonconformities = lazy(() => import("@/pages/Improvement").then((m) => ({ default: m.Nonconformities })));
+const Audits = lazy(() => import("@/pages/Improvement").then((m) => ({ default: m.Audits })));
+const Reviews = lazy(() => import("@/pages/Improvement").then((m) => ({ default: m.Reviews })));
+const Organisation = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Organisation })));
+const Users = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Users })));
+const AuditLog = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.AuditLog })));
+const Account = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Account })));
+const Reports = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Reports })));
 
 /** Authenticated application routes. `nav` marks routes that appear in the sidebar. */
 export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] = [
@@ -21,6 +37,22 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/controls", element: <Controls />, nav: true },
   { path: "/soa", element: <Soa />, nav: true },
   { path: "/evidence", element: <Evidence />, nav: true },
+  { path: "/risks", element: <Risks />, nav: true },
+  { path: "/assets", element: <Assets />, nav: true },
+  { path: "/vendors", element: <Vendors />, nav: true },
+  { path: "/questionnaires", element: <Questionnaires />, nav: true },
+  { path: "/assessments", element: <Assessments />, nav: true },
+  { path: "/exposure", element: <Exposure />, nav: true },
+  { path: "/policies", element: <Policies />, nav: true },
+  { path: "/incidents", element: <Incidents />, nav: true },
+  { path: "/nonconformities", element: <Nonconformities />, nav: true },
+  { path: "/audits", element: <Audits />, nav: true },
+  { path: "/reviews", element: <Reviews />, nav: true },
+  { path: "/reports", element: <Reports />, nav: true },
+  { path: "/settings/organisation", element: <Organisation />, nav: true },
+  { path: "/settings/users", element: <Users />, nav: true },
+  { path: "/settings/audit-log", element: <AuditLog />, nav: true },
+  { path: "/settings/account", element: <Account />, nav: true },
 ];
 APP_ROUTES.filter((r) => r.nav).forEach((r) => BUILT.add(r.path));
 

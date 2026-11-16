@@ -20,7 +20,9 @@ export function Select({ value, onChange, options, placeholder = "Select…", al
   return (
     <S.Root value={value ? String(value) : allowEmpty ? NONE : undefined} onValueChange={(v) => onChange(v === NONE ? null : v)} disabled={disabled}>
       <S.Trigger aria-label={ariaLabel} className={cn("flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-card px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 data-[placeholder]:text-muted-foreground", className)}>
-        <S.Value placeholder={placeholder} />
+        <span className="min-w-0 flex-1 truncate text-left">
+          <S.Value placeholder={placeholder} />
+        </span>
         <S.Icon>
           <ChevronDown className="size-4 opacity-60" />
         </S.Icon>
