@@ -20,7 +20,8 @@ OUT = ("id", "kind", "title", "page", "due", "created_at", "read_at", "resolved_
 @router.get("/portal/notifications")
 def inbox(include_resolved: bool = False, user=Depends(perm("portal")), db: Session = Depends(get_db)):
     return {"items": [ser(n, OUT) for n in ntf.inbox(db, user, include_resolved)], "unread": ntf.unread_count(db, user),
-            "email_digest": ntf.prefs(db, user).email_digest, "has_email": bool(user.email)}
+            "email_digest": ntf.prefs(db, user).email_digest, "has_email": bool(user.email), "digest_muted": ntf.prefs(db, user).digest_muted or [],
+            "categories": [{"key": k, "label": label} for k, (label, _) in ntf.CATEGORIES.items()]}
 
 
 class ReadIn(In):
@@ -33,12 +34,14 @@ def mark_read(body: ReadIn, user=Depends(perm("portal")), db: Session = Depends(
 
 
 class PrefsIn(In):
-    email_digest: bool
+    email_digest: bool | None = None
+    digest_muted: list[str] | None = Field(None, max_length=20)
 
 
 @router.put("/portal/notifications/prefs")
 def set_prefs(body: PrefsIn, user=Depends(perm("portal")), db: Session = Depends(get_db)):
-    return {"email_digest": ntf.set_prefs(db, user, body.email_digest).email_digest}
+    p = ntf.set_prefs(db, user, body.email_digest, body.digest_muted)
+    return {"email_digest": p.email_digest, "digest_muted": p.digest_muted or []}
 
 
 @router.get("/settings/email")

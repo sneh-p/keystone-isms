@@ -8,16 +8,42 @@ import { PageHeader, Skeleton } from "@/components/ui/misc";
 import { Select } from "@/components/ui/select";
 
 // Categorical slots 1-8 in fixed order from the dataviz reference palette, validated with its validator in light
-// (on #ffffff) and dark (on #18181b) mode. Kind is never shown by colour alone: legend, tooltip and screen-reader label.
-const KINDS: Record<string, { label: string; dot: string }> = {
-  task: { label: "Task", dot: "bg-[#2a78d6] dark:bg-[#3987e5]" },
-  control_review: { label: "Control review", dot: "bg-[#eb6834] dark:bg-[#d95926]" },
-  policy_review: { label: "Policy review", dot: "bg-[#1baf7a] dark:bg-[#199e70]" },
-  risk_review: { label: "Risk review", dot: "bg-[#eda100] dark:bg-[#c98500]" },
-  vendor_review: { label: "Vendor review", dot: "bg-[#e87ba4] dark:bg-[#d55181]" },
-  contract_end: { label: "Contract end", dot: "bg-[#008300] dark:bg-[#0ca30c]" },
-  evidence_expiry: { label: "Evidence expiry", dot: "bg-[#6250d6] dark:bg-[#9085e9]" },
-  audit: { label: "Audit", dot: "bg-[#e34948] dark:bg-[#e66767]" },
+// (on #ffffff) and dark (on #18181b) mode. More kinds than slots, so kinds fold into eight groups (never a ninth hue);
+// each event still names its own kind. Kind is never shown by colour alone: legend, tooltip and screen-reader label.
+const GROUPS: Record<string, { label: string; dot: string }> = {
+  work: { label: "Tasks and actions", dot: "bg-[#2a78d6] dark:bg-[#3987e5]" },
+  control: { label: "Control reviews", dot: "bg-[#eb6834] dark:bg-[#d95926]" },
+  policy: { label: "Policies and objectives", dot: "bg-[#1baf7a] dark:bg-[#199e70]" },
+  risk: { label: "Risk reviews", dot: "bg-[#eda100] dark:bg-[#c98500]" },
+  vendor: { label: "Vendors and contracts", dot: "bg-[#e87ba4] dark:bg-[#d55181]" },
+  privacy: { label: "Privacy and continuity", dot: "bg-[#008300] dark:bg-[#0ca30c]" },
+  evidence: { label: "Evidence and configuration", dot: "bg-[#6250d6] dark:bg-[#9085e9]" },
+  audit: { label: "Audits and access reviews", dot: "bg-[#e34948] dark:bg-[#e66767]" },
+};
+const KINDS: Record<string, { label: string; group: keyof typeof GROUPS }> = {
+  task: { label: "Task", group: "work" },
+  nc_due: { label: "Nonconformity due", group: "work" },
+  corrective_action: { label: "Corrective action", group: "work" },
+  control_review: { label: "Control review", group: "control" },
+  policy_review: { label: "Policy review", group: "policy" },
+  objective: { label: "Objective target", group: "policy" },
+  risk_review: { label: "Risk review", group: "risk" },
+  vendor_review: { label: "Vendor review", group: "vendor" },
+  contract_end: { label: "Contract end", group: "vendor" },
+  dsr_due: { label: "Data subject request", group: "privacy" },
+  privacy_review: { label: "Processing activity review", group: "privacy" },
+  dpia_review: { label: "DPIA review", group: "privacy" },
+  bia_review: { label: "Business impact review", group: "privacy" },
+  continuity_test: { label: "Continuity test", group: "privacy" },
+  plan_exercise: { label: "Plan exercise due", group: "privacy" },
+  evidence_expiry: { label: "Evidence expiry", group: "evidence" },
+  firewall_upload: { label: "Firewall configuration out of date", group: "evidence" },
+  audit: { label: "Audit", group: "audit" },
+  access_review: { label: "Access review", group: "audit" },
+};
+const kindStyle = (kind: string) => {
+  const k = KINDS[kind];
+  return k ? { label: k.label, dot: GROUPS[k.group].dot } : { label: kind, dot: "bg-muted-foreground" };
 };
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -55,7 +81,7 @@ export default function CalendarPage() {
         </div>
       </div>
       <ul className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground" aria-label="Legend">
-        {Object.entries(KINDS).map(([k, v]) => <li key={k} className="flex items-center gap-1.5"><span className={cn("size-2 rounded-full", v.dot)} aria-hidden />{v.label}</li>)}
+        {Object.entries(GROUPS).map(([k, v]) => <li key={k} className="flex items-center gap-1.5"><span className={cn("size-2 rounded-full", v.dot)} aria-hidden />{v.label}</li>)}
       </ul>
       {!data ? <Skeleton className="h-[32rem]" /> : (
         <>
@@ -91,7 +117,7 @@ export default function CalendarPage() {
 }
 
 function EventLink({ e, name, compact }: { e: any; name: (id?: number | null) => string; compact?: boolean }) {
-  const k = KINDS[e.kind] ?? { label: e.kind, dot: "bg-muted-foreground" };
+  const k = kindStyle(e.kind);
   return (
     <li>
       <Link to={e.page} title={`${k.label}: ${e.title}${e.owner_id ? ` · ${name(e.owner_id)}` : ""}`}

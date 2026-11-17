@@ -1,7 +1,10 @@
 """Compliance calendar: who tests, reviews or renews what, and when.
 
-Events come from the records' own dates: task due dates, control, policy, risk and vendor review dates, contract
-ends, evidence expiry and planned audits. Nothing is stored here; editing the record moves the event.
+Events come from the records' own dates: task due dates; control, policy, risk, vendor, processing-activity, DPIA and
+business-process review dates; contract ends; evidence expiry; planned audits; data subject request deadlines;
+continuity tests and plan exercises; access reviews; nonconformity and corrective-action due dates; objective target
+dates; and when an uploaded firewall configuration goes out of date. Nothing is stored here; editing the record moves
+the event.
 """
 
 from __future__ import annotations
@@ -56,8 +59,49 @@ def events(session: Session, actor, start: date, end: date) -> list[dict]:
         add(a.planned_start, "audit", f"Audit starts: {a.title}", f"/audits?open={a.id}", a.lead_auditor_id)
         if a.planned_end and a.planned_end != a.planned_start:
             add(a.planned_end, "audit", f"Audit ends: {a.title}", f"/audits?open={a.id}", a.lead_auditor_id)
+    _more(session, add)
     out.sort(key=lambda e: (e["date"], e["kind"], e["title"]))
     return out
+
+
+def _more(session: Session, add) -> None:
+    """Privacy, continuity, access reviews, improvement, objectives and configuration."""
+    from keystone.access_reviews.models import AccessReview
+    from keystone.configcheck.models import ConfigTarget
+    from keystone.configcheck.service import FIREWALL_STALE_DAYS
+    from keystone.continuity import service as continuity
+    from keystone.continuity.models import BusinessProcess, ContinuityPlan, ContinuityTest
+    from keystone.improvement.models import CorrectiveAction, Nonconformity
+    from keystone.org.models import SecurityObjective
+    from keystone.privacy.models import DataSubjectRequest, Dpia, ProcessingActivity
+
+    for r in session.scalars(select(DataSubjectRequest).where(DataSubjectRequest.status.notin_(("completed", "refused")))):
+        add(r.due_date, "dsr_due", f"Data subject request due: {r.ref}", "/privacy?tab=requests", r.assignee_id)
+    for a in session.scalars(select(ProcessingActivity).where(ProcessingActivity.status == "active")):
+        add(a.next_review_date, "privacy_review", f"Review processing activity {a.name}", "/privacy", a.owner_id)
+    for d in session.scalars(select(Dpia).where(Dpia.status == "approved")):
+        add(d.next_review_date, "dpia_review", f"Review DPIA {d.title}", "/privacy?tab=dpias", getattr(d, "owner_id", None) or d.created_by_id)
+    for p in session.scalars(select(BusinessProcess).where(BusinessProcess.status == "active")):
+        add(p.next_review_date, "bia_review", f"Review business impact: {p.name}", "/continuity", p.owner_id)
+    for t in session.scalars(select(ContinuityTest).where(ContinuityTest.status == "planned")):
+        plan = session.get(ContinuityPlan, t.plan_id)
+        add(t.planned_on, "continuity_test", f"Continuity test: {plan.title if plan else t.ref}", "/continuity?tab=tests", plan.owner_id if plan else None)
+    for pl in session.scalars(select(ContinuityPlan).where(ContinuityPlan.status == "active")):
+        planned = session.scalar(select(ContinuityTest.id).where(ContinuityTest.plan_id == pl.id, ContinuityTest.status == "planned"))
+        if planned is None:  # a planned test is already on the calendar
+            add(continuity.due_on(session, pl), "plan_exercise", f"Exercise due: {pl.title}", "/continuity?tab=plans", pl.owner_id)
+    for ar in session.scalars(select(AccessReview).where(AccessReview.status != "completed")):
+        add(ar.due_date, "access_review", f"Access review due: {ar.title}", "/access-reviews", ar.owner_id)
+    for nc in session.scalars(select(Nonconformity).where(Nonconformity.status != "closed")):
+        add(nc.due_date, "nc_due", f"Nonconformity due: {nc.ref} {nc.title}", f"/nonconformities?open={nc.id}", nc.owner_id)
+    for ca in session.scalars(select(CorrectiveAction).where(CorrectiveAction.status == "open")):
+        add(ca.due_date, "corrective_action", f"Corrective action due: {ca.description[:80]}", f"/nonconformities?open={ca.nonconformity_id}", ca.owner_id)
+    for o in session.scalars(select(SecurityObjective).where(SecurityObjective.status.notin_(("achieved", "missed")))):
+        add(o.due_date, "objective", f"Objective target date: {o.title}", "/settings/organisation", o.owner_id)
+    for fw in session.scalars(select(ConfigTarget).where(ConfigTarget.kind == "firewall", ConfigTarget.facts_at.is_not(None))):
+        if fw.facts_at is None:
+            continue
+        add(fw.facts_at.date() + timedelta(days=FIREWALL_STALE_DAYS), "firewall_upload", f"Upload a current configuration of {fw.name}", f"/configuration?target={fw.id}", None)
 
 
 def month_bounds(year: int, month: int) -> tuple[date, date]:

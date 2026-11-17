@@ -34,10 +34,19 @@ def _targets() -> dict[str, tuple[type[Any], str]]:
     from keystone.incidents.models import Incident
     from keystone.policies.models import PolicyDocument
     from keystone.risk.models import Risk
+    from keystone.assets.models import Asset
+    from keystone.configcheck.models import ConfigTarget
+    from keystone.continuity.models import BusinessProcess, ContinuityPlan
+    from keystone.org.models import SecurityObjective
+    from keystone.privacy.models import DataSubjectRequest, Dpia, ProcessingActivity
     from keystone.tasks.models import Task
     from keystone.tprm.models import Vendor
 
-    return {"risk": (Risk, "/risks?open={id}"), "control": (CommonControl, "/controls?open={id}"), "task": (Task, "/tasks?open={id}"),
+    return {"asset": (Asset, "/assets?open={id}"), "config_target": (ConfigTarget, "/configuration?target={id}"),
+            "processing_activity": (ProcessingActivity, "/privacy"), "dpia": (Dpia, "/privacy?tab=dpias"), "data_subject_request": (DataSubjectRequest, "/privacy?tab=requests"),
+            "business_process": (BusinessProcess, "/continuity"), "continuity_plan": (ContinuityPlan, "/continuity?tab=plans"),
+            "objective": (SecurityObjective, "/settings/organisation"),
+            "risk": (Risk, "/risks?open={id}"), "control": (CommonControl, "/controls?open={id}"), "task": (Task, "/tasks?open={id}"),
             "incident": (Incident, "/incidents?open={id}"), "policy": (PolicyDocument, "/policies?open={id}"), "vendor": (Vendor, "/vendors?open={id}"),
             "nonconformity": (Nonconformity, "/nonconformities?open={id}"), "audit": (Audit, "/audits?open={id}")}
 

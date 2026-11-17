@@ -191,3 +191,14 @@ def public_download(slug: str, public_id: str, token: str | None = Header(None, 
         raise HTTPException(403, str(e)) from None
     safe = att.filename.replace('"', "")
     return Response(data, media_type=att.content_type, headers={"Content-Disposition": f'attachment; filename="{safe}"', "Cache-Control": "no-store"})
+
+
+# ---- deleting records created in error (keystone/core/deletion.py: refused while anything depends on them)
+
+
+@router.delete("/trust-center/documents/{did}")
+def delete_trust_document(did: int, user=Depends(perm("trust.manage")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "trust_document", did)
+    return {"ok": True}

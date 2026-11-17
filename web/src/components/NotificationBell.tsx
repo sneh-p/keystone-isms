@@ -56,16 +56,24 @@ export function NotificationBell() {
   );
 }
 
-/** "Daily email digest" switch for My account. */
+/** "Daily email digest" switch, and which categories it includes, for My account. */
 export function DigestPreference() {
-  const { data } = useApi<{ email_digest: boolean; has_email: boolean }>("/portal/notifications");
-  const save = useAction((v: boolean) => api("/portal/notifications/prefs", { method: "PUT", body: { email_digest: v } }), { success: "Saved.", invalidate: ["/portal/notifications"] });
+  const { data } = useApi<{ email_digest: boolean; has_email: boolean; digest_muted: string[]; categories: { key: string; label: string }[] }>("/portal/notifications");
+  const save = useAction((body: { email_digest?: boolean; digest_muted?: string[] }) => api("/portal/notifications/prefs", { method: "PUT", body }), { success: "Saved.", invalidate: ["/portal/notifications"] });
   if (!data) return null;
+  const muted = new Set(data.digest_muted);
+  const toggle = (key: string, on: boolean) => save.mutate({ digest_muted: on ? data.digest_muted.filter((k) => k !== key) : [...data.digest_muted, key] });
   return (
     <Card>
-      <CardHeader title="Notifications" description="The bell at the top lists what needs you. A daily email lists anything still unread." />
-      <CardBody className="space-y-2">
-        <Switch checked={data.email_digest} onChange={(v) => save.mutate(v)} label="Daily email digest" />
+      <CardHeader title="Notifications" description="The bell at the top lists everything that needs you. A daily email lists anything still unread, from the categories you choose." />
+      <CardBody className="space-y-3">
+        <Switch checked={data.email_digest} onChange={(v) => save.mutate({ email_digest: v })} label="Daily email digest" />
+        {data.email_digest && (
+          <fieldset className="grid gap-2 border-t pt-3 sm:grid-cols-2">
+            <legend className="sr-only">Categories in the email digest</legend>
+            {data.categories.map((c) => <Switch key={c.key} checked={!muted.has(c.key)} onChange={(v) => toggle(c.key, v)} label={c.label} />)}
+          </fieldset>
+        )}
         {!data.has_email && <p className="text-xs text-muted-foreground">Your account has no email address, so no digest can be sent. Ask an administrator to add one.</p>}
       </CardBody>
     </Card>

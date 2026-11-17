@@ -376,3 +376,30 @@ def improvement(rid: int, body: ImproveIn, user=Depends(perm("review.write")), d
 @router.post("/reviews/{rid}/finalize")
 def finalize(rid: int, user=Depends(perm("review.write")), db: Session = Depends(get_db)):
     return ser(mr.finalize(db, user, rid), MR)
+
+
+# ---- deleting records created in error (keystone/core/deletion.py: refused while anything depends on them)
+
+
+@router.delete("/incidents/{iid}")
+def delete_incident(iid: int, user=Depends(perm("incident.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "incident", iid)
+    return {"ok": True}
+
+
+@router.delete("/nonconformities/{nid}")
+def delete_nonconformity(nid: int, user=Depends(perm("nc.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "nonconformity", nid)
+    return {"ok": True}
+
+
+@router.delete("/audit-findings/{fid}")
+def delete_audit_finding(fid: int, user=Depends(perm("audit.findings")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "audit_finding", fid)
+    return {"ok": True}

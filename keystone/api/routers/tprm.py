@@ -221,3 +221,14 @@ def approve(aid: int, body: ConclusionIn, user=Depends(perm("vendor.approve")), 
 @router.post("/assessments/{aid}/return")
 def return_(aid: int, user=Depends(perm("vendor.approve")), db: Session = Depends(get_db)):
     return a_out(tprm.return_assessment(db, user, aid))
+
+
+# ---- deleting records created in error (keystone/core/deletion.py: refused while anything depends on them)
+
+
+@router.delete("/vendors/{vid}")
+def delete_vendor(vid: int, user=Depends(perm("vendor.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "vendor", vid)
+    return {"ok": True}

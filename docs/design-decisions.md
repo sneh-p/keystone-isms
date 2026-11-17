@@ -282,3 +282,13 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
 - Semgrep findings that existed when the standard was adopted are held back by `.semgrep/baseline-commit` and listed
   in the adoption report; new findings fail the gate.
 - Semgrep runs from its own virtual environment, because it pins OpenTelemetry versions that conflict with FastAPI.
+
+## Deleting records (round 4)
+
+- Records can be deleted only when they were created in error: nothing depends on them, and nothing about them was
+  approved, accepted, signed, notified or verified. Each register's rules are in `keystone/core/deletion.py`.
+  Otherwise the refusal names the reason and the alternative (close, retire, terminate, mark not relevant).
+- Deleting needs the same permission as editing the register. The audit log is never changed: audited models log the
+  deletion with the last values, and an explicit entry names who deleted what.
+- Comments and ticket links on the record go with it. Ids in other records' JSON lists are removed, and optional
+  links are cleared.

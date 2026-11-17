@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from keystone.core.db import Audited, Base, TimestampMixin, utcnow
@@ -34,6 +34,7 @@ class NotificationPrefs(Base):
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     email_digest: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    digest_muted: Mapped[list | None] = mapped_column(JSON)  # categories left out of the email digest (still in the bell)
     last_digest_on: Mapped[date | None] = mapped_column(Date)
 
 

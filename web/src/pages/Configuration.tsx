@@ -15,6 +15,7 @@ import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
 import { DateInput } from "@/components/forms";
+import { Comments } from "@/components/Comments";
 import { CopyButton } from "@/components/CopyButton";
 import { allowedTypes, describeExpected, expectedFromInput, expectedToInput, parseList, parseTags, resultLabel, type Probe, type Setting } from "@/lib/configcheck";
 
@@ -241,6 +242,9 @@ function TargetDrawer({ id, onClose, catalogue }: { id: number; onClose: () => v
             {t.facts.length === 0 ? <p className="text-sm text-muted-foreground">Nothing reported yet.</p> : (
               <KeyValue items={t.facts.map((f: any) => [f.title, <Value key={f.key} v={f.value} />])} />
             )}
+          </Section>
+          <Section title="Discussion">
+            <Comments kind="config_target" id={t.id} />
           </Section>
           <Section title="History">
             {t.history.length === 0 ? <p className="text-sm text-muted-foreground">No reports yet.</p> : (

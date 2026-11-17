@@ -62,3 +62,14 @@ def run(iid: int, user=Depends(perm("integration.manage")), db: Session = Depend
 @router.get("/integrations/{iid}/history")
 def history(iid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
     return [ser(r, ("check_key", "title", "result", "summary", "run_at")) for r in integ.history(db, iid)]
+
+
+# ---- deleting records created in error (keystone/core/deletion.py: refused while anything depends on them)
+
+
+@router.delete("/integrations/{iid}")
+def delete_integration(iid: int, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "integration", iid)
+    return {"ok": True}

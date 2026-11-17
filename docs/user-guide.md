@@ -34,6 +34,17 @@ per record; owners by username or email; dates as YYYY-MM-DD; yes/no for flags),
 every row with the same rules as the forms and lists the problems by row number. Nothing is saved until every row is
 valid and you confirm; the import is all or nothing, up to 1,000 rows at a time.
 
+## Finding, exporting and deleting
+
+- **Search**: press ⌘K (Ctrl+K) and type at least two characters. Below the pages, the palette lists matching
+  records: risks, controls, policies, tasks, incidents, vendors, assets, nonconformities, audits, processing
+  activities, business processes, and hosts and firewalls. You can also type a reference such as `RSK-0012`.
+- **Export CSV** on any searchable table downloads what the table shows, with its current search and sort. Cells a
+  spreadsheet would run as formulas are prefixed with an apostrophe.
+- **Delete** removes a record created by mistake. Keystone refuses while anything depends on the record or anything
+  about it was approved, accepted, signed, notified or verified, and says what to do instead (close, retire,
+  terminate). The audit log keeps the deleted record's last values.
+
 ## Notifications
 
 The bell at the top of every page (and of the employee portal) lists what needs you: tasks and
@@ -45,6 +56,18 @@ on records without an owner reach the ISMS managers as one summary line each. Ch
 read. If an
 administrator has set up email, you also get a daily digest of unread items; turn it off under
 **My account**.
+
+Under **My account → Notifications** choose which categories the daily email includes. The bell always shows
+everything.
+
+The **calendar** also shows these dates:
+- data subject request deadlines
+- review dates of processing activities, DPIAs and business-impact entries
+- continuity tests and plan exercises
+- access reviews
+- nonconformity and corrective-action due dates
+- objective target dates
+- when an uploaded firewall configuration goes out of date
 
 ## Attack surface
 

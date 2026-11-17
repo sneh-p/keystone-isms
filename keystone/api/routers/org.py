@@ -121,3 +121,14 @@ def add_objective(body: ObjectiveIn, user=Depends(perm("org.write")), db: Sessio
 @router.patch("/objectives/{oid}")
 def edit_objective(oid: int, body: ObjectiveIn, user=Depends(perm("org.write")), db: Session = Depends(get_db)):
     return ser(org.save_objective(db, user, oid, **body.model_dump(exclude_unset=True)), OBJ)
+
+
+# ---- deleting records created in error (keystone/core/deletion.py: refused while anything depends on them)
+
+
+@router.delete("/objectives/{oid}")
+def delete_objective(oid: int, user=Depends(perm("org.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "objective", oid)
+    return {"ok": True}

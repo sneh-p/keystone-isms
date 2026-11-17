@@ -2,7 +2,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { Command } from "cmdk";
 import * as D from "@radix-ui/react-dialog";
-import { ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Sun, User } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, FileSearch, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Sun, User } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -104,11 +106,26 @@ function AreaTabs() {
   );
 }
 
+type Hit = { kind: string; label: string; ref: string; title: string; page: string };
+
+/** The palette's record results: searched on the server once the query has 2+ characters, 200 ms after typing stops. */
+function useRecordSearch(query: string, enabled: boolean) {
+  const [debounced, setDebounced] = useState(query);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query.trim()), 200);
+    return () => clearTimeout(t);
+  }, [query]);
+  return useQuery<Hit[]>({ queryKey: ["/search", debounced], queryFn: () => api<Hit[]>(`/search?q=${encodeURIComponent(debounced)}`), enabled: enabled && debounced.length >= 2, staleTime: 30_000 });
+}
+
 function CommandPalette({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
   const nav = useNavigate();
   const { can } = useAuth();
+  const [query, setQuery] = useState("");
+  const records = useRecordSearch(query, open && can("read"));
   const pages = PAGES.filter((p) => (!p.perm || can(p.perm)) && (BUILT.size === 0 || BUILT.has(p.to)));
   const groups = [...new Set(pages.map((p) => p.section))];
+  const go = (to: string) => { void nav(to); setOpen(false); setQuery(""); };
   return (
     <D.Root open={open} onOpenChange={setOpen}>
       <D.Portal>
@@ -116,13 +133,24 @@ function CommandPalette({ open, setOpen }: { open: boolean; setOpen: (o: boolean
         <D.Content className="fixed left-1/2 top-[15vh] z-50 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-lg border bg-popover shadow-2xl">
           <D.Title className="sr-only">Go to</D.Title>
           <Command>
-            <Command.Input autoFocus placeholder="Jump to a page…" className="w-full border-b bg-transparent px-4 py-3 text-sm outline-none" />
-            <Command.List className="max-h-80 overflow-auto p-2">
-              <Command.Empty className="py-6 text-center text-sm text-muted-foreground">No results</Command.Empty>
+            <Command.Input autoFocus value={query} onValueChange={setQuery} placeholder="Jump to a page or find a record…" className="w-full border-b bg-transparent px-4 py-3 text-sm outline-none" />
+            <Command.List className="max-h-96 overflow-auto p-2">
+              <Command.Empty className="py-6 text-center text-sm text-muted-foreground">{records.isFetching ? "Searching…" : "No results"}</Command.Empty>
+              {(records.data ?? []).length > 0 && (
+                <Command.Group heading="Records" className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground">
+                  {records.data!.map((h) => (
+                    <Command.Item key={`${h.kind}-${h.page}`} value={`${query} ${h.ref} ${h.title} ${h.page}`} onSelect={() => go(h.page)} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm data-[selected=true]:bg-muted">
+                      <FileSearch className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate"><span className="font-mono text-xs text-muted-foreground">{h.ref}</span> {h.title}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{h.label}</span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
               {groups.map((g) => (
                 <Command.Group key={g} heading={g} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground">
                   {pages.filter((p) => p.section === g).map((it) => (
-                    <Command.Item key={it.to} value={`${g} ${it.label}`} onSelect={() => { void nav(it.to); setOpen(false); }} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm data-[selected=true]:bg-muted">
+                    <Command.Item key={it.to} value={`${g} ${it.label}`} onSelect={() => go(it.to)} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm data-[selected=true]:bg-muted">
                       <it.icon className="size-4 text-muted-foreground" />
                       {it.label}
                     </Command.Item>

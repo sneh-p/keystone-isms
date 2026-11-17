@@ -66,7 +66,7 @@ def test_inbox_is_per_user_api(api, demo_db):
         assert api.post("/api/portal/notifications/read", json={"ids": [body["items"][0]["id"]]}).json() == {"updated": 1}
     assert api.post("/api/portal/notifications/read", json={}).status_code == 200
     assert api.get("/api/portal/notifications").json()["unread"] == 0
-    assert api.put("/api/portal/notifications/prefs", json={"email_digest": False}).json() == {"email_digest": False}
+    assert api.put("/api/portal/notifications/prefs", json={"email_digest": False}).json() == {"email_digest": False, "digest_muted": []}
     assert api.put("/api/portal/notifications/prefs", json={"email_digest": False, "user_id": 1}).status_code == 422
     # SMTP settings are for administrators only.
     assert api.get("/api/settings/email").status_code == 403
@@ -159,3 +159,31 @@ def test_employees_have_an_inbox(api, ready_users):
     r = api.get("/api/portal/notifications")
     assert r.status_code == 200 and r.json()["unread"] == 0
     assert api.get("/api/settings/email").status_code == 403
+
+
+def test_digest_categories(demo_db, monkeypatch):
+    """Muted categories stay in the bell but leave the email; muting everything sends nothing."""
+    sent = []
+    monkeypatch.setattr(mailer, "send", lambda cfg, msgs: sent.extend(msgs))
+    monkeypatch.setattr(mailer, "resolve", lambda host: "203.0.113.10")
+    with demo_db.session_scope() as s:
+        admin = _user(s, "admin")
+        ntf.update_smtp(s, admin, host="smtp.example.com", from_address="isms@example.com", enabled=True, digest_hour_utc=7)
+        ntf.refresh_all(s)
+        mia = _user(s, "mia.isms")
+        inbox = [n for n in ntf.inbox(s, mia) if n.read_at is None]
+        cats = {ntf.category(n.kind) for n in inbox}
+        assert len(cats) >= 2, cats
+        keep = sorted(cats)[0]
+        ntf.set_prefs(s, mia, digest_muted=[c for c in ntf.CATEGORIES if c != keep])
+        with pytest.raises(ValueError, match="Unknown categories"):
+            ntf.set_prefs(s, mia, digest_muted=["nope"])
+        ntf.send_digests(s, datetime(2026, 11, 16, 7, 5))
+        mine = [m for m in sent if m["To"] == "mia.isms@alpineskihouse.example"]
+        assert len(mine) == 1
+        body = mine[0].get_content()
+        kept = [n.title for n in inbox if ntf.category(n.kind) == keep]
+        dropped = [n.title for n in inbox if ntf.category(n.kind) != keep and n.title not in kept]
+        assert kept and all(t in body for t in kept[:50]), "every item of the kept category is in the email"
+        assert dropped and not any(t in body for t in dropped), "no item of a muted category is in the email"
+        assert len([n for n in ntf.inbox(s, mia) if n.read_at is None]) == len(inbox)  # the bell still has everything

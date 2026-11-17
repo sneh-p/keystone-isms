@@ -185,3 +185,30 @@ class BreachIn(In):
 @router.put("/breaches/{incident_id}")
 def assess_breach(incident_id: int, body: BreachIn, user=Depends(perm("privacy.write")), db: Session = Depends(get_db)):
     return ser(pv.assess_breach(db, user, incident_id, **body.model_dump(exclude_unset=True)), BREACH)
+
+
+# ---- deleting records created in error (keystone/core/deletion.py: refused while anything depends on them)
+
+
+@router.delete("/activities/{aid}")
+def delete_processing_activity(aid: int, user=Depends(perm("privacy.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "processing_activity", aid)
+    return {"ok": True}
+
+
+@router.delete("/dpias/{did}")
+def delete_dpia(did: int, user=Depends(perm("privacy.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "dpia", did)
+    return {"ok": True}
+
+
+@router.delete("/requests/{rid}")
+def delete_data_subject_request(rid: int, user=Depends(perm("privacy.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "data_subject_request", rid)
+    return {"ok": True}

@@ -120,3 +120,30 @@ class CompleteIn(In):
 def complete_test(tid: int, body: CompleteIn, user=Depends(perm("continuity.write")), db: Session = Depends(get_db)):
     d = body.model_dump()
     return ser(bc.complete_test(db, user, tid, **d), TEST)
+
+
+# ---- deleting records created in error (keystone/core/deletion.py: refused while anything depends on them)
+
+
+@router.delete("/processes/{pid}")
+def delete_business_process(pid: int, user=Depends(perm("continuity.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "business_process", pid)
+    return {"ok": True}
+
+
+@router.delete("/plans/{pid}")
+def delete_continuity_plan(pid: int, user=Depends(perm("continuity.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "continuity_plan", pid)
+    return {"ok": True}
+
+
+@router.delete("/tests/{tid}")
+def delete_continuity_test(tid: int, user=Depends(perm("continuity.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "continuity_test", tid)
+    return {"ok": True}

@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Section } from "@/components/ui/misc";
 
-type Kind = "risk" | "control" | "task" | "incident" | "policy" | "vendor" | "nonconformity" | "audit";
+export type Kind = "risk" | "control" | "task" | "incident" | "policy" | "vendor" | "nonconformity" | "audit" | "asset" | "config_target"
+  | "processing_activity" | "dpia" | "data_subject_request" | "business_process" | "continuity_plan" | "objective";
 
 /** Comment text as plain text, with @mentions emphasised (never rendered as HTML). */
 function Body({ text }: { text: string }) {

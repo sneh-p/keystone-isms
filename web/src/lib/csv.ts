@@ -51,3 +51,25 @@ export function toCsvLine(cells: string[]): string {
     return /[",\r\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
   }).join(",");
 }
+
+/** RFC 4180 CSV text (CRLF line ends) built from toCsvLine, so cells are formula-safe. */
+export function toCsv(rows: string[][]): string {
+  return rows.map(toCsvLine).join("\r\n") + "\r\n";
+}
+
+/** "Risk register" → "risk-register-2026-11-17.csv" */
+export function csvFilename(name: string, on: Date = new Date()): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "export";
+  return `${slug}-${on.toISOString().slice(0, 10)}.csv`;
+}
+
+export function downloadCsv(filename: string, rows: string[][]): void {
+  const url = URL.createObjectURL(new Blob(["\ufeff" + toCsv(rows)], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}

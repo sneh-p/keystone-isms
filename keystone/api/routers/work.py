@@ -157,3 +157,14 @@ class ProfileIn(In):
 @router.post("/onboarding/complete")
 def complete(body: ProfileIn, user=Depends(perm("org.write")), db: Session = Depends(get_db)):
     return onb.complete(db, user, body.model_dump())
+
+
+# ---- deleting records created in error (keystone/core/deletion.py: refused while anything depends on them)
+
+
+@router.delete("/tasks/{tid}")
+def delete_task(tid: int, user=Depends(perm("task.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "task", tid)
+    return {"ok": True}

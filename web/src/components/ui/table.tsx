@@ -1,6 +1,8 @@
-import { useMemo, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, Search } from "lucide-react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
+import { ArrowDown, ArrowUp, Download, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { csvFilename, downloadCsv } from "@/lib/csv";
+import { Button } from "./button";
 import { Input } from "./input";
 
 /** `mobile`: on phones each row becomes a card; the first two columns form its heading unless set otherwise. */
@@ -12,7 +14,7 @@ type Key = string | number;
  * Data table with optional search, column sorting and row selection. With `selected`/`onSelectedChange`, each row
  * gets a checkbox and `bulkBar(keys)` renders above the table while anything is selected.
  */
-export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothing here yet.", rowKey, toolbar, selected, onSelectedChange, bulkBar, rowLabel }: {
+export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothing here yet.", rowKey, toolbar, selected, onSelectedChange, bulkBar, rowLabel, exportName }: {
   rows: T[];
   columns: Column<T>[];
   onRowClick?: (row: T) => void;
@@ -25,7 +27,10 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
   bulkBar?: (keys: Key[]) => ReactNode;
   /** Names a row for its checkbox, e.g. the record's code and title. */
   rowLabel?: (row: T) => string;
+  /** File name for "Export CSV" (shown on searchable tables); defaults to the page heading. */
+  exportName?: string;
 }) {
+  const tableRef = useRef<HTMLTableElement>(null);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   const shown = useMemo(() => {
@@ -70,6 +75,11 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
             </div>
           )}
           {toolbar}
+          {search && shown.length > 0 && (
+            <Button variant="ghost" size="sm" className="ml-auto" onClick={() => exportVisible(tableRef.current, columns, selectable, exportName)}>
+              <Download /> Export CSV
+            </Button>
+          )}
         </div>
       )}
       {selectable && selected!.size > 0 && bulkBar && (
@@ -81,7 +91,7 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
         </div>
       )}
       <div className="hidden overflow-x-auto rounded-lg border bg-card sm:block">
-        <table className="w-full text-sm">
+        <table ref={tableRef} className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               {selectable && (
@@ -163,4 +173,17 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
       {search && q && <p className="mt-2 text-xs text-muted-foreground">{shown.length} of {rows.length} shown</p>}
     </div>
   );
+}
+
+/** Exports what the table shows (the current search and sort), as the cells read on screen. Action columns are left out. */
+function exportVisible<T>(table: HTMLTableElement | null, columns: Column<T>[], selectable: boolean, name?: string) {
+  if (!table) return;
+  const keep = columns.map((c, i) => [c, i] as const).filter(([c]) => typeof c.header === "string" && c.header !== "");
+  const offset = selectable ? 1 : 0;
+  const header = keep.map(([c]) => String(c.header));
+  const body = [...table.tBodies[0].rows]
+    .filter((tr) => tr.cells.length === columns.length + offset)
+    .map((tr) => keep.map(([, i]) => (tr.cells[i + offset]?.innerText ?? "").replace(/\s*\n\s*/g, "; ").trim()));
+  const heading = name ?? document.querySelector("main h1")?.textContent ?? "export";
+  downloadCsv(csvFilename(heading), [header, ...body]);
 }

@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import Field
 from sqlalchemy.orm import Session
 
@@ -116,3 +116,11 @@ def board_report_pdf(user=Depends(perm("read")), db: Session = Depends(get_db)):
 
     return Response(board.report_pdf(db, user), media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="Board_summary_{date.today().isoformat()}.pdf"', "Cache-Control": "no-store"})
+
+
+@router.get("/search")
+def search(q: str = Query("", max_length=100), user=Depends(perm("read")), db: Session = Depends(get_db)):
+    """Records whose reference or title contains the query, for the command palette."""
+    from keystone.reporting.search import search as find
+
+    return find(db, user, q)

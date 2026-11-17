@@ -179,3 +179,22 @@ class FairIn(In):
 def run_fair(rid: int, body: FairIn, user=Depends(perm("risk.write")), db: Session = Depends(get_db)):
     risk.run_fair(db, user, rid, body.inputs, body.iterations)
     return risk_out(get_or_404(db, Risk, rid), True)
+
+
+# ---- deleting records created in error (keystone/core/deletion.py: refused while anything depends on them)
+
+
+@router.delete("/assets/{aid}")
+def delete_asset(aid: int, user=Depends(perm("asset.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "asset", aid)
+    return {"ok": True}
+
+
+@router.delete("/risks/{rid}")
+def delete_risk(rid: int, user=Depends(perm("risk.write")), db: Session = Depends(get_db)):
+    from keystone.core.deletion import delete_record
+
+    delete_record(db, user, "risk", rid)
+    return {"ok": True}

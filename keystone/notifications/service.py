@@ -136,10 +136,34 @@ def prefs(session: Session, user: User) -> NotificationPrefs:
     return p
 
 
-def set_prefs(session: Session, actor, email_digest: bool) -> NotificationPrefs:
+# Digest categories, from the page a notification links to. In-app notifications are never muted; only the email.
+CATEGORIES = {
+    "work": ("Tasks and mentions", ("tasks", "calendar", "workload", "mention", "general")),
+    "compliance": ("Controls, evidence and policies", ("controls", "evidence", "policies", "soa", "frameworks")),
+    "risk": ("Risks and assets", ("risks", "assets")),
+    "findings": ("Attack surface and configuration", ("attack-surface", "asm", "configuration", "config")),
+    "operations": ("Incidents, nonconformities and audits", ("incidents", "nonconformities", "audits", "reviews")),
+    "vendors": ("Vendors and questionnaires", ("vendors", "questionnaires", "assessments", "security-questionnaires")),
+    "privacy": ("Privacy, continuity and access reviews", ("privacy", "continuity", "access-reviews")),
+    "system": ("Integrations and system", ("integrations", "settings", "system", "ticket")),
+}
+_CATEGORY_OF = {kind: cat for cat, (_, kinds) in CATEGORIES.items() for kind in kinds}
+
+
+def category(kind: str) -> str:
+    return _CATEGORY_OF.get(kind, "work")
+
+
+def set_prefs(session: Session, actor, email_digest: bool | None = None, digest_muted: list[str] | None = None) -> NotificationPrefs:
     authorize(session, actor, "portal")
     p = prefs(session, actor)
-    p.email_digest = bool(email_digest)
+    if email_digest is not None:
+        p.email_digest = bool(email_digest)
+    if digest_muted is not None:
+        unknown = set(digest_muted) - set(CATEGORIES)
+        if unknown:
+            raise ValueError(f"Unknown categories: {', '.join(sorted(unknown))}.")
+        p.digest_muted = sorted(set(digest_muted)) or None
     session.flush()
     return p
 
@@ -289,7 +313,8 @@ def send_digests(session: Session, now: datetime | None = None) -> int:
         p = prefs(session, u)
         if not p.email_digest or p.last_digest_on == now.date() or not u.email or not re.match(EMAIL, u.email):
             continue
-        items = [n for n in _items(session, u.id) if n.read_at is None]
+        muted = set(p.digest_muted or [])
+        items = [n for n in _items(session, u.id) if n.read_at is None and category(n.kind) not in muted]
         if not items:
             continue
         batch.append((p, items, mailer.build(s.from_address or "", s.from_name, u.email, f"Keystone: {len(items)} item{'s' if len(items) != 1 else ''} need your attention", digest_body(u, items))))

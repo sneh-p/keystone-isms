@@ -793,8 +793,11 @@ def delete_target(session: Session, actor, target_id: int) -> None:
     authorize(session, actor, "integration.manage")
     t = get_or_404(session, ConfigTarget, target_id)
     name = t.name
+    from keystone.collab.models import Comment
+
     session.execute(delete(ConfigFinding).where(ConfigFinding.target_id == t.id))
     session.execute(delete(ConfigSnapshot).where(ConfigSnapshot.target_id == t.id))
+    session.execute(delete(Comment).where(Comment.entity_type == "config_target", Comment.entity_id == t.id))
     session.delete(t)
     session.flush()
     log_event(session, actor, "delete", "ConfigTarget", target_id, f"Removed {name} from configuration checks")
