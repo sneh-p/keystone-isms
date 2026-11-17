@@ -24,7 +24,7 @@ access, logins, uploads or outbound connections follow the secure coding standar
 | 16 | Slack and Teams notifications | Done (plus signed webhooks) |
 | 17 | Scheduled report emails; board summary as PDF | Planned |
 | 18 | Per-record history for staff | Done (visible to anyone who can read the record) |
-| 19 | API tokens and outbound webhooks | Planned |
+| 19 | API tokens and outbound webhooks | Done |
 | 20 | AI: control narratives, evidence review, risk suggestions, audit-prep assistant | Planned |
 
 Needs the organisation (can't be done from here): validating attack surface connectors with read-only keys, a real

@@ -39,3 +39,4 @@ from keystone.continuity.models import BusinessProcess, ContinuityPlan, Continui
 from keystone.scim.models import ScimToken
 from keystone.access_reviews.models import AccessReview, AccessReviewItem
 from keystone.outbound.models import Delivery, Destination
+from keystone.apitokens.models import ApiToken

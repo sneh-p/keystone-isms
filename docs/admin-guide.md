@@ -459,6 +459,16 @@ DNS queries go through the server's own resolver; allow `crt.sh` through your eg
 providers answer "no records" instead of "no such name" for missing names, so a dangling CNAME there isn't detected:
 the check errs towards silence rather than false alarms.
 
+## API tokens
+
+Staff can create personal API tokens under **My account** for scripts and reporting tools (`Authorization: Bearer
+kst_…`). A token acts as its owner, with the owner's current permissions; read-only tokens allow GET only. Tokens
+expire within a year, are stored hashed and shown once, stop working when the owner is deactivated or expires, and can
+be revoked by the owner or a user administrator (**Show everyone's tokens**). They can never be used for account and
+security administration (`/api/auth`, `/api/tokens`, `/api/users`, `/api/settings/*`, `/api/scim`): those need a
+signed-in session. Each token records when and from where it was last used; changes made with a token are audited as
+its owner.
+
 ## Chat and webhooks (Slack, Teams, signed webhooks)
 
 **Settings → Chat and webhooks** (integration-management permission) sends events to channels and systems:

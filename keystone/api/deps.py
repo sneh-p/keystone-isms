@@ -31,8 +31,28 @@ def current_session(request: Request, db: Session = Depends(get_db)) -> sessions
     return ws
 
 
-def current_user(ws: sessions.WebSession = Depends(current_session), db: Session = Depends(get_db)) -> User:
-    user = db.get(User, ws.user_id)
+def _bearer_user_id(request: Request, db: Session) -> int | None:
+    """A personal API token in "Authorization: Bearer kst_…" (keystone/apitokens). Returns its owner's id, None when
+    the request has no API token (then the cookie session applies), or raises 401/403."""
+    from keystone.apitokens import service as tokens
+
+    auth = request.headers.get("authorization") or ""
+    if not auth.startswith("Bearer " + tokens.PREFIX):
+        return None
+    try:
+        t = tokens.resolve(db, auth[7:].strip(), request.method, request.url.path, request.client.host if request.client else None)
+    except tokens.TokenRejected as e:
+        raise HTTPException(e.status, e.detail) from None
+    request.state.api_token_id = t.id
+    return t.user_id
+
+
+def current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    """The signed-in user, from an API token or else the browser session (with its CSRF check)."""
+    uid = _bearer_user_id(request, db)
+    if uid is None:
+        uid = current_session(request, db).user_id
+    user = db.get(User, uid)
     if user is None or not user.active:
         raise HTTPException(401, "Account disabled.")
     if auth_expired(user):  # checked on every request, so a session can't outlive the account

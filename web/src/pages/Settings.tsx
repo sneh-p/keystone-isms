@@ -171,7 +171,47 @@ export function Account() {
         </CardBody></Card>
         <DigestPreference />
       </div>
+      {me?.permissions.includes("read") && <ApiTokens />}
     </div>
+  );
+}
+
+/** Personal API tokens for scripts and reporting tools. */
+function ApiTokens() {
+  const { can } = useAuth();
+  const [all, setAll] = useState(false);
+  const key = `/tokens${all ? "?all=true" : ""}`;
+  const { data } = useApi<any[]>(key);
+  const { name } = usePeople();
+  const [f, setF] = useState<any>(null);
+  const [shown, setShown] = useState<string | null>(null);
+  const create = useAction(() => api<any>("/tokens", { body: { name: f.name, scope: f.scope, days: Number(f.days) } }), { invalidate: ["/tokens"], onSuccess: (r: any) => { setF(null); setShown(r.token); } });
+  const revoke = useAction((id: number) => api(`/tokens/${id}/revoke`, { method: "POST" }), { success: "Token revoked.", invalidate: ["/tokens"] });
+  return (
+    <Card className="mt-6">
+      <CardHeader title="API tokens" description="For scripts and reporting tools: they act as you, with your permissions, and can't manage accounts, tokens or settings. Send as “Authorization: Bearer <token>”."
+        action={<Button size="sm" onClick={() => setF({ name: "", scope: "read", days: 90 })}><Plus /> New token</Button>} />
+      <CardBody className="space-y-3">
+        {can("users.manage") && <Switch checked={all} onChange={setAll} label="Show everyone's tokens" />}
+        <DataTable rows={data ?? []} rowKey={(t: any) => t.id} empty="No tokens." columns={[
+          { key: "n", header: "Token", cell: (t: any) => <div><div className="font-medium">{t.name}</div><div className="text-xs text-muted-foreground">{t.scope === "write" ? "Read and write" : "Read only"}{all ? ` · ${name(t.user_id)}` : ""}</div></div> },
+          { key: "e", header: "Expires", cell: (t: any) => fmtDate(t.expires_at) },
+          { key: "u", header: "Last used", cell: (t: any) => (t.last_used_at ? `${fmtDate(t.last_used_at, true)}${t.last_used_ip ? ` from ${t.last_used_ip}` : ""}` : "Never") },
+          { key: "x", header: "", cell: (t: any) => t.revoked_at ? <Badge tone="outline">Revoked</Badge> : <Button size="sm" variant="ghost" onClick={() => revoke.mutate(t.id)}>Revoke</Button> },
+        ]} />
+      </CardBody>
+      <Dialog open={!!f} onOpenChange={(o) => !o && setF(null)} title="New API token" footer={<Button disabled={!f?.name?.trim()} loading={create.isPending} onClick={() => create.mutate(undefined)}>Create token</Button>}>
+        {f && <div className="space-y-4">
+          <Field label="Name" required hint="What uses it, for example “Power BI export”."><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+          <Field label="Access"><Select value={f.scope} onChange={(v) => setF({ ...f, scope: v })} options={[{ value: "read", label: "Read only (recommended)" }, { value: "write", label: "Read and write" }]} /></Field>
+          <Field label="Expires after (days)" hint="Up to a year."><Input type="number" min={1} max={365} value={f.days} onChange={(e) => setF({ ...f, days: e.target.value })} /></Field>
+        </div>}
+      </Dialog>
+      <Dialog open={!!shown} onOpenChange={(o) => !o && setShown(null)} title="Copy the token now" description="It won't be shown again. Store it in a secrets manager, not in a script."
+        footer={<Button onClick={() => setShown(null)}>Done</Button>}>
+        {shown && <div className="flex items-center gap-2"><code className="min-w-0 flex-1 break-all rounded bg-muted px-2 py-1.5 text-xs">{shown}</code><CopyButton text={shown} /></div>}
+      </Dialog>
+    </Card>
   );
 }
 
