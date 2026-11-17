@@ -106,3 +106,13 @@ def board_report(user=Depends(perm("read")), db: Session = Depends(get_db)):
     from .common import docx_response
 
     return docx_response(board.report_docx(db, user), f"Board_summary_{date.today().isoformat()}.docx")
+
+
+@router.get("/reports/board.pdf")
+def board_report_pdf(user=Depends(perm("read")), db: Session = Depends(get_db)):
+    from fastapi.responses import Response
+
+    from keystone.reporting import board
+
+    return Response(board.report_pdf(db, user), media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="Board_summary_{date.today().isoformat()}.pdf"', "Cache-Control": "no-store"})

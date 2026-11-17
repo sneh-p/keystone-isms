@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends
 from pydantic import Field
 from sqlalchemy.orm import Session
@@ -7,6 +9,7 @@ from keystone.org.service import get_org
 from keystone.reporting import dashboard, imports, registers
 
 from ..deps import get_db, perm
+from ..serialize import ser
 from .common import In, xlsx_response
 
 router = APIRouter(tags=["dashboard"])
@@ -62,3 +65,53 @@ def _import_route(name: str, permission: str):
 
 for _name, _reg in imports.all_registers().items():
     _import_route(_name, _reg.permission)
+
+
+# ---- scheduled report emails (org.write) ------------------------------------------------------------------------
+
+SCHEDULE = ("id", "name", "report", "frequency", "recipient_ids", "next_run_on", "enabled", "last_sent_at", "last_error", "created_by_id")
+
+
+@router.get("/report-schedules")
+def report_schedules(user=Depends(perm("org.write")), db: Session = Depends(get_db)):
+    from keystone.reporting import schedules as sch
+
+    return {"reports": sch.reports(), "schedules": [ser(s, SCHEDULE) for s in sch.schedules(db, user)]}
+
+
+class ScheduleIn(In):
+    name: str | None = Field(default=None, max_length=150)
+    report: str | None = Field(default=None, max_length=100)
+    frequency: str | None = Field(default=None, pattern="^(weekly|monthly|quarterly)$")
+    recipient_ids: list[int] | None = Field(default=None, max_length=25)
+    next_run_on: date | None = None
+    enabled: bool | None = None
+
+
+@router.post("/report-schedules")
+def create_schedule(body: ScheduleIn, user=Depends(perm("org.write")), db: Session = Depends(get_db)):
+    from keystone.reporting import schedules as sch
+
+    return ser(sch.save(db, user, **body.model_dump(exclude_unset=True)), SCHEDULE)
+
+
+@router.patch("/report-schedules/{sid}")
+def update_schedule(sid: int, body: ScheduleIn, user=Depends(perm("org.write")), db: Session = Depends(get_db)):
+    from keystone.reporting import schedules as sch
+
+    return ser(sch.save(db, user, sid, **body.model_dump(exclude_unset=True)), SCHEDULE)
+
+
+@router.delete("/report-schedules/{sid}")
+def delete_schedule(sid: int, user=Depends(perm("org.write")), db: Session = Depends(get_db)):
+    from keystone.reporting import schedules as sch
+
+    sch.delete(db, user, sid)
+    return {"ok": True}
+
+
+@router.post("/report-schedules/{sid}/send")
+def send_schedule(sid: int, user=Depends(perm("org.write")), db: Session = Depends(get_db)):
+    from keystone.reporting import schedules as sch
+
+    return ser(sch.send_now(db, user, sid), SCHEDULE)

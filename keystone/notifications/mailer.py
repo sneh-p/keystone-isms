@@ -97,14 +97,18 @@ def connect(host: str, port: int, security: str) -> smtplib.SMTP:
     return s
 
 
-def build(sender: str, sender_name: str, to: str, subject: str, body: str) -> EmailMessage:
-    """Plain-text message. EmailMessage refuses CR/LF in headers, so subjects and names can't inject headers."""
+def build(sender: str, sender_name: str, to: str, subject: str, body: str, attachments: list[tuple[str, str, bytes]] | None = None) -> EmailMessage:
+    """Plain-text message, optionally with attachments (filename, MIME type, bytes). EmailMessage refuses CR/LF in
+    headers, so subjects, names and filenames can't inject headers."""
     m = EmailMessage()
     m["From"] = formataddr((sender_name, sender))
     m["To"] = to
     m["Subject"] = subject
     m["Auto-Submitted"] = "auto-generated"
     m.set_content(body)
+    for filename, mime, data in attachments or []:
+        maintype, _, subtype = mime.partition("/")
+        m.add_attachment(data, maintype=maintype, subtype=subtype, filename=filename)
     return m
 
 

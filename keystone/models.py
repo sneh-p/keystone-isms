@@ -40,3 +40,4 @@ from keystone.scim.models import ScimToken
 from keystone.access_reviews.models import AccessReview, AccessReviewItem
 from keystone.outbound.models import Delivery, Destination
 from keystone.apitokens.models import ApiToken
+from keystone.reporting.models import ReportSchedule

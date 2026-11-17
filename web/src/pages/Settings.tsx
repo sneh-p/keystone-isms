@@ -11,6 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { KeyValue, PageHeader, Skeleton, Switch } from "@/components/ui/misc";
 import { Select } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multiselect";
 import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
 import { clean, DateInput, EnumSelect, OwnerSelect } from "@/components/forms";
@@ -216,6 +217,7 @@ function ApiTokens() {
 }
 
 export function Reports() {
+  const { can } = useAuth();
   const { data } = useApi<string[]>("/reports");
   const fws = useApi<any[]>("/frameworks");
   return (
@@ -223,7 +225,7 @@ export function Reports() {
       <PageHeader icon={Activity} title="Reports & exports" description="Spreadsheet exports are written to the audit log and protected against formula injection. Treat them as confidential." />
       <Card className="mb-4"><CardBody className="flex flex-wrap items-center justify-between gap-3">
         <div><div className="font-medium">Board summary</div><div className="text-sm text-muted-foreground">One page for management: readiness, how the headline figures moved over the last 12 weeks, top risks and what needs a decision.</div></div>
-        <a href={downloadUrl("/reports/board.docx")}><Button><Download /> Word</Button></a>
+        <div className="flex gap-2"><a href={downloadUrl("/reports/board.pdf")}><Button><Download /> PDF</Button></a><a href={downloadUrl("/reports/board.docx")}><Button variant="outline"><Download /> Word</Button></a></div>
       </CardBody></Card>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {(data ?? []).map((n) => (
@@ -234,7 +236,49 @@ export function Reports() {
         ))}
         <Card><CardBody className="flex items-center justify-between"><span className="font-medium">Entra remediation candidates</span><a href={downloadUrl("/exposure/remediation.xlsx")}><Button variant="outline" size="sm"><Download /> Excel</Button></a></CardBody></Card>
       </div>
+      {can("org.write") && <ReportSchedules />}
     </div>
+  );
+}
+
+/** Reports emailed on a schedule to chosen Keystone users. */
+function ReportSchedules() {
+  const { data } = useApi<any>("/report-schedules");
+  const { people, name } = usePeople();
+  const [edit, setEdit] = useState<any>(null);
+  const inv = ["/report-schedules"];
+  const save = useAction(() => {
+    const body = { name: edit.name, report: edit.report, frequency: edit.frequency, recipient_ids: edit.recipient_ids.map(Number), next_run_on: edit.next_run_on, enabled: edit.enabled };
+    return edit.id ? api(`/report-schedules/${edit.id}`, { method: "PATCH", body }) : api("/report-schedules", { body });
+  }, { success: "Schedule saved.", invalidate: inv, onSuccess: () => setEdit(null) });
+  const sendNow = useAction((id: number) => api<any>(`/report-schedules/${id}/send`, { method: "POST" }), { success: (r: any) => (r.last_error ? `Not sent: ${r.last_error}` : "Sent."), invalidate: inv });
+  const del = useAction((id: number) => api(`/report-schedules/${id}`, { method: "DELETE" }), { success: "Schedule removed.", invalidate: inv });
+  if (!data) return null;
+  const labels: Record<string, string> = data.reports;
+  return (
+    <Card className="mt-6">
+      <CardHeader title="Scheduled emails" description="Send a report by email to Keystone users on a schedule. It's built with the permissions of whoever last saved the schedule, and only recipients who can still read the ISMS receive it."
+        action={<Button size="sm" onClick={() => setEdit({ name: "Monthly board pack", report: "board_pdf", frequency: "monthly", recipient_ids: [], next_run_on: new Date().toISOString().slice(0, 10), enabled: true })}><Plus /> New schedule</Button>} />
+      <DataTable rows={data.schedules} rowKey={(r: any) => r.id} empty="No scheduled emails." onRowClick={(r: any) => setEdit({ ...r, recipient_ids: r.recipient_ids.map(String) })} columns={[
+        { key: "n", header: "Schedule", cell: (r: any) => <div><div className="font-medium">{r.name}{!r.enabled && <Badge tone="outline" className="ml-2">Paused</Badge>}</div><div className="text-xs text-muted-foreground">{labels[r.report] ?? r.report} · {titleCase(r.frequency)}</div></div> },
+        { key: "r", header: "To", cell: (r: any) => <span className="text-xs">{r.recipient_ids.map((id: number) => name(id)).join(", ")}</span> },
+        { key: "d", header: "Next", cell: (r: any) => fmtDate(r.next_run_on) },
+        { key: "l", header: "Last sent", cell: (r: any) => r.last_error ? <span className="text-xs text-critical">{r.last_error}</span> : r.last_sent_at ? fmtDate(r.last_sent_at, true) : "—" },
+        { key: "x", header: "", cell: (r: any) => <span className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="outline" loading={sendNow.isPending && sendNow.variables === r.id} onClick={() => sendNow.mutate(r.id)}>Send now</Button>
+          <Button size="sm" variant="ghost" aria-label={`Remove ${r.name}`} onClick={() => { if (confirm(`Remove “${r.name}”?`)) del.mutate(r.id); }}><Trash2 /></Button></span> },
+      ]} />
+      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)} title={edit?.id ? edit.name : "New scheduled email"} footer={<Button disabled={!edit?.name?.trim() || !edit?.recipient_ids?.length || !edit?.next_run_on} loading={save.isPending} onClick={() => save.mutate(undefined)}>Save</Button>}>
+        {edit && <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Name" required className="sm:col-span-2"><Input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></Field>
+          <Field label="Report"><Select value={edit.report} onChange={(v) => setEdit({ ...edit, report: v })} options={Object.entries(labels).map(([value, label]) => ({ value, label }))} /></Field>
+          <Field label="How often"><EnumSelect value={edit.frequency} onChange={(v) => setEdit({ ...edit, frequency: v })} values={["weekly", "monthly", "quarterly"]} /></Field>
+          <Field label="Recipients" required className="sm:col-span-2"><MultiSelect value={edit.recipient_ids} onChange={(v) => setEdit({ ...edit, recipient_ids: v })} options={people.map((p) => ({ value: String(p.id), label: p.display_name }))} /></Field>
+          <Field label={edit.id ? "Next send" : "First send"}><DateInput value={edit.next_run_on} onChange={(v) => setEdit({ ...edit, next_run_on: v })} /></Field>
+          <div className="self-end"><Switch checked={edit.enabled} onChange={(v) => setEdit({ ...edit, enabled: v })} label={edit.enabled ? "Active" : "Paused"} /></div>
+        </div>}
+      </Dialog>
+    </Card>
   );
 }
 

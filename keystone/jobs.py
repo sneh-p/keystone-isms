@@ -82,6 +82,15 @@ def deliver_outbound() -> None:
         deliver_due(s)
 
 
+@register("scheduled-reports", minutes=60)
+def scheduled_reports() -> None:
+    """Email the reports whose send date has come (checked hourly, sent once per due date)."""
+    from keystone.reporting.schedules import run_due
+
+    with db.session_scope() as s:
+        run_due(s)
+
+
 @register("backup", minutes=1440)
 def nightly_backup() -> None:
     """Back up the database and stored files, test-restore the result into a scratch database, then prune old

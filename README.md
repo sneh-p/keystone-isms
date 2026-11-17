@@ -169,6 +169,11 @@ Policy approvals and staff acknowledgements are **electronic signatures**: a typ
 bound to a SHA-256 fingerprint of the exact version. Every version exports as a **versioned PDF** with its approval,
 version history and fingerprint, optionally with the acknowledgement register.
 
+## Reports
+
+The **board summary** (PDF or Word), every register as Excel, and the Statement of Applicability per framework.
+Reports can be **emailed on a schedule** to chosen Keystone users.
+
 ## Chat and webhooks
 
 Important events (incidents, critical findings, known-exploited vulnerabilities, internet-facing issues, system

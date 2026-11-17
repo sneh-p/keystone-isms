@@ -192,6 +192,14 @@ Once the vendor submits, the questionnaire is read-only for them and its owner i
    expired credentials, credentials added to vendor apps, and tenants where users can consent.
    Export them to Excel for the Entra administrators.
 
+## Reports and scheduled emails
+
+**Reports** downloads the one-page **board summary** as PDF or Word, every register as Excel, and each Statement of
+Applicability. People who manage the organisation's settings can also set up **scheduled emails**: a report sent
+weekly, monthly or quarterly to chosen Keystone users. The report is built with the permissions of whoever last saved
+the schedule, and only recipients who can still read the ISMS (active, with an email address) receive it. Outside
+addresses can't be added. Email must be set up under Settings → Email.
+
 ## Record history
 
 Under each record's **Discussion** (risks, controls, policies, vendors, incidents, tasks, nonconformities and audits),
