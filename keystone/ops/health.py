@@ -131,6 +131,11 @@ def alert(session: Session, now: datetime | None = None) -> int:
     session.flush()
     if fresh:
         _email(session, admins, fresh)
+        from keystone.outbound.service import emit
+
+        for p in found:
+            if any(p["title"] in lines for lines in fresh.values()):
+                emit(session, "system.alert", title=p["title"], severity="high", page="/settings/system")
     return made
 
 

@@ -174,6 +174,9 @@ def complete(session: Session, actor, review_id: int) -> AccessReview:
         for i in follow:
             i.task_id = t.id
     r.status, r.completed_at = "completed", utcnow()
+    from keystone.outbound.service import emit
+
+    emit(session, "access_review.completed", title=f"Access review {r.ref} completed: {r.title}", ref=r.ref, page=f"/access-reviews?open={r.id}")
     summary = (f"{len(its)} account(s) reviewed: {sum(1 for i in its if i.decision == 'keep')} kept, {sum(1 for i in its if i.decision == 'revoke')} to revoke, "
                f"{sum(1 for i in its if i.decision == 'change')} to change. Completed {today()}.")
     for code in EVIDENCE_CONTROLS:

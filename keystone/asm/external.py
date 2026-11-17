@@ -293,6 +293,9 @@ def scan(session: Session, actor, domain_id: int, *, probe=None) -> dict:
     session.flush()
     if new_issues:
         _notify(session, d, new_issues)
+        from keystone.outbound.service import emit
+
+        emit(session, "external.issue", title=f"{new_issues} new critical or high issue(s) on {d.name}", severity="high", page="/attack-surface?tab=external")
     return {"hosts": len(results), "issues": sum(len(r[1]) for r in results.values()) + len(domain_issues), "new_high": new_issues}
 
 

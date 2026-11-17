@@ -279,6 +279,16 @@ def _alert(session: Session, new: list[AsmFinding]) -> None:
                 per_user[m].append(text)
     session.flush()
     _email_now(session, per_user)
+    from keystone.outbound.service import emit
+
+    counts: dict[int, int] = defaultdict(int)
+    for f in new:
+        b = baselines.get(f.baseline_id)
+        if b is not None and b.severity in ("critical", "high"):
+            counts[b.id] += 1
+    for bid, n in counts.items():
+        b = baselines[bid]
+        emit(session, "finding.opened", title=f"{n} new {b.severity} finding(s): {b.name}", severity=b.severity, page=f"/attack-surface?tab=findings&baseline={bid}")
 
 
 def _email_now(session: Session, per_user: dict[int, list[str]]) -> None:

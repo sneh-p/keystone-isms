@@ -214,11 +214,14 @@ def prioritise(session: Session, vulns: Iterable[AsmVulnerability] | None = None
     sla = {"critical": p.sla_critical, "high": p.sla_high, "medium": p.sla_medium, "low": p.sla_low}
     rows = vulns if vulns is not None else session.scalars(select(AsmVulnerability).where(AsmVulnerability.state == "open"))
     n = 0
+    newly_kev = 0
     for v in rows:
         cves = cves_of(v.cve)
+        was_kev = bool(v.kev)
         hits = [kev[c] for c in cves if c in kev]
         scores = [epss[c] for c in cves if c in epss]
         v.kev = bool(hits)
+        newly_kev += v.kev and not was_kev
         v.epss = max(scores) if scores else None
         v.priority = _priority(v.severity, v.kev, v.epss, v.exploitable, p.epss_threshold)
         seen = v.first_seen or utcnow().date()
@@ -229,6 +232,11 @@ def prioritise(session: Session, vulns: Iterable[AsmVulnerability] | None = None
         v.fix_by = due
         n += 1
     session.flush()
+    if newly_kev:
+        from keystone.outbound.service import emit
+
+        emit(session, "vulnerability.known_exploited", title=f"{newly_kev} open vulnerability(ies) now known to be exploited (CISA KEV)", severity="critical",
+             page="/attack-surface?tab=vulnerabilities&kev=1")
     return n
 
 

@@ -21,7 +21,7 @@ access, logins, uploads or outbound connections follow the secure coding standar
 | 13 | Policy e-signature and versioned PDF export | Done |
 | 14 | SCIM provisioning; HR system connectors; Okta sign-in | Done (HR mappings not yet validated against live accounts) |
 | 15 | Access review campaigns | Done |
-| 16 | Slack and Teams notifications | Planned |
+| 16 | Slack and Teams notifications | Done (plus signed webhooks) |
 | 17 | Scheduled report emails; board summary as PDF | Planned |
 | 18 | Per-record history for staff | Done (visible to anyone who can read the record) |
 | 19 | API tokens and outbound webhooks | Planned |

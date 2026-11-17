@@ -152,6 +152,9 @@ def approve_version(session: Session, actor, version_id: int, note: str | None =
     v.approval_signed_name, v.content_sha256 = signature, content_hash(session, v)
     doc.current_version_id, doc.status = v.id, "approved"
     doc.next_review_date = add_months(today(), doc.review_interval_months)
+    from keystone.outbound.service import emit
+
+    emit(session, "policy.approved", title=f"{doc.code} {doc.title} v{v.version_label} approved", ref=doc.code, page=f"/policies?open={doc.id}")
     session.flush()
     return v
 

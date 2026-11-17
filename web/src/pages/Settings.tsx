@@ -493,3 +493,57 @@ export function Provisioning() {
     </div>
   );
 }
+
+const CHANNEL_LABEL: Record<string, string> = { slack: "Slack", teams: "Microsoft Teams", webhook: "Webhook" };
+const CHANNEL_HELP: Record<string, string> = {
+  slack: "An incoming webhook URL from your Slack app (https://hooks.slack.com/services/...).",
+  teams: "In Teams: a channel's Workflows > “Post to a channel when a webhook request is received”, then copy its URL.",
+  webhook: "Any public HTTPS endpoint. Requests are signed: check X-Keystone-Signature with the secret shown once after saving.",
+};
+
+/** Slack, Teams and signed webhooks: which events go where. */
+export function Channels() {
+  const { data } = useApi<any>("/outbound/destinations");
+  const [edit, setEdit] = useState<any>(null);
+  const [secret, setSecret] = useState<string | null>(null);
+  const inv = ["/outbound/destinations"];
+  const save = useAction(() => {
+    const body: any = { name: edit.name, events: edit.events, enabled: edit.enabled, ...(edit.url ? { url: edit.url } : {}) };
+    return edit.id ? api(`/outbound/destinations/${edit.id}`, { method: "PATCH", body }) : api<any>("/outbound/destinations", { body: { ...body, kind: edit.kind } });
+  }, { success: "Saved.", invalidate: inv, onSuccess: (r: any) => { setEdit(null); if (r.signing_secret) setSecret(r.signing_secret); } });
+  const test = useAction((id: number) => api<any>(`/outbound/destinations/${id}/test`, { method: "POST" }), { success: (r: any) => (r.status === "sent" ? "Test message sent." : `Test failed: ${r.last_error}`), invalidate: inv });
+  const del = useAction((id: number) => api(`/outbound/destinations/${id}`, { method: "DELETE" }), { success: "Removed.", invalidate: inv });
+  if (!data) return <Skeleton className="h-96" />;
+  const events: Record<string, string> = data.events;
+  return (
+    <div className="animate-fade-in space-y-5">
+      <PageHeader icon={Mail} title="Chat and webhooks" description="Send important events to a Slack or Teams channel, or to your own systems as signed webhooks. Messages carry a title and a link back to Keystone, nothing more."
+        actions={<Button onClick={() => setEdit({ kind: "slack", name: "", url: "", events: ["incident.created", "finding.opened", "vulnerability.known_exploited", "system.alert"], enabled: true })}><Plus /> Add destination</Button>} />
+      <DataTable rows={data.destinations} rowKey={(d: any) => d.id} empty="No destinations yet." onRowClick={(d: any) => setEdit({ ...d, url: "" })} columns={[
+        { key: "n", header: "Destination", cell: (d: any) => <div><div className="font-medium">{d.name}{!d.enabled && <Badge tone="outline" className="ml-2">Paused</Badge>}</div><div className="text-xs text-muted-foreground">{CHANNEL_LABEL[d.kind]} · {d.url_host}</div></div> },
+        { key: "e", header: "Events", cell: (d: any) => <span className="text-xs">{d.events.map((e: string) => events[e] ?? e).join(", ")}</span> },
+        { key: "s", header: "Last delivery", cell: (d: any) => d.last_status === "error" ? <span className="text-xs text-critical">{d.last_error}</span> : d.last_sent_at ? fmtDate(d.last_sent_at, true) : "—" },
+        { key: "x", header: "", cell: (d: any) => <span className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="outline" loading={test.isPending && test.variables === d.id} onClick={() => test.mutate(d.id)}>Send test</Button>
+          <Button size="sm" variant="ghost" aria-label={`Remove ${d.name}`} onClick={() => { if (confirm(`Remove ${d.name}?`)) del.mutate(d.id); }}><Trash2 /></Button></span> },
+      ]} />
+      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)} title={edit?.id ? edit.name : "Add destination"} footer={<Button disabled={!edit?.name?.trim() || (!edit?.id && !edit?.url) || !edit?.events?.length} loading={save.isPending} onClick={() => save.mutate(undefined)}>Save</Button>}>
+        {edit && <div className="space-y-4">
+          {!edit.id && <Field label="Type"><Select value={edit.kind} onChange={(v) => setEdit({ ...edit, kind: v })} options={Object.entries(CHANNEL_LABEL).map(([value, label]) => ({ value, label }))} /></Field>}
+          <Field label="Name" required><Input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} placeholder="#security-alerts" /></Field>
+          <Field label="URL" hint={`${CHANNEL_HELP[edit.kind]}${edit.id ? " Stored encrypted; leave empty to keep it." : ""}`}><Input type="password" autoComplete="off" value={edit.url} onChange={(e) => setEdit({ ...edit, url: e.target.value })} placeholder={edit.id ? "•••••••• (stored)" : "https://"} /></Field>
+          <fieldset><legend className="mb-2 text-sm font-medium">Events</legend>
+            <div className="space-y-1">{Object.entries(events).map(([k, label]) => (
+              <label key={k} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.events.includes(k)} onChange={(e) => setEdit({ ...edit, events: e.target.checked ? [...edit.events, k] : edit.events.filter((x: string) => x !== k) })} />{label}</label>
+            ))}</div>
+          </fieldset>
+          <Switch checked={edit.enabled} onChange={(v) => setEdit({ ...edit, enabled: v })} label={edit.enabled ? "Sending" : "Paused"} />
+        </div>}
+      </Dialog>
+      <Dialog open={!!secret} onOpenChange={(o) => !o && setSecret(null)} title="Signing secret" description="Copy it now; it won't be shown again. Verify each request: HMAC-SHA256 of “<t>.<body>” with this secret must equal v1 in X-Keystone-Signature."
+        footer={<Button onClick={() => setSecret(null)}>Done</Button>}>
+        {secret && <div className="flex items-center gap-2"><code className="min-w-0 flex-1 break-all rounded bg-muted px-2 py-1.5 text-xs">{secret}</code><CopyButton text={secret} /></div>}
+      </Dialog>
+    </div>
+  );
+}

@@ -169,6 +169,12 @@ Policy approvals and staff acknowledgements are **electronic signatures**: a typ
 bound to a SHA-256 fingerprint of the exact version. Every version exports as a **versioned PDF** with its approval,
 version history and fingerprint, optionally with the acknowledgement register.
 
+## Chat and webhooks
+
+Important events (incidents, critical findings, known-exploited vulnerabilities, internet-facing issues, system
+problems, policy approvals, completed access reviews) go to **Slack**, **Microsoft Teams** or your own systems as
+**HMAC-signed webhooks**, with retries.
+
 ## Ticketing
 
 Open a ticket in **Jira, ServiceNow, ConnectWise PSA or Autotask** from a vulnerability, finding, task or

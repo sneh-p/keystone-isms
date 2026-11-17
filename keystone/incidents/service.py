@@ -63,6 +63,10 @@ def report_incident(session: Session, actor, *, asset_ids: list[int] | None = No
     session.flush()
     _event(session, inc, actor, f"Incident reported ({inc.severity}, {inc.category}).", "system", inc.detected_at)
     _risk_realised(session, inc, actor)
+    from keystone.outbound.service import emit
+
+    # Reference and severity only: chat channels are a wider audience than the incident register.
+    emit(session, "incident.created", title=f"Incident {inc.ref} reported", detail=f"Severity {inc.severity}", severity=inc.severity, ref=inc.ref, page=f"/incidents?open={inc.id}")
     session.flush()
     return inc
 

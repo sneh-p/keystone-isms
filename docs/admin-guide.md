@@ -459,6 +459,33 @@ DNS queries go through the server's own resolver; allow `crt.sh` through your eg
 providers answer "no records" instead of "no such name" for missing names, so a dangling CNAME there isn't detected:
 the check errs towards silence rather than false alarms.
 
+## Chat and webhooks (Slack, Teams, signed webhooks)
+
+**Settings → Chat and webhooks** (integration-management permission) sends events to channels and systems:
+
+| Event | When |
+|---|---|
+| Incident reported | Any new incident (reference and severity only: titles stay in Keystone) |
+| Critical or high attack surface finding | New findings, summarised per baseline |
+| Known-exploited vulnerability found | Open vulnerabilities newly matched to CISA KEV |
+| Critical or high internet-facing issue | New issues on verified domains |
+| System health problem | Failed jobs and backup problems (as administrators are alerted) |
+| Policy version approved | Each approval |
+| Access review completed | Each completed campaign |
+
+- **Slack:** an incoming webhook URL (`https://hooks.slack.com/services/...`).
+- **Teams:** in the channel, Workflows → "Post to a channel when a webhook request is received"; copy the URL
+  (`*.logic.azure.com` or `*.environment.api.powerplatform.com`; legacy connector URLs on `*.webhook.office.com` also work).
+- **Webhook:** any public HTTPS URL. Each POST carries JSON `{id, event, created_at, data: {title, detail, severity, ref,
+  url}}` and the headers `X-Keystone-Event`, `X-Keystone-Delivery` and `X-Keystone-Signature: t=<unix time>,v1=<hex>`,
+  where v1 is HMAC-SHA256 of `<t>.<raw body>` with the signing secret shown once when the destination is created.
+  Reject requests whose t is more than a few minutes old. An internal endpoint must be listed in
+  `KEYSTONE_INTEGRATION_PRIVATE_HOSTS`.
+
+Messages are queued with the change that caused them and sent within a minute; failures are retried after 1, 5, 30,
+120 and 720 minutes. URLs are stored encrypted and shown only as their host (Slack and Teams URLs contain their
+token); **Send test** checks a destination at once.
+
 ## Ticketing (Jira, ServiceNow, ConnectWise PSA, Autotask)
 
 **Integrations → Ticketing** connects your service desk, so people can open a ticket from a vulnerability, an attack

@@ -73,6 +73,15 @@ def redact_privacy_requests() -> None:
         redact_closed_requests(s)
 
 
+@register("outbound", minutes=1)
+def deliver_outbound() -> None:
+    """Send queued Slack, Teams and webhook messages (retries with backoff)."""
+    from keystone.outbound.service import deliver_due
+
+    with db.session_scope() as s:
+        deliver_due(s)
+
+
 @register("backup", minutes=1440)
 def nightly_backup() -> None:
     """Back up the database and stored files, test-restore the result into a scratch database, then prune old
