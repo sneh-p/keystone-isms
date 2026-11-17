@@ -169,7 +169,19 @@ Data a tool doesn't report is "no data", never compliant; failed or partial runs
    which can only send reports for that host.
 3. **Firewalls** are checked from an uploaded configuration export. Keystone keeps only the values it checks and the
    file's SHA-256, never the file itself, because exports contain password hashes and keys.
-4. **Results** are pass, fail, unknown or not applicable. A setting that wasn't reported is *unknown*, never a pass.
+4. **Customise it.**
+   - **Custom checks** read one more setting each: a registry value, a line in a configuration file, a service, a
+     package, a sysctl, file permissions, an audit policy or local security policy, or a firewall setting, line or
+     element.
+     - Start from a library of about 30 Keystone-written checks, or build your own in the form. Then add them to
+       baselines as rules.
+     - Agents evaluate them read-only, within limits built into the agent: no commands or scripts, never password or
+       key files.
+   - **Scope** baselines to groups of hosts by tag (set at install or on the host's page) or by host-name pattern,
+     and limit single rules to tags.
+   - Copy a baseline, export or import it as JSON, reset a rule to its recommended value, and add "how to fix" text.
+   - Grant one exception across every failing host, link hosts to assets, and download an xlsx compliance report.
+5. **Results** are pass, fail, unknown or not applicable. A setting that wasn't reported is *unknown*, never a pass.
    SSH rules are not applicable on a host without an SSH server.
    - Each report records what changed (drift history).
    - New critical and high failures alert the ISMS managers and can be sent to Slack, Teams or a webhook.

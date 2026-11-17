@@ -66,7 +66,10 @@ baselines require.
 - **Baselines** holds the required settings per platform; open a baseline to change values, severities and linked
   controls.
 - To accept a failing setting for a while, someone with risk-acceptance rights grants an **exception** with a reason
-  and an end date.
+  and an end date, on one host or, from the baseline, on every host where that rule fails.
+- **Custom checks** are extra settings your administrators defined (marked "Custom"). Failing results show "How to
+  fix" when the rule or check has instructions.
+- **Compliance report** downloads every result as a spreadsheet; it's also on each host's and baseline's page.
 
 ## Working together
 

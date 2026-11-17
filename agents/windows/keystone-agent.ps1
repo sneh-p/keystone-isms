@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Keystone configuration agent for Windows. Report-only: reads security settings and sends them to Keystone over
-    HTTPS. It never changes the computer's configuration, and Keystone cannot send it commands.
+    HTTPS. It never changes the computer's configuration and never runs commands it is sent.
 
 .DESCRIPTION
     Install (from an elevated PowerShell prompt):
@@ -17,6 +17,16 @@
     enrolment key for this computer's own device token, stores the token encrypted with DPAPI for the SYSTEM account,
     and deletes the enrolment key.
 
+    Options at install: -Tags web,dmz (groups this computer for scoped baselines), -Hours 1|2|4|8|12|24, and
+    -NoCustomChecks (turns custom checks off on this computer; Keystone then shows them as unknown).
+
+    Custom checks: administrators can define extra read-only checks in Keystone. The agent downloads their definitions
+    and evaluates each one itself, within limits written into this script, not set by the server: a fixed list of
+    probes (registry value under HKLM, service, installed software, file exists, optional feature, local security
+    policy, audit policy, built-in group member count); strict checks on every parameter; never the SAM or SECURITY
+    hives; no commands, scripts or regular expressions from the server; at most 100 checks; values capped at 200
+    characters.
+
     Works with Windows PowerShell 5.1 and PowerShell 7.
 #>
 [CmdletBinding(DefaultParameterSetName = 'Run')]
@@ -25,6 +35,8 @@ param(
     [Parameter(ParameterSetName = 'Install', Mandatory = $true)][string]$Server,
     [Parameter(ParameterSetName = 'Install')][string]$EnrolmentKey,
     [Parameter(ParameterSetName = 'Install')][ValidateSet(1, 2, 4, 8, 12, 24)][int]$Hours = 4,
+    [Parameter(ParameterSetName = 'Install')][string[]]$Tags = @(),
+    [Parameter(ParameterSetName = 'Install')][switch]$NoCustomChecks,
     [Parameter(ParameterSetName = 'Uninstall', Mandatory = $true)][switch]$Uninstall,
     [Parameter(ParameterSetName = 'Collect', Mandatory = $true)][switch]$Collect,
     [Parameter(ParameterSetName = 'Run')][switch]$Run
@@ -33,7 +45,8 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-$script:AgentVersion = '1.0.0'
+$script:AgentVersion = '1.1.0'
+$script:MaxChecks = 100
 $script:TaskName = 'Keystone Agent'
 $script:ProgramDir = Join-Path $env:ProgramFiles 'Keystone Agent'
 $script:DataDir = Join-Path $env:ProgramData 'Keystone Agent'
@@ -64,13 +77,16 @@ function Test-ServerAddress {
 }
 
 function Get-SecurityPolicy {
-    <# Local password and lockout policy from secedit (locale-independent keys). #>
+    <# The [System Access] values of the local security policy from secedit (locale-independent keys). #>
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("ks-" + [guid]::NewGuid().ToString('N') + '.inf')
     try {
         $null = & secedit.exe /export /cfg $tmp /areas SECURITYPOLICY /quiet
         $policy = @{}
         foreach ($line in (Get-Content -Path $tmp -ErrorAction Stop)) {
-            if ($line -match '^\s*(MinimumPasswordLength|LockoutBadCount)\s*=\s*(\d+)') { $policy[$Matches[1]] = [int]$Matches[2] }
+            if ($line -match '^\s*([A-Za-z]{2,60})\s*=\s*(.{0,200})$') {
+                $value = $Matches[2].Trim()
+                $policy[$Matches[1]] = if ($value -match '^-?\d{1,10}$') { [long]$value } else { $value }
+            }
         }
         return $policy
     } finally {
@@ -155,18 +171,147 @@ function Get-KeystoneFact {
     $sbl = Get-RegistryValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' 'EnableScriptBlockLogging'
     $facts['ps_script_block_logging'] = ($null -ne $sbl -and [int]$sbl -eq 1)
 
+    $lm = Get-RegistryValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa' 'LmCompatibilityLevel'
+    $facts['lm_compatibility_level'] = if ($null -eq $lm) { 3 } else { [int]$lm }  # not set: the Windows default, 3
+    $wdigest = Get-RegistryValue 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest' 'UseLogonCredential'
+    $facts['wdigest_disabled'] = ($null -eq $wdigest -or [int]$wdigest -eq 0)
+    $ppl = Get-RegistryValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa' 'RunAsPPL'
+    $facts['lsa_protection'] = ($null -ne $ppl -and [int]$ppl -in @(1, 2))
+
     return $facts
 }
 
+# ----------------------------------------------------------------------------------------------- custom checks
+
+function Test-ProbeParam {
+    <# The agent's own limits on custom check parameters; the server's validation is not trusted. #>
+    param([string]$Kind, [string]$Value)
+    if ([string]::IsNullOrEmpty($Value)) { return $false }
+    switch ($Kind) {
+        'regpath' { return ($Value -match '^[A-Za-z0-9][A-Za-z0-9 ._\\(){}\-]{0,250}$') -and ($Value -notmatch '\.\.|\\\\') -and ($Value.Split('\')[0] -notin @('SAM', 'SECURITY')) }
+        'regname' { return $Value -match '^[A-Za-z0-9 ._\-]{0,128}$' }
+        'name' { return $Value -match '^[A-Za-z0-9][A-Za-z0-9._@+:-]{0,127}$' }
+        'text' { return $Value -match '^[\x20-\x7e]{1,200}$' }
+        'path' { return ($Value -match '^[A-Za-z]:\\[A-Za-z0-9 ._\\()\-]{1,250}$') -and ($Value -notmatch '\.\.') }
+        'secedit' { return $Value -match '^[A-Za-z]{2,60}$' }
+        'guid' { return $Value -match '^\{?[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}?$' }
+        'sid' { return $Value -match '^S-1-5-32-\d{3}$' }
+        default { return $false }
+    }
+}
+
+function Invoke-KeystoneProbe {
+    <# One custom check. Returns @{ Value = ...; Error = $null | 'refused' | 'missing' | 'unsupported' | 'error' }. #>
+    param([object]$Check)
+    $p = $Check.params
+    $get = { param($n) if ($p -and ($p.PSObject.Properties.Name -contains $n)) { [string]$p.$n } else { '' } }
+    $refused = @{ Value = $null; Error = 'refused' }
+    $missing = @{ Value = $null; Error = 'missing' }
+    try {
+        switch ([string]$Check.probe) {
+            'registry_value' {
+                $path = & $get 'path'; $name = & $get 'name'; $mode = & $get 'mode'
+                if (-not (Test-ProbeParam 'regpath' $path) -or -not (Test-ProbeParam 'regname' ('x' + $name)) -or $mode -notin @('value', 'exists')) { return $refused }
+                $item = Get-ItemProperty -LiteralPath ('HKLM:\' + $path) -Name $name -ErrorAction SilentlyContinue
+                $present = ($null -ne $item) -and ($item.PSObject.Properties.Name -contains $name)
+                if ($mode -eq 'exists') { return @{ Value = $present; Error = $null } }
+                if (-not $present) { return $missing }
+                return @{ Value = $item.$name; Error = $null }
+            }
+            'service' {
+                $name = & $get 'name'; $field = & $get 'field'
+                if (-not (Test-ProbeParam 'name' $name) -or $field -notin @('state', 'start_type')) { return $refused }
+                $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+                if ($null -eq $svc) { return @{ Value = 'absent'; Error = $null } }
+                $value = if ($field -eq 'state') { [string]$svc.Status } else { [string]$svc.StartType }
+                return @{ Value = $value.ToLowerInvariant(); Error = $null }
+            }
+            'software_installed' {
+                $text = & $get 'name_contains'; $field = & $get 'field'
+                if (-not (Test-ProbeParam 'text' $text) -or $field -notin @('present', 'version')) { return $refused }
+                $roots = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+                $hit = Get-ItemProperty -Path $roots -ErrorAction SilentlyContinue |
+                    Where-Object { $_.PSObject.Properties.Name -contains 'DisplayName' -and ([string]$_.DisplayName).IndexOf($text, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
+                    Select-Object -First 1
+                if ($field -eq 'present') { return @{ Value = ($null -ne $hit); Error = $null } }
+                if ($null -eq $hit -or -not ($hit.PSObject.Properties.Name -contains 'DisplayVersion')) { return $missing }
+                return @{ Value = [string]$hit.DisplayVersion; Error = $null }
+            }
+            'file_exists' {
+                $path = & $get 'path'
+                if (-not (Test-ProbeParam 'path' $path)) { return $refused }
+                return @{ Value = (Test-Path -LiteralPath $path); Error = $null }
+            }
+            'windows_feature' {
+                $name = & $get 'name'
+                if (-not (Test-ProbeParam 'name' $name)) { return $refused }
+                $feature = Get-WindowsOptionalFeature -Online -FeatureName $name -ErrorAction SilentlyContinue
+                if ($null -eq $feature) { return @{ Value = 'absent'; Error = $null } }
+                return @{ Value = ([string]$feature.State).ToLowerInvariant(); Error = $null }
+            }
+            'security_policy' {
+                $key = & $get 'key'
+                if (-not (Test-ProbeParam 'secedit' $key)) { return $refused }
+                $policy = Get-SecurityPolicy
+                if (-not $policy.ContainsKey($key)) { return $missing }
+                return @{ Value = $policy[$key]; Error = $null }
+            }
+            'audit_policy' {
+                $guid = & $get 'guid'
+                if (-not (Test-ProbeParam 'guid' $guid)) { return $refused }
+                $id = '{' + $guid.Trim('{', '}') + '}'
+                $row = & auditpol.exe /get "/subcategory:$id" /r | ConvertFrom-Csv | Select-Object -First 1
+                if ($null -eq $row) { return $missing }
+                return @{ Value = ([string]$row.'Inclusion Setting').ToLowerInvariant(); Error = $null }
+            }
+            'local_group_count' {
+                $sid = & $get 'sid'
+                if (-not (Test-ProbeParam 'sid' $sid)) { return $refused }
+                return @{ Value = @(Get-LocalGroupMember -SID $sid).Count; Error = $null }
+            }
+            default { return @{ Value = $null; Error = 'unsupported' } }
+        }
+    } catch {
+        return @{ Value = $null; Error = 'error' }
+    }
+}
+
+function Get-KeystoneCustomFact {
+    <# Evaluates downloaded definitions. Returns @{ Facts = @{}; Errors = @{} } keyed by "custom.<slug>". #>
+    param([object[]]$Checks)
+    $facts = [ordered]@{}; $errors = [ordered]@{}
+    foreach ($check in @($Checks | Select-Object -First $script:MaxChecks)) {
+        $key = [string]$check.key
+        if ($key -notmatch '^custom\.[a-z][a-z0-9_]{1,40}$') { continue }
+        $result = Invoke-KeystoneProbe -Check $check
+        $value = $result.Value
+        if ($result.Error -eq 'missing' -and $check.PSObject.Properties.Name -contains 'default' -and $null -ne $check.default) { $value = $check.default; $result.Error = $null }
+        if ($result.Error) { $errors[$key] = $result.Error; continue }
+        switch ([string]$check.type) {
+            'bool' { if ($value -is [bool]) { $facts[$key] = $value } else { $errors[$key] = 'error' } }
+            'int' { $n = 0L; if ([long]::TryParse([string]$value, [ref]$n)) { $facts[$key] = $n } else { $errors[$key] = 'error' } }
+            default { $text = [string]$value; $facts[$key] = $text.Substring(0, [math]::Min(200, $text.Length)) }
+        }
+    }
+    @{ Facts = $facts; Errors = $errors }
+}
+
 function Get-KeystoneReport {
+    param([object[]]$Checks = @(), [switch]$CustomChecksDisabled)
     $os = Invoke-Safely { Get-CimInstance -ClassName Win32_OperatingSystem }
-    [ordered]@{
+    $facts = Get-KeystoneFact
+    $custom = Get-KeystoneCustomFact -Checks $Checks
+    foreach ($k in $custom.Facts.Keys) { $facts[$k] = $custom.Facts[$k] }
+    $report = [ordered]@{
         hostname      = [string]$env:COMPUTERNAME
         os_name       = if ($os) { [string]$os.Caption } else { 'Windows' }
         os_version    = if ($os) { [string]$os.Version } else { $null }
         agent_version = $script:AgentVersion
-        facts         = Get-KeystoneFact
+        facts         = $facts
+        check_errors  = $custom.Errors
     }
+    if ($CustomChecksDisabled) { $report['custom_checks'] = 'disabled' }
+    $report
 }
 
 # ----------------------------------------------------------------------------------------------- transport
@@ -179,6 +324,15 @@ function Send-KeystoneRequest {
     $uri = $Address.TrimEnd('/') + '/api/agent/v1/' + $Path
     # Certificates are validated by the platform; the agent never turns validation off.
     Invoke-RestMethod -Method Post -Uri $uri -Headers $Headers -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes($json)) -TimeoutSec 60 -UseBasicParsing -MaximumRedirection 0
+}
+
+function Get-KeystoneCheckList {
+    <# The custom check definitions for this computer (read-only probes, evaluated by Invoke-KeystoneProbe). #>
+    param([string]$Address, [string]$Token)
+    if (-not (Test-ServerAddress $Address)) { throw "The server address must start with https://" }
+    $uri = $Address.TrimEnd('/') + '/api/agent/v1/checks'
+    $reply = Invoke-RestMethod -Method Get -Uri $uri -Headers @{ Authorization = "Bearer $Token" } -TimeoutSec 60 -UseBasicParsing -MaximumRedirection 0
+    @($reply.checks | Select-Object -First $script:MaxChecks)
 }
 
 function Protect-Token {
@@ -209,15 +363,22 @@ function Invoke-KeystoneRun {
                 enrolment_key = [string]$config.enrolment_key; hostname = [string]$env:COMPUTERNAME; platform = 'windows'
                 os_name = if ($os) { [string]$os.Caption } else { 'Windows' }; os_version = if ($os) { [string]$os.Version } else { $null }
                 agent_version = $script:AgentVersion
+                tags = @(if ($config.PSObject.Properties.Name -contains 'tags') { $config.tags } else { @() })
             })
         if (-not ($reply.token -match '^kagt_[A-Za-z0-9_\-]+$')) { throw "The server's reply had no device token." }
         [IO.File]::WriteAllBytes($script:TokenPath, (Protect-Token $reply.token))
-        $config = [ordered]@{ server = [string]$config.server }  # the enrolment key is no longer needed
+        $config = [ordered]@{ server = [string]$config.server; custom_checks = -not ($config.PSObject.Properties.Name -contains 'custom_checks' -and $config.custom_checks -eq $false) }  # the enrolment key is no longer needed
         $config | ConvertTo-Json | Set-Content -Path $script:ConfigPath -Encoding UTF8
         $config = [pscustomobject]$config
     }
     $token = Unprotect-Token ([IO.File]::ReadAllBytes($script:TokenPath))
-    $null = Send-KeystoneRequest -Address $config.server -Path 'report' -Headers @{ Authorization = "Bearer $token" } -Body (Get-KeystoneReport)
+    $customOff = ($config.PSObject.Properties.Name -contains 'custom_checks') -and ($config.custom_checks -eq $false)
+    $checks = @()
+    if (-not $customOff) {
+        try { $checks = Get-KeystoneCheckList -Address $config.server -Token $token }
+        catch { Write-RunLog 'Could not fetch custom checks; sending the built-in settings only.' }
+    }
+    $null = Send-KeystoneRequest -Address $config.server -Path 'report' -Headers @{ Authorization = "Bearer $token" } -Body (Get-KeystoneReport -Checks $checks -CustomChecksDisabled:$customOff)
     Write-RunLog 'Report sent.'
 }
 
@@ -245,7 +406,7 @@ function Set-PrivateAcl {
 
 function Install-KeystoneAgent {
     [CmdletBinding(SupportsShouldProcess = $true)]
-    param([string]$Address, [string]$Key, [int]$Every)
+    param([string]$Address, [string]$Key, [int]$Every, [string[]]$TagList = @(), [switch]$CustomOff)
     if (-not (Test-Administrator)) { throw 'Run the installer from an elevated PowerShell prompt (Run as administrator).' }
     $Address = $Address.TrimEnd('/')
     if (-not (Test-ServerAddress $Address)) { throw 'The server address must start with https://' }
@@ -254,13 +415,15 @@ function Install-KeystoneAgent {
         $Key = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
     }
     if (-not ($Key -match '^kenr_[A-Za-z0-9_\-]+$')) { throw 'That is not a Keystone enrolment key (it starts with kenr_).' }
+    $TagList = @($TagList | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
+    foreach ($t in $TagList) { if ($t -notmatch '^[a-z0-9][a-z0-9_-]{0,39}$') { throw "Tag '$t': lower-case letters, digits, - and _ only." } }
     if (-not $PSCmdlet.ShouldProcess($env:COMPUTERNAME, 'Install the Keystone agent')) { return }
 
     $null = New-Item -ItemType Directory -Force -Path $script:ProgramDir, $script:DataDir
     Set-PrivateAcl -Path $script:DataDir
     Copy-Item -Path $PSCommandPath -Destination (Join-Path $script:ProgramDir 'keystone-agent.ps1') -Force
     Remove-Item -Path $script:TokenPath -Force -ErrorAction SilentlyContinue  # a reinstall enrols again
-    [ordered]@{ server = $Address; enrolment_key = $Key } | ConvertTo-Json | Set-Content -Path $script:ConfigPath -Encoding UTF8
+    [ordered]@{ server = $Address; enrolment_key = $Key; tags = $TagList; custom_checks = -not $CustomOff } | ConvertTo-Json | Set-Content -Path $script:ConfigPath -Encoding UTF8
 
     $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     $arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}" -Run' -f (Join-Path $script:ProgramDir 'keystone-agent.ps1')
@@ -289,7 +452,7 @@ function Uninstall-KeystoneAgent {
 # ----------------------------------------------------------------------------------------------- entry point
 
 if ($MyInvocation.InvocationName -ne '.') {
-    if ($Install) { Install-KeystoneAgent -Address $Server -Key $EnrolmentKey -Every $Hours }
+    if ($Install) { Install-KeystoneAgent -Address $Server -Key $EnrolmentKey -Every $Hours -TagList $Tags -CustomOff:$NoCustomChecks }
     elseif ($Uninstall) { Uninstall-KeystoneAgent }
     elseif ($Collect) { Get-KeystoneReport | ConvertTo-Json -Depth 5 }
     elseif ($Run -or $PSCmdlet.ParameterSetName -eq 'Run') {

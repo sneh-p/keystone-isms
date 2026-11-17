@@ -13,11 +13,12 @@ BeforeAll {
     foreach ($fn in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $false)) {
         . ([scriptblock]::Create($fn.Extent.Text))
     }
-    $script:AgentVersion = '1.0.0'
+    $script:AgentVersion = '1.1.0'
+    $script:MaxChecks = 100
 
     # Stand-ins for Windows-only commands so they can be mocked on any platform.
     foreach ($name in 'Get-NetFirewallProfile', 'Get-BitLockerVolume', 'Confirm-SecureBootUEFI', 'Get-MpComputerStatus', 'Get-HotFix',
-        'Get-SmbServerConfiguration', 'Get-LocalUser', 'Get-LocalGroupMember', 'Get-WindowsOptionalFeature', 'Get-CimInstance') {
+        'Get-SmbServerConfiguration', 'Get-LocalUser', 'Get-LocalGroupMember', 'Get-WindowsOptionalFeature', 'Get-CimInstance', 'Get-Service') {
         if (-not (Get-Command $name -ErrorAction SilentlyContinue)) {
             Set-Item -Path "function:global:$name" -Value { param() throw 'not mocked' }
         }
@@ -41,6 +42,7 @@ BeforeAll {
         $global:KsRegistry = @{
             'fDenyTSConnections' = 0; 'UserAuthentication' = 1; 'EnableLUA' = 1; 'NoDriveTypeAutoRun' = 255
             'InactivityTimeoutSecs' = 600; 'EnableMulticast' = 0; 'EnableScriptBlockLogging' = 1
+            'LmCompatibilityLevel' = 5; 'RunAsPPL' = 1
         }
         Mock Get-RegistryValue { $global:KsRegistry[$Name] }
     }
@@ -52,7 +54,7 @@ Describe 'Get-KeystoneFact' {
         $f = Get-KeystoneFact
         foreach ($k in 'firewall_domain_enabled', 'firewall_private_enabled', 'firewall_public_enabled', 'firewall_public_inbound_blocked', 'bitlocker_os_volume',
             'secure_boot_enabled', 'defender_realtime_enabled', 'smb_signing_required', 'rdp_enabled', 'rdp_nla_required', 'uac_enabled', 'lockout_enabled',
-            'autorun_disabled', 'screen_lock_configured', 'llmnr_disabled', 'ps_script_block_logging') {
+            'autorun_disabled', 'screen_lock_configured', 'llmnr_disabled', 'ps_script_block_logging', 'wdigest_disabled', 'lsa_protection') {
             $f[$k] | Should -BeTrue -Because $k
         }
         foreach ($k in 'smb1_enabled', 'guest_account_enabled', 'powershell_v2_enabled') { $f[$k] | Should -BeFalse -Because $k }
@@ -62,6 +64,7 @@ Describe 'Get-KeystoneFact' {
         $f['lockout_threshold'] | Should -Be 5
         $f['local_admin_count'] | Should -Be 2
         $f['screen_lock_timeout_seconds'] | Should -Be 600
+        $f['lm_compatibility_level'] | Should -Be 5
     }
 
     It 'reports weak settings as off, not as unknown' {
@@ -171,5 +174,115 @@ Describe 'Send-KeystoneRequest' {
         Should -Invoke Invoke-RestMethod -Times 1 -ParameterFilter {
             $Uri -eq 'https://keystone.example.org/api/agent/v1/report' -and $Method -eq 'Post' -and $MaximumRedirection -eq 0 -and $ContentType -eq 'application/json'
         }
+    }
+}
+
+Describe 'Custom checks' {
+    BeforeAll {
+        function global:New-Check([string]$Key, [string]$Probe, [string]$Type, [hashtable]$Params, $Default = $null) {
+            $c = [pscustomobject]@{ key = $Key; probe = $Probe; type = $Type; params = [pscustomobject]$Params }
+            if ($null -ne $Default) { $c | Add-Member -NotePropertyName default -NotePropertyValue $Default }
+            $c
+        }
+    }
+
+    It 'reads a registry value and applies the default when it is missing' {
+        Mock Get-ItemProperty { if ($Name -eq 'Enabled') { [pscustomobject]@{ Enabled = 0 } } else { $null } }
+        $r = Get-KeystoneCustomFact -Checks @(
+            (New-Check 'custom.tls10' 'registry_value' 'int' @{ path = 'SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server'; name = 'Enabled'; mode = 'value' }),
+            (New-Check 'custom.tls11' 'registry_value' 'int' @{ path = 'SYSTEM\X'; name = 'Missing'; mode = 'value' } 1),
+            (New-Check 'custom.nodefault' 'registry_value' 'int' @{ path = 'SYSTEM\X'; name = 'Missing'; mode = 'value' }),
+            (New-Check 'custom.present' 'registry_value' 'bool' @{ path = 'SYSTEM\X'; name = 'Enabled'; mode = 'exists' }))
+        $r.Facts['custom.tls10'] | Should -Be 0
+        $r.Facts['custom.tls11'] | Should -Be 1
+        $r.Errors['custom.nodefault'] | Should -Be 'missing'
+        $r.Facts['custom.present'] | Should -BeTrue
+    }
+
+    It 'refuses what the agent does not allow, whatever the server sent' {
+        Mock Get-ItemProperty { throw 'must not be read' }
+        Mock Test-Path { throw 'must not be read' }
+        $r = Get-KeystoneCustomFact -Checks @(
+            (New-Check 'custom.sam' 'registry_value' 'str' @{ path = 'SAM\SAM\Domains'; name = 'F'; mode = 'value' }),
+            (New-Check 'custom.security' 'registry_value' 'str' @{ path = 'security\Policy'; name = 'x'; mode = 'value' }),
+            (New-Check 'custom.traversal' 'registry_value' 'str' @{ path = 'SOFTWARE\..\SAM'; name = 'x'; mode = 'value' }),
+            (New-Check 'custom.badpath' 'file_exists' 'bool' @{ path = 'C:\Windows\..\Users\a\secret.txt' }),
+            (New-Check 'custom.inject' 'service' 'str' @{ name = 'svc; Remove-Item C:\'; field = 'state' }),
+            (New-Check 'custom.command' 'run_command' 'str' @{ command = 'whoami' }),
+            (New-Check 'NOT-A-KEY' 'file_exists' 'bool' @{ path = 'C:\Windows' }))
+        $r.Errors['custom.sam'] | Should -Be 'refused'
+        $r.Errors['custom.security'] | Should -Be 'refused'
+        $r.Errors['custom.traversal'] | Should -Be 'refused'
+        $r.Errors['custom.badpath'] | Should -Be 'refused'
+        $r.Errors['custom.inject'] | Should -Be 'refused'
+        $r.Errors['custom.command'] | Should -Be 'unsupported'
+        $r.Facts.Count | Should -Be 0
+        $r.Errors.Contains('NOT-A-KEY') | Should -BeFalse  # keys outside custom.* are ignored entirely
+        Should -Invoke Get-ItemProperty -Times 0
+    }
+
+    It 'reads services, policy and group counts, and reports type mismatches as errors' {
+        Mock Get-Service { if ($Name -eq 'RemoteRegistry') { [pscustomobject]@{ Status = 'Stopped'; StartType = 'Disabled' } } else { $null } }
+        Mock Get-SecurityPolicy { @{ PasswordComplexity = 1; NewAdministratorName = '"Administrator"' } }
+        Mock Get-LocalGroupMember { @('a', 'b', 'c') }
+        $r = Get-KeystoneCustomFact -Checks @(
+            (New-Check 'custom.rr' 'service' 'str' @{ name = 'RemoteRegistry'; field = 'start_type' }),
+            (New-Check 'custom.gone' 'service' 'str' @{ name = 'NoSuchService'; field = 'state' }),
+            (New-Check 'custom.complexity' 'security_policy' 'int' @{ key = 'PasswordComplexity' }),
+            (New-Check 'custom.name_as_int' 'security_policy' 'int' @{ key = 'NewAdministratorName' }),
+            (New-Check 'custom.rdp_users' 'local_group_count' 'int' @{ sid = 'S-1-5-32-555' }))
+        $r.Facts['custom.rr'] | Should -Be 'disabled'
+        $r.Facts['custom.gone'] | Should -Be 'absent'
+        $r.Facts['custom.complexity'] | Should -Be 1
+        $r.Errors['custom.name_as_int'] | Should -Be 'error'
+        $r.Facts['custom.rdp_users'] | Should -Be 3
+    }
+
+    It 'stops at 100 checks' {
+        Mock Test-Path { $true }
+        $many = 1..150 | ForEach-Object { New-Check ("custom.c$_") 'file_exists' 'bool' @{ path = 'C:\Windows' } }
+        (Get-KeystoneCustomFact -Checks $many).Facts.Count | Should -Be 100
+    }
+}
+
+Describe 'Custom checks in a run' {
+    BeforeEach {
+        $script:DataDir = Join-Path $TestDrive 'data2'
+        Remove-Item -Path $script:DataDir -Recurse -Force -ErrorAction SilentlyContinue
+        $null = New-Item -ItemType Directory -Force -Path $script:DataDir
+        $script:ConfigPath = Join-Path $script:DataDir 'config.json'
+        $script:TokenPath = Join-Path $script:DataDir 'token.bin'
+        $script:LogPath = Join-Path $script:DataDir 'last-run.log'
+        [IO.File]::WriteAllBytes($script:TokenPath, [Text.Encoding]::UTF8.GetBytes('kagt_x'))
+        Mock Unprotect-Token { 'kagt_x' }
+        Mock Get-KeystoneFact { [ordered]@{ uac_enabled = $true } }
+        Mock Get-CimInstance { $null }
+        Mock Get-KeystoneCheckList { @([pscustomobject]@{ key = 'custom.fe'; probe = 'file_exists'; type = 'bool'; params = [pscustomobject]@{ path = 'C:\Windows' } }) }
+        Mock Test-Path { $true } -ParameterFilter { $LiteralPath -eq 'C:\Windows' }
+        $script:Sent = $null
+        Mock Send-KeystoneRequest { $script:Sent = $Body; [pscustomobject]@{ accepted = 1 } }
+    }
+
+    It 'fetches and evaluates custom checks' {
+        @{ server = 'https://keystone.example.org'; custom_checks = $true } | ConvertTo-Json | Set-Content $script:ConfigPath
+        Invoke-KeystoneRun
+        Should -Invoke Get-KeystoneCheckList -Times 1
+        $script:Sent.facts['custom.fe'] | Should -BeTrue
+        $script:Sent.Contains('custom_checks') | Should -BeFalse
+    }
+
+    It 'never fetches them when the computer opted out' {
+        @{ server = 'https://keystone.example.org'; custom_checks = $false } | ConvertTo-Json | Set-Content $script:ConfigPath
+        Invoke-KeystoneRun
+        Should -Invoke Get-KeystoneCheckList -Times 0
+        $script:Sent.custom_checks | Should -Be 'disabled'
+        $script:Sent.facts.Contains('custom.fe') | Should -BeFalse
+    }
+
+    It 'still reports the built-in settings when the definitions cannot be fetched' {
+        @{ server = 'https://keystone.example.org'; custom_checks = $true } | ConvertTo-Json | Set-Content $script:ConfigPath
+        Mock Get-KeystoneCheckList { throw 'network down' }
+        Invoke-KeystoneRun
+        $script:Sent.facts['uac_enabled'] | Should -BeTrue
     }
 }

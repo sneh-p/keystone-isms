@@ -71,7 +71,9 @@ def _ps_keys() -> set[str]:
 
 
 def _sh_keys() -> set[str]:
-    return set(re.findall(r"\badd ([a-z0-9_]+) (?:bool|int|str)\b", (ROOT / "agents/linux/keystone-agent.sh").read_text()))
+    text = (ROOT / "agents/linux/keystone-agent.sh").read_text()
+    keys = set(re.findall(r"\badd ([a-z0-9_]+) (?:bool|int|str)\b", text))
+    return keys | set(re.findall(r"\b[a-z0-9]+:(ssh_[a-z0-9_]+)\b", text))  # sshd settings added in a loop (sshd name:fact key)
 
 
 def test_agents_send_exactly_the_catalogue_keys():
@@ -167,7 +169,7 @@ def test_unknown_is_never_a_pass_and_prerequisites_make_rules_not_applicable(con
     assert st["ssh_permit_root_login"] == "na" and st["ssh_password_authentication"] == "na"  # no SSH server
     assert st["aslr_full"] == "unknown" and st["auditd_running"] == "unknown"  # unreadable and missing: unknown
     assert st["time_sync_active"] == "fail"
-    assert out["pass"] == 2 and out["fail"] == 1 and out["na"] == 2
+    assert out["pass"] == 2 and out["fail"] == 1 and out["na"] == 5  # every SSH rule (5 recommended) is not applicable without an SSH server
     t.facts = {**t.facts, "ssh_server_installed": None}
     cfg.evaluate_target(session, t)
     assert _statuses(session, t)["ssh_permit_root_login"] == "unknown"  # prerequisite unknown: so is the rule

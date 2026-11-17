@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { AlertTriangle, Download, KeyRound, Plus, RotateCcw, ServerCog, ShieldOff, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, BookPlus, Copy, Download, FileUp, KeyRound, Pencil, Plus, RotateCcw, ServerCog, ShieldOff, Trash2, Upload } from "lucide-react";
 import { api, downloadUrl, upload } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -16,7 +16,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/table";
 import { DateInput } from "@/components/forms";
 import { CopyButton } from "@/components/CopyButton";
-import { describeExpected, expectedFromInput, expectedToInput, resultLabel, type Setting } from "@/lib/configcheck";
+import { allowedTypes, describeExpected, expectedFromInput, expectedToInput, parseList, parseTags, resultLabel, type Probe, type Setting } from "@/lib/configcheck";
 
 const SEV_TONE: Record<string, Tone> = { critical: "critical", high: "serious", medium: "warning", low: "outline" };
 const RESULT_TONE: Record<string, Tone> = { pass: "good", fail: "critical", unknown: "warning", na: "outline", excepted: "neutral" };
@@ -39,6 +39,11 @@ function StateBadge({ t }: { t: any }) {
   return <span className="inline-flex flex-wrap gap-1"><Badge tone={tone}>{label}</Badge>{t.stale && t.state !== "revoked" && t.state !== "waiting" && <Badge tone="warning">Out of date</Badge>}</span>;
 }
 
+function Tags({ tags }: { tags?: string[] | null }) {
+  if (!tags?.length) return null;
+  return <span className="inline-flex flex-wrap gap-1">{tags.map((t) => <Badge key={t} tone="outline">{t}</Badge>)}</span>;
+}
+
 function Value({ v }: { v: any }) {
   if (v === null || v === undefined) return <span className="text-muted-foreground">Not reported</span>;
   if (v === true) return <>On</>;
@@ -58,11 +63,13 @@ export default function Configuration() {
   const go = (v: string) => setParams({ tab: v });
   return (
     <div className="animate-fade-in">
-      <PageHeader icon={ServerCog} title="Configuration" description="Set the required settings for Windows and Linux hosts and for firewalls. Agents on the hosts report their settings (they never change anything); firewall configurations are uploaded. Anything not reported counts as unknown, never as passing." />
+      <PageHeader icon={ServerCog} title="Configuration" description="Set the required settings for Windows and Linux hosts and for firewalls, add your own checks, and scope baselines to groups of hosts. Agents on the hosts report their settings (they never change anything); firewall configurations are uploaded. Anything not reported counts as unknown, never as passing."
+        actions={<a href={downloadUrl("/config/report.xlsx")}><Button variant="outline"><Download /> Compliance report</Button></a>} />
       <Tabs value={tab} onValueChange={go} tabs={[
         { value: "overview", label: "Overview", content: <Overview data={data} catalogue={catalogue} go={go} /> },
         { value: "targets", label: "Hosts and firewalls", content: <Targets catalogue={catalogue} /> },
         { value: "baselines", label: "Baselines", content: <Baselines catalogue={catalogue} /> },
+        { value: "custom", label: "Custom checks", content: <CustomChecks catalogue={catalogue} /> },
         ...(can("integration.manage") ? [
           { value: "agents", label: "Agents", content: <Agents /> },
           { value: "upload", label: "Upload firewall configuration", content: <UploadFirewall catalogue={catalogue} /> },
@@ -80,7 +87,7 @@ function Overview({ data, catalogue, go }: { data: any; catalogue: any; go: (t: 
     return (
       <Empty icon={ServerCog} title="Nothing checked yet"
         action={can("integration.manage") && <div className="flex flex-wrap justify-center gap-2"><Button onClick={() => go("agents")}>Install an agent</Button><Button variant="outline" onClick={() => go("upload")}>Upload a firewall configuration</Button></div>}>
-        Create a baseline for each platform (the recommended settings are filled in for you), then install the report-only agent on Windows and Linux hosts, or upload configuration exports from FortiGate, PAN-OS, Cisco and pfSense/OPNsense firewalls.
+        Create a baseline for each platform (the recommended settings are filled in for you), then install the report-only agent on Windows and Linux hosts, or upload configuration exports from FortiGate, PAN-OS, Cisco and pfSense/OPNsense firewalls. Add your own checks under Custom checks.
       </Empty>
     );
   }
@@ -94,7 +101,7 @@ function Overview({ data, catalogue, go }: { data: any; catalogue: any; go: (t: 
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader title="By platform" description="Targets that meet their baseline." />
+          <CardHeader title="By platform" description="Targets that meet every baseline that applies to them." />
           <CardBody className="space-y-4">
             {catalogue.platforms.filter((p: any) => data.platforms[p.key].targets).map((p: any) => {
               const s = data.platforms[p.key];
@@ -134,18 +141,23 @@ function Targets({ catalogue }: { catalogue: any }) {
   const [params, setParams] = useSearchParams();
   const { data } = useApi<any[]>("/config/targets");
   const [platform, setPlatform] = useState<string | null>(null);
+  const [tag, setTag] = useState<string | null>(null);
   const label = (k: string) => catalogue.platforms.find((p: any) => p.key === k)?.label ?? k;
   const open = params.get("target");
-  const rows = (data ?? []).filter((t) => !platform || t.platform === platform);
+  const allTags = [...new Set((data ?? []).flatMap((t) => t.tags ?? []))].sort();
+  const rows = (data ?? []).filter((t) => (!platform || t.platform === platform) && (!tag || (t.tags ?? []).includes(tag)));
   return (
     <>
       <DataTable rows={rows} rowKey={(t: any) => t.id} onRowClick={(t: any) => setParams({ tab: "targets", target: String(t.id) })} rowLabel={(t: any) => t.name}
-        search={(t: any) => `${t.name} ${t.hostname ?? ""} ${t.os_name ?? ""}`} empty="No hosts or firewalls yet."
-        toolbar={<Select ariaLabel="Platform" value={platform} onChange={setPlatform} allowEmpty emptyLabel="All platforms" options={catalogue.platforms.map((p: any) => ({ value: p.key, label: p.label }))} className="w-48" />}
+        search={(t: any) => `${t.name} ${t.hostname ?? ""} ${t.os_name ?? ""} ${(t.tags ?? []).join(" ")}`} empty="No hosts or firewalls yet."
+        toolbar={<div className="flex flex-wrap gap-2">
+          <Select ariaLabel="Platform" value={platform} onChange={setPlatform} allowEmpty emptyLabel="All platforms" options={catalogue.platforms.map((p: any) => ({ value: p.key, label: p.label }))} className="w-48" />
+          {allTags.length > 0 && <Select ariaLabel="Tag" value={tag} onChange={setTag} allowEmpty emptyLabel="All tags" options={allTags.map((t) => ({ value: t, label: t }))} className="w-40" />}
+        </div>}
         columns={[
-          { key: "n", header: "Name", mobile: "heading", cell: (t: any) => <span><span className="font-medium">{t.name}</span>{t.hostname && t.hostname !== t.name && <span className="block text-xs text-muted-foreground">{t.hostname}</span>}</span>, sort: (t: any) => t.name },
+          { key: "n", header: "Name", mobile: "heading", cell: (t: any) => <span><span className="font-medium">{t.name}</span>{t.hostname && t.hostname !== t.name && <span className="block text-xs text-muted-foreground">{t.hostname}</span>}<span className="mt-1 block"><Tags tags={t.tags} /></span></span>, sort: (t: any) => t.name },
           { key: "p", header: "Platform", cell: (t: any) => <span>{label(t.platform)}<span className="block text-xs text-muted-foreground">{t.kind === "agent" ? "Agent" : "Uploaded configuration"}</span></span>, sort: (t: any) => t.platform },
-          { key: "b", header: "Baseline", cell: (t: any) => t.baseline ?? <span className="text-muted-foreground">None</span> },
+          { key: "b", header: "Baselines", cell: (t: any) => (t.baselines?.length ? t.baselines.map((b: any) => b.name).join(", ") : <span className="text-muted-foreground">None</span>) },
           { key: "s", header: "Status", cell: (t: any) => <StateBadge t={t} />, sort: (t: any) => t.state },
           { key: "c", header: "Results", cell: (t: any) => <span className="tabular-nums text-xs">{t.counts.fail} failing · {t.counts.unknown} unknown · {t.counts.pass} passing</span>, sort: (t: any) => -t.counts.fail },
           { key: "r", header: "Last report", cell: (t: any) => (t.facts_at ? fmtDate(t.facts_at, true) : "—"), sort: (t: any) => t.facts_at ?? "" },
@@ -158,18 +170,22 @@ function Targets({ catalogue }: { catalogue: any }) {
 function TargetDrawer({ id, onClose, catalogue }: { id: number; onClose: () => void; catalogue: any }) {
   const { data: t } = useApi<any>(`/config/targets/${id}`);
   const { data: baselines } = useApi<any[]>("/config/baselines");
+  const { data: assets } = useApi<any[]>("/assets");
   const { can } = useAuth();
   const [except, setExcept] = useState<any>(null);
-  const assign = useAction((v: any) => api(`/config/targets/${id}`, { method: "PATCH", body: v }), { success: "Saved.", invalidate: INV });
+  const [tagText, setTagText] = useState<string | null>(null);
+  const patch = useAction((v: any) => api(`/config/targets/${id}`, { method: "PATCH", body: v }), { success: "Saved.", invalidate: INV, onSuccess: () => setTagText(null) });
   const revoke = useAction(() => api(`/config/targets/${id}/revoke`, { method: "POST" }), { success: "Agent token revoked.", invalidate: INV });
   const remove = useAction(() => api(`/config/targets/${id}`, { method: "DELETE" }), { success: "Removed.", invalidate: INV, onSuccess: onClose });
   const unexcept = useAction((fid: number) => api(`/config/findings/${fid}/exception/revoke`, { method: "POST" }), { success: "Exception withdrawn.", invalidate: INV });
   const label = catalogue.platforms.find((p: any) => p.key === t?.platform)?.label;
+  const manage = can("integration.manage");
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()} title={t?.name ?? "…"} subtitle={t && `${label} · ${t.kind === "agent" ? "agent" : "uploaded configuration"}`}
-      actions={t && can("integration.manage") && <>
-        {t.kind === "agent" && !t.revoked_at && <Button size="sm" variant="outline" loading={revoke.isPending} onClick={() => window.confirm(`Revoke ${t.name}'s agent token? It will stop reporting.`) && revoke.mutate(undefined)}><ShieldOff /> Revoke</Button>}
-        <Button size="sm" variant="outline" loading={remove.isPending} onClick={() => window.confirm(`Remove ${t.name} and its results?`) && remove.mutate(undefined)}><Trash2 /> Remove</Button>
+      actions={t && <>
+        <a href={downloadUrl(`/config/report.xlsx?target_id=${t.id}`)}><Button size="sm" variant="outline"><Download /> Report</Button></a>
+        {manage && t.kind === "agent" && !t.revoked_at && <Button size="sm" variant="outline" loading={revoke.isPending} onClick={() => window.confirm(`Revoke ${t.name}'s agent token? It will stop reporting.`) && revoke.mutate(undefined)}><ShieldOff /> Revoke</Button>}
+        {manage && <Button size="sm" variant="outline" loading={remove.isPending} onClick={() => window.confirm(`Remove ${t.name} and its results?`) && remove.mutate(undefined)}><Trash2 /> Remove</Button>}
       </>}>
       {!t ? <Skeleton className="h-64" /> : (
         <div className="space-y-6">
@@ -177,27 +193,43 @@ function TargetDrawer({ id, onClose, catalogue }: { id: number; onClose: () => v
           <KeyValue items={[
             ["Host name", t.hostname ?? "—"],
             ["Operating system", [t.os_name, t.os_version].filter(Boolean).join(" ") || "—"],
-            ...(t.kind === "agent" ? [["Agent", `${t.agent_version ?? "?"} · enrolled ${fmtDate(t.enrolled_at, true)}${t.last_ip ? ` from ${t.last_ip}` : ""}`] as [string, string]] : []),
+            ...(t.kind === "agent" ? [["Agent", `${t.agent_version ?? "?"} · enrolled ${fmtDate(t.enrolled_at, true)}${t.last_ip ? ` from ${t.last_ip}` : ""}${t.custom_checks === "disabled" ? " · custom checks off" : ""}`] as [string, string]] : []),
             ...(t.kind === "firewall" ? [["File", <span key="f">{t.source_filename}<span className="block break-all font-mono text-xs text-muted-foreground">SHA-256 {t.source_sha256}</span></span>] as [string, any]] : []),
             ["Last report", t.facts_at ? fmtDate(t.facts_at, true) : "Not yet"],
-            ["Baseline", can("integration.manage") ? (
-              <Select key="b" ariaLabel="Baseline" value={t.baseline_id && baselines?.some((b) => b.id === t.baseline_id && !b.is_default) ? String(t.baseline_id) : null} allowEmpty emptyLabel="Platform default"
-                onChange={(v) => assign.mutate(v ? { baseline_id: Number(v) } : { clear_baseline: true })}
-                options={(baselines ?? []).filter((b) => b.platform === t.platform).map((b) => ({ value: String(b.id), label: b.name + (b.is_default ? " (default)" : "") }))} />
-            ) : t.baseline ?? "None"],
+            ["Baselines", t.baselines.length ? t.baselines.map((b: any) => b.name).join(", ") : "None apply"],
+            ["Pinned baseline", manage ? (
+              <Select key="b" ariaLabel="Pinned baseline" value={t.baseline_id && baselines?.some((b) => b.id === t.baseline_id && !b.is_default) ? String(t.baseline_id) : null} allowEmpty emptyLabel="Platform default"
+                onChange={(v) => patch.mutate(v ? { baseline_id: Number(v) } : { clear_baseline: true })}
+                options={(baselines ?? []).filter((b) => b.platform === t.platform && !b.scope).map((b) => ({ value: String(b.id), label: b.name + (b.is_default ? " (default)" : "") }))} />
+            ) : "—"],
+            ["Tags", manage ? (
+              <div key="t" className="flex gap-2">
+                <Input aria-label="Tags" value={tagText ?? (t.tags ?? []).join(", ")} onChange={(e) => setTagText(e.target.value)} placeholder="e.g. web, dmz" />
+                {tagText !== null && <Button size="sm" loading={patch.isPending} onClick={() => patch.mutate({ tags: parseTags(tagText) })}>Save</Button>}
+              </div>
+            ) : <Tags key="t" tags={t.tags} />],
+            ["Asset", manage ? (
+              <div key="a" className="space-y-1">
+                <Select ariaLabel="Asset" value={t.asset ? String(t.asset.id) : null} allowEmpty emptyLabel="Not linked"
+                  onChange={(v) => patch.mutate(v ? { asset_id: Number(v) } : { clear_asset: true })}
+                  options={(assets ?? []).map((a) => ({ value: String(a.id), label: a.name }))} />
+                {!t.asset && t.asset_suggestions.length > 0 && <div className="text-xs text-muted-foreground">Suggested: {t.asset_suggestions.map((a: any) => <Button key={a.id} size="sm" variant="ghost" onClick={() => patch.mutate({ asset_id: a.id })}>{a.name}</Button>)}</div>}
+              </div>
+            ) : t.asset?.name ?? "Not linked"],
           ]} />
           {t.revoked_at && <p className="text-sm text-muted-foreground">The agent token was revoked on {fmtDate(t.revoked_at, true)}. These are its last results.</p>}
           <Section title="Results">
-            {t.results.length === 0 ? <p className="text-sm text-muted-foreground">{t.baseline ? "Waiting for the first report." : "No baseline applies. Create one for this platform or assign one above."}</p> : (
+            {t.results.length === 0 ? <p className="text-sm text-muted-foreground">{t.baselines.length ? "Waiting for the first report." : "No baseline applies. Create one for this platform, scope one to this host's tags, or pin one above."}</p> : (
               <ul className="divide-y rounded-lg border">
                 {t.results.map((r: any) => (
                   <li key={r.id} className="space-y-1 px-4 py-3 text-sm">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-medium">{r.title}</span>
+                      <span className="font-medium">{r.title}{r.custom && <Badge tone="primary" className="ml-2">Custom</Badge>}</span>
                       <span className="flex items-center gap-1.5"><Sev s={r.severity} /><Result s={r.status} /></span>
                     </div>
-                    <div className="text-xs text-muted-foreground">Required: {r.rule} · Reported: <Value v={r.actual} />{r.controls.length ? ` · ${r.controls.join(", ")}` : ""}</div>
+                    <div className="text-xs text-muted-foreground">Required: {r.rule} · Reported: <Value v={r.actual} /> · {r.baseline}{r.controls.length ? ` · ${r.controls.join(", ")}` : ""}</div>
                     {(r.status === "unknown" || r.status === "na") && r.detail && <div className="text-xs">{r.detail}</div>}
+                    {r.status === "fail" && r.remediation && <div className="rounded-md bg-muted px-3 py-2 text-xs"><span className="font-medium">How to fix: </span>{r.remediation}</div>}
                     {r.status === "excepted" && <div className="text-xs">Exception until {fmtDate(r.exception_until)}: {r.exception_reason}{can("risk.accept") && <Button size="sm" variant="ghost" className="ml-2" onClick={() => unexcept.mutate(r.id)}>Withdraw</Button>}</div>}
                     {r.status === "fail" && can("risk.accept") && <Button size="sm" variant="outline" onClick={() => setExcept(r)}>Grant exception</Button>}
                   </li>
@@ -217,7 +249,7 @@ function TargetDrawer({ id, onClose, catalogue }: { id: number; onClose: () => v
                   <li key={h.id} className="rounded-md border px-3 py-2">
                     <div className="flex flex-wrap justify-between gap-2"><span>{fmtDate(h.at, true)} · {h.source === "agent" ? "agent report" : h.source === "upload" ? "upload" : "re-checked"}</span>
                       <span className="text-xs text-muted-foreground">{h.counts.fail ?? 0} failing · {h.counts.unknown ?? 0} unknown · {h.counts.pass ?? 0} passing</span></div>
-                    {h.changes.length > 0 && <ul className="mt-1 text-xs">{h.changes.map((c: any) => <li key={c.key}>{titleForKey(catalogue, t.platform, c.key)}: {resultLabel(c.from)} → {resultLabel(c.to)}</li>)}</ul>}
+                    {h.changes.length > 0 && <ul className="mt-1 text-xs">{h.changes.map((c: any, i: number) => <li key={`${c.key}-${i}`}>{titleForKey(catalogue, t.platform, c.key)}: {resultLabel(c.from)} → {resultLabel(c.to)}</li>)}</ul>}
                   </li>
                 ))}
               </ul>
@@ -225,7 +257,7 @@ function TargetDrawer({ id, onClose, catalogue }: { id: number; onClose: () => v
           </Section>
         </div>
       )}
-      {except && <ExceptionDialog result={except} onClose={() => setExcept(null)} />}
+      {except && <ExceptionDialog title={except.title} path={`/config/findings/${except.id}/exception`} onClose={() => setExcept(null)} />}
     </Sheet>
   );
 }
@@ -234,15 +266,17 @@ function titleForKey(catalogue: any, platform: string, key: string): string {
   return catalogue.platforms.find((p: any) => p.key === platform)?.settings.find((s: Setting) => s.key === key)?.title ?? key;
 }
 
-function ExceptionDialog({ result, onClose }: { result: any; onClose: () => void }) {
+function ExceptionDialog({ title, path, onClose, description }: { title: string; path: string; onClose: () => void; description?: string }) {
   const [reason, setReason] = useState("");
   const [until, setUntil] = useState<string | null>(null);
-  const save = useAction(() => api(`/config/findings/${result.id}/exception`, { method: "POST", body: { reason, until } }), { success: "Exception granted.", invalidate: INV, onSuccess: onClose });
+  const save = useAction(() => api<any>(path, { method: "POST", body: { reason, until } }), {
+    success: (r: any) => (typeof r.excepted === "number" ? `Exception granted on ${r.excepted} target(s).` : "Exception granted."), invalidate: INV, onSuccess: onClose,
+  });
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()} title={`Exception: ${result.title}`} description="The result stays visible as excepted until the end date, then fails again."
+    <Dialog open onOpenChange={(o) => !o && onClose()} title={`Exception: ${title}`} description={description ?? "The result stays visible as excepted until the end date, then fails again."}
       footer={<Button disabled={!reason.trim() || !until} loading={save.isPending} onClick={() => save.mutate(undefined)}>Grant exception</Button>}>
       <div className="space-y-4">
-        <Field label="Reason" required><Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why this host may differ, and what compensates for it" /></Field>
+        <Field label="Reason" required><Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why these hosts may differ, and what compensates for it" /></Field>
         <Field label="Until" required hint="At most a year from today."><DateInput ariaLabel="Until" value={until} onChange={setUntil} /></Field>
       </div>
     </Dialog>
@@ -256,20 +290,34 @@ function Baselines({ catalogue }: { catalogue: any }) {
   const { can } = useAuth();
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
+  const file = useRef<HTMLInputElement>(null);
   const label = (k: string) => catalogue.platforms.find((p: any) => p.key === k)?.label ?? k;
+  const importJson = useAction(async (f: File) => api<any>("/config/baselines/import", { body: JSON.parse(await f.text()) }), {
+    success: (r: any) => `Imported “${r.baseline.name}”.${r.notes.length ? " " + r.notes.join(" ") : ""}`, invalidate: INV, onSuccess: (r: any) => setOpen(r.baseline.id),
+  });
+  const scopeText = (b: any) => {
+    if (b.is_default && !b.scope) return "Every target of the platform without a pinned baseline";
+    const parts = [...(b.scope?.tags ?? []).map((t: string) => `tag ${t}`), ...(b.scope?.names ?? []).map((n: string) => `names ${n}`)];
+    return parts.length ? `${b.is_default ? "Default, and " : ""}${parts.join(" or ")}` : "Targets pinned to it";
+  };
   return (
     <>
       <DataTable rows={data ?? []} rowKey={(b: any) => b.id} onRowClick={(b: any) => setOpen(b.id)} rowLabel={(b: any) => b.name} empty="No baselines yet."
-        toolbar={can("integration.manage") && <Button onClick={() => setCreating(true)}><Plus /> New baseline</Button>}
+        toolbar={can("integration.manage") && <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setCreating(true)}><Plus /> New baseline</Button>
+          <Button variant="outline" loading={importJson.isPending} onClick={() => file.current?.click()}><FileUp /> Import</Button>
+          <input ref={file} type="file" accept=".json,application/json" className="hidden" aria-label="Baseline file to import"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) importJson.mutate(f); e.target.value = ""; }} />
+        </div>}
         columns={[
           { key: "n", header: "Name", mobile: "heading", cell: (b: any) => <span className="font-medium">{b.name}</span>, sort: (b: any) => b.name },
           { key: "p", header: "Platform", cell: (b: any) => label(b.platform), sort: (b: any) => b.platform },
           { key: "r", header: "Rules", cell: (b: any) => `${b.enabled_rules} of ${b.rules} on` },
-          { key: "d", header: "Applies to", cell: (b: any) => (b.is_default ? "Every target of the platform without its own baseline" : "Targets assigned to it") },
+          { key: "d", header: "Applies to", cell: (b: any) => <span className="text-xs">{scopeText(b)}</span> },
           { key: "e", header: "Status", cell: (b: any) => (b.enabled ? <Badge tone="good">On</Badge> : <Badge tone="outline">Off</Badge>) },
         ]} />
       {creating && <NewBaseline catalogue={catalogue} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setOpen(id); }} />}
-      {open && <BaselineEditor id={open} catalogue={catalogue} onClose={() => setOpen(null)} />}
+      {open && <BaselineEditor id={open} catalogue={catalogue} onClose={() => setOpen(null)} onOpen={setOpen} />}
     </>
   );
 }
@@ -289,21 +337,31 @@ function NewBaseline({ catalogue, onClose, onCreated }: { catalogue: any; onClos
   );
 }
 
-function BaselineEditor({ id, catalogue, onClose }: { id: number; catalogue: any; onClose: () => void }) {
+function BaselineEditor({ id, catalogue, onClose, onOpen }: { id: number; catalogue: any; onClose: () => void; onOpen: (id: number) => void }) {
   const { data: b } = useApi<any>(`/config/baselines/${id}`);
   const { can } = useAuth();
   const edit = can("integration.manage");
   const [adding, setAdding] = useState<string | null>(null);
   const [editing, setEditing] = useState<any>(null);
-  const patch = useAction((v: any) => api(`/config/baselines/${id}`, { method: "PATCH", body: v }), { success: "Saved.", invalidate: INV });
+  const [scope, setScope] = useState<{ tags: string; names: string } | null>(null);
+  const [excepting, setExcepting] = useState<any>(null);
+  const patch = useAction((v: any) => api(`/config/baselines/${id}`, { method: "PATCH", body: v }), { success: "Saved.", invalidate: INV, onSuccess: () => setScope(null) });
   const remove = useAction(() => api(`/config/baselines/${id}`, { method: "DELETE" }), { success: "Baseline deleted.", invalidate: INV, onSuccess: onClose });
+  const clone = useAction(() => api<any>(`/config/baselines/${id}/clone`, { body: {} }), { success: "Copied.", invalidate: INV, onSuccess: (r) => onOpen(r.id) });
   const toggle = useAction((r: any) => api(`/config/rules/${r.id}`, { method: "PATCH", body: { enabled: !r.enabled } }), { invalidate: INV });
+  const reset = useAction((r: any) => api(`/config/rules/${r.id}/reset`, { method: "POST" }), { success: "Back to the recommended value.", invalidate: INV });
   const drop = useAction((r: any) => api(`/config/rules/${r.id}`, { method: "DELETE" }), { success: "Rule removed.", invalidate: INV });
   const settings: Setting[] = useMemo(() => catalogue.platforms.find((p: any) => p.key === b?.platform)?.settings ?? [], [catalogue, b]);
   const unused = settings.filter((s) => !b?.rules.some((r: any) => r.key === s.key));
+  const scopeForm = scope ?? { tags: (b?.scope?.tags ?? []).join(", "), names: (b?.scope?.names ?? []).join(", ") };
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} extraWide title={b?.name ?? "…"} description={b && catalogue.platforms.find((p: any) => p.key === b.platform)?.label}
-      footer={b && edit && <Button variant="outline" loading={remove.isPending} onClick={() => window.confirm(`Delete the baseline “${b.name}”? Its results are removed.`) && remove.mutate(undefined)}><Trash2 /> Delete baseline</Button>}>
+      footer={b && <div className="flex flex-wrap gap-2">
+        <a href={downloadUrl(`/config/baselines/${id}/export`)}><Button variant="outline"><Download /> Export</Button></a>
+        <a href={downloadUrl(`/config/report.xlsx?baseline_id=${id}`)}><Button variant="outline"><Download /> Report</Button></a>
+        {edit && <Button variant="outline" loading={clone.isPending} onClick={() => clone.mutate(undefined)}><Copy /> Copy</Button>}
+        {edit && <Button variant="outline" loading={remove.isPending} onClick={() => window.confirm(`Delete the baseline “${b.name}”? Its results are removed.`) && remove.mutate(undefined)}><Trash2 /> Delete</Button>}
+      </div>}>
       {!b ? <Skeleton className="h-64" /> : (
         <div className="space-y-5">
           {edit && (
@@ -312,18 +370,32 @@ function BaselineEditor({ id, catalogue, onClose }: { id: number; catalogue: any
               <Switch checked={b.is_default} onChange={(v) => patch.mutate({ is_default: v })} label="Default for this platform" />
             </div>
           )}
+          <Card>
+            <CardHeader title="Also applies to" description="Targets with any of these tags, or whose name matches a pattern (* any characters, ? one), get this baseline as well as their default." />
+            <CardBody className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <Field label="Tags"><Input disabled={!edit} value={scopeForm.tags} onChange={(e) => setScope({ ...scopeForm, tags: e.target.value })} placeholder="web, dmz" /></Field>
+              <Field label="Host-name patterns"><Input disabled={!edit} value={scopeForm.names} onChange={(e) => setScope({ ...scopeForm, names: e.target.value })} placeholder="web-*, db-0?" /></Field>
+              {edit && scope && <Button loading={patch.isPending} onClick={() => {
+                const tags = parseTags(scope.tags);
+                const names = parseList(scope.names);
+                patch.mutate(tags.length || names.length ? { scope: { tags, names } } : { clear_scope: true });
+              }}>Save scope</Button>}
+            </CardBody>
+          </Card>
           <DataTable rows={b.rules} rowKey={(r: any) => r.id} rowLabel={(r: any) => r.title} empty="No rules yet."
-            toolbar={edit && unused.length > 0 && <Select ariaLabel="Add a rule" value={null} placeholder="Add a rule…" onChange={(v) => setAdding(v)} options={unused.map((s) => ({ value: s.key, label: s.title }))} className="w-72" />}
+            toolbar={edit && unused.length > 0 && <Select ariaLabel="Add a rule" value={null} placeholder="Add a rule…" onChange={(v) => setAdding(v)} options={unused.map((s) => ({ value: s.key, label: (s.custom ? "Custom: " : "") + s.title }))} className="w-80" />}
             columns={[
-              { key: "t", header: "Setting", mobile: "heading", cell: (r: any) => <span className={r.enabled ? "" : "text-muted-foreground line-through"}>{r.title}</span>, sort: (r: any) => r.title },
-              { key: "r", header: "Required", cell: (r: any) => r.rule },
+              { key: "t", header: "Setting", mobile: "heading", cell: (r: any) => <span className={r.enabled ? "" : "text-muted-foreground line-through"}>{r.title}{r.custom && <Badge tone="primary" className="ml-2">Custom</Badge>}{r.applies_to_tags && <span className="mt-1 block text-xs text-muted-foreground">Only tags: {r.applies_to_tags.join(", ")}</span>}</span>, sort: (r: any) => r.title },
+              { key: "r", header: "Required", cell: (r: any) => <span>{r.rule}{r.recommended && !r.is_recommended && <span className="block text-xs text-muted-foreground">Recommended: {r.recommended}</span>}</span> },
               { key: "s", header: "Severity", cell: (r: any) => <Sev s={r.severity} />, sort: (r: any) => ["critical", "high", "medium", "low"].indexOf(r.severity) },
               { key: "c", header: "Controls", cell: (r: any) => <span className="text-xs">{r.controls.join(", ") || "—"}</span> },
-              ...(edit ? [{ key: "a", header: "", cell: (r: any) => (
-                <span className="flex justify-end gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>Edit</Button>
-                  <Button size="sm" variant="ghost" onClick={() => toggle.mutate(r)}>{r.enabled ? "Turn off" : "Turn on"}</Button>
-                  <Button size="sm" variant="ghost" aria-label={`Remove ${r.title}`} onClick={() => drop.mutate(r)}><Trash2 /></Button>
+              ...(edit || can("risk.accept") ? [{ key: "a", header: "", cell: (r: any) => (
+                <span className="flex flex-wrap justify-end gap-1">
+                  {edit && <Button size="sm" variant="ghost" aria-label={`Edit ${r.title}`} onClick={() => setEditing(r)}><Pencil /></Button>}
+                  {edit && r.recommended && !r.is_recommended && <Button size="sm" variant="ghost" aria-label={`Reset ${r.title} to recommended`} onClick={() => reset.mutate(r)}><RotateCcw /></Button>}
+                  {edit && <Button size="sm" variant="ghost" onClick={() => toggle.mutate(r)}>{r.enabled ? "Turn off" : "Turn on"}</Button>}
+                  {can("risk.accept") && <Button size="sm" variant="ghost" onClick={() => setExcepting(r)}>Exception</Button>}
+                  {edit && <Button size="sm" variant="ghost" aria-label={`Remove ${r.title}`} onClick={() => drop.mutate(r)}><Trash2 /></Button>}
                 </span>) }] : []),
             ]} />
         </div>
@@ -332,6 +404,8 @@ function BaselineEditor({ id, catalogue, onClose }: { id: number; catalogue: any
         <RuleDialog baselineId={id} setting={settings.find((s) => s.key === (editing?.key ?? adding))!} rule={editing} severities={catalogue.severities} operators={catalogue.operators}
           onClose={() => { setAdding(null); setEditing(null); }} />
       )}
+      {excepting && <ExceptionDialog title={excepting.title} path={`/config/rules/${excepting.id}/exceptions`} onClose={() => setExcepting(null)}
+        description="Grants an exception on every target where this rule currently fails. Each stays visible as excepted until the end date, then fails again." />}
     </Dialog>
   );
 }
@@ -342,8 +416,10 @@ function RuleDialog({ baselineId, setting, rule, severities, operators, onClose 
   const [value, setValue] = useState<string>(expectedToInput(rule ? rule.expected : rec?.expected));
   const [severity, setSeverity] = useState<string>(rule?.severity ?? rec?.severity ?? "medium");
   const [controls, setControls] = useState<string>((rule?.controls ?? rec?.controls ?? []).join(", "));
+  const [tags, setTags] = useState<string>((rule?.applies_to_tags ?? []).join(", "));
+  const [remediation, setRemediation] = useState<string>(rule?.remediation ?? "");
   const needsValue = !["is_true", "is_false", "empty"].includes(op);
-  const body = { operator: op, expected: expectedFromInput(setting, op, value), severity, controls: controls.split(/[,\s]+/).filter(Boolean) };
+  const body = { operator: op, expected: expectedFromInput(setting, op, value), severity, controls: controls.split(/[,\s]+/).filter(Boolean), applies_to_tags: parseTags(tags), remediation };
   const save = useAction(() => (rule ? api(`/config/rules/${rule.id}`, { method: "PATCH", body }) : api(`/config/baselines/${baselineId}/rules`, { body: { key: setting.key, ...body } })),
     { success: "Rule saved.", invalidate: INV, onSuccess: onClose });
   return (
@@ -356,7 +432,104 @@ function RuleDialog({ baselineId, setting, rule, severities, operators, onClose 
         </div>
         <Field label="Severity"><Select ariaLabel="Severity" value={severity} onChange={(v) => setSeverity(v ?? severity)} options={severities.map((s) => ({ value: s, label: titleCase(s) }))} /></Field>
         <Field label="Controls" hint="Keystone control codes, e.g. KC-TEC-20. A baseline met on every target is filed as evidence for them."><Input value={controls} onChange={(e) => setControls(e.target.value)} /></Field>
+        <Field label="Only for tags" hint="Leave empty to check every target the baseline applies to."><Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g. jump-host" /></Field>
+        <Field label="How to fix" hint="Shown on failing results."><Textarea value={remediation} onChange={(e) => setRemediation(e.target.value)} /></Field>
         <p className="text-sm text-muted-foreground">Passes when the setting {describeExpected(operators, op, body.expected)}.{setting.requires ? " Not applicable when its prerequisite is off." : ""}</p>
+      </div>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------- custom checks
+
+function CustomChecks({ catalogue }: { catalogue: any }) {
+  const { data } = useApi<any>("/config/custom-checks");
+  const { can } = useAuth();
+  const [editing, setEditing] = useState<any>(null);
+  const [platform, setPlatform] = useState<string | null>(null);
+  const addLib = useAction((key: string) => api(`/config/custom-checks/library/${key}`, { method: "POST" }), { success: "Added. Add it to a baseline as a rule.", invalidate: INV });
+  const remove = useAction((c: any) => api(`/config/custom-checks/${c.id}`, { method: "DELETE" }), { success: "Custom check deleted.", invalidate: INV });
+  if (!data) return <Skeleton className="h-64" />;
+  const label = (k: string) => catalogue.platforms.find((p: any) => p.key === k)?.label ?? k;
+  const probes: Probe[] = data.probes;
+  const probeLabel = (k: string) => probes.find((p) => p.key === k)?.label ?? k;
+  const manage = can("integration.manage");
+  const lib = data.library.filter((e: any) => !platform || e.platform === platform);
+  return (
+    <div className="space-y-6">
+      <p className="max-w-4xl text-sm text-muted-foreground">Custom checks read one more setting from your hosts or firewall exports, for example a registry value, a line in a configuration file, a service or a package. Agents fetch the definitions and read the values themselves; they never run commands, never read password or key files, and can be installed with custom checks turned off. Add a custom check to a baseline as a rule to compare its value.</p>
+      <DataTable rows={data.checks} rowKey={(c: any) => c.id} rowLabel={(c: any) => c.title} onRowClick={manage ? (c: any) => setEditing(c) : undefined} empty="No custom checks yet. Start from the library below or create one."
+        toolbar={manage && <Button onClick={() => setEditing({})}><Plus /> New custom check</Button>}
+        columns={[
+          { key: "t", header: "Check", mobile: "heading", cell: (c: any) => <span><span className="font-medium">{c.title}</span><span className="block font-mono text-xs text-muted-foreground">{c.key}</span></span>, sort: (c: any) => c.title },
+          { key: "p", header: "Platform", cell: (c: any) => label(c.platform), sort: (c: any) => c.platform },
+          { key: "r", header: "Reads", cell: (c: any) => <span className="text-xs">{probeLabel(c.probe)}: {Object.values(c.params).join(" · ")}</span> },
+          { key: "u", header: "Used by", cell: (c: any) => <span className="text-xs">{c.used_by.join(", ") || "No baseline yet"}</span> },
+          ...(manage ? [{ key: "a", header: "", cell: (c: any) => <Button size="sm" variant="ghost" aria-label={`Delete ${c.title}`} onClick={(e) => { e.stopPropagation(); if (window.confirm(`Delete “${c.title}”?`)) remove.mutate(c); }}><Trash2 /></Button> }] : []),
+        ]} />
+      <Card>
+        <CardHeader title="Library" description="Checks written by Keystone, ready to add. Each comes with a suggested rule you can change."
+          action={<Select ariaLabel="Library platform" value={platform} onChange={setPlatform} allowEmpty emptyLabel="All platforms" options={catalogue.platforms.map((p: any) => ({ value: p.key, label: p.label }))} className="w-48" />} />
+        <CardBody className="p-0">
+          <ul className="divide-y">
+            {lib.map((e: any) => (
+              <li key={`${e.platform}-${e.slug}`} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm">
+                <span className="min-w-0 flex-1"><span className="font-medium">{e.title}</span> <span className="text-xs text-muted-foreground">· {label(e.platform)} · {probeLabel(e.probe)}</span><span className="block text-xs text-muted-foreground">{e.description}</span></span>
+                {e.added ? <Badge tone="good">Added</Badge> : manage && <Button size="sm" variant="outline" loading={addLib.isPending && addLib.variables === e.slug} onClick={() => addLib.mutate(e.slug)}><BookPlus /> Add</Button>}
+              </li>
+            ))}
+          </ul>
+        </CardBody>
+      </Card>
+      {editing && <CustomCheckDialog check={editing} probes={probes} catalogue={catalogue} onClose={() => setEditing(null)} />}
+    </div>
+  );
+}
+
+function CustomCheckDialog({ check, probes, catalogue, onClose }: { check: any; probes: Probe[]; catalogue: any; onClose: () => void }) {
+  const isNew = !check.id;
+  const [platform, setPlatform] = useState<string>(check.platform ?? "linux");
+  const [form, setForm] = useState({ slug: check.slug ?? "", title: check.title ?? "", description: check.description ?? "", remediation: check.remediation ?? "" });
+  const [probeKey, setProbeKey] = useState<string>(check.probe ?? "");
+  const [params, setParams] = useState<Record<string, string>>(check.params ?? {});
+  const [valueType, setValueType] = useState<string>(check.value_type ?? "");
+  const [def, setDef] = useState<string>(check.default_value === null || check.default_value === undefined ? "" : String(check.default_value));
+  const available = probes.filter((p) => p.platforms.includes(platform));
+  const probe = probes.find((p) => p.key === probeKey);
+  const types = allowedTypes(probe, params);
+  const type = types.includes(valueType) ? valueType : types[0] ?? "";
+  const body: any = { title: form.title, description: form.description, remediation: form.remediation, probe: probeKey, params, value_type: type,
+    default_value: probe?.default_allowed && type !== "bool" && def.trim() ? def.trim() : null };
+  if (isNew) Object.assign(body, { platform, slug: form.slug });
+  const save = useAction(() => (isNew ? api("/config/custom-checks", { body }) : api(`/config/custom-checks/${check.id}`, { method: "PATCH", body })),
+    { success: "Custom check saved.", invalidate: INV, onSuccess: onClose });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()} wide title={isNew ? "New custom check" : check.title}
+      description={probe?.description}
+      footer={<Button disabled={!form.title.trim() || !probeKey || !type || (isNew && !form.slug)} loading={save.isPending} onClick={() => save.mutate(undefined)}>Save</Button>}>
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Platform"><Select ariaLabel="Platform" disabled={!isNew} value={platform} onChange={(v) => { setPlatform(v ?? platform); setProbeKey(""); setParams({}); }} options={catalogue.platforms.map((p: any) => ({ value: p.key, label: p.label }))} /></Field>
+          <Field label="Key" hint={isNew ? "Lower-case letters, digits and _; used in reports as custom.<key>." : "Can't change once created."}><Input disabled={!isNew} value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="ssh_max_sessions" /></Field>
+        </div>
+        <Field label="Title" required><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
+        <Field label="What to read"><Select ariaLabel="Probe" value={probeKey || null} placeholder="Choose…" onChange={(v) => { setProbeKey(v ?? ""); setParams({}); }} options={available.map((p) => ({ value: p.key, label: p.label }))} /></Field>
+        {probe && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {probe.params.map((p) => (
+              <Field key={p.name} label={p.label} required={p.required} hint={p.hint || undefined}>
+                {p.kind === "choice"
+                  ? <Select ariaLabel={p.label} value={params[p.name] ?? null} placeholder="Choose…" onChange={(v) => setParams({ ...params, [p.name]: v ?? "" })} options={p.choices.map((c) => ({ value: c, label: titleCase(c.replace("_", " ")) }))} />
+                  : <Input value={params[p.name] ?? ""} onChange={(e) => setParams({ ...params, [p.name]: e.target.value })} />}
+              </Field>
+            ))}
+            {types.length > 1 && <Field label="Value is a"><Select ariaLabel="Value type" value={type} onChange={(v) => setValueType(v ?? type)} options={types.map((t) => ({ value: t, label: t === "int" ? "Number" : t === "str" ? "Text" : "Yes/no" }))} /></Field>}
+            {probe.default_allowed && type !== "bool" && <Field label="When not set, use" hint="Optional. Without it, a missing value is unknown."><Input value={def} onChange={(e) => setDef(e.target.value)} /></Field>}
+          </div>
+        )}
+        {probe?.reads_content && <p className="text-xs text-muted-foreground">Agents refuse to read password, key and home-directory files with this probe. Check such files' permissions with “File permissions or owner” instead.</p>}
+        <Field label="Description"><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
+        <Field label="How to fix" hint="Shown on failing results."><Textarea value={form.remediation} onChange={(e) => setForm({ ...form, remediation: e.target.value })} /></Field>
       </div>
     </Dialog>
   );
@@ -375,7 +548,7 @@ function Agents() {
         <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-[#b07400]" />
           <div>Keystone's address is {data.server}. Agents only talk to HTTPS addresses (HTTP works for localhost testing only). Set KEYSTONE_PUBLIC_URL to the HTTPS address users reach Keystone on.</div></div>
       )}
-      <p className="text-sm text-muted-foreground">The agents only read settings and send them to Keystone. They never change the host, and Keystone can't send them commands. Each agent swaps the enrolment key for its own device token when it enrols, and the token can only send reports for that host.</p>
+      <p className="text-sm text-muted-foreground">The agents only read settings and send them to Keystone. They never change the host or run commands. They also evaluate your custom checks (read-only, within limits built into the agent) unless installed with custom checks turned off. Each agent swaps the enrolment key for its own device token when it enrols, and the token can only fetch check definitions for that host and send its reports.</p>
       {(["windows", "linux"] as const).map((p) => (
         <Card key={p}>
           <CardHeader title={p === "windows" ? "Windows" : "Linux"} description={p === "windows" ? "PowerShell 5.1 or later. Installs a scheduled task that runs as SYSTEM at startup and every few hours." : "Any distribution with sh and curl. Installs a systemd timer, or a cron job where there's no systemd."}
@@ -385,6 +558,7 @@ function Agents() {
             <Field label={p === "windows" ? "Install from an elevated PowerShell prompt in the download folder" : "Install as root in the download folder"}>
               <div className="flex items-start gap-2"><code className="block min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 font-mono text-xs">{data.install[p]}</code><CopyButton text={data.install[p]} /></div>
             </Field>
+            <div className="text-xs text-muted-foreground">Options: <code className="font-mono">{data.options[p]}</code></div>
             <div className="text-xs text-muted-foreground">To remove: <code className="font-mono">{data.uninstall[p]}</code></div>
           </CardBody>
         </Card>
@@ -429,7 +603,7 @@ function UploadFirewall({ catalogue }: { catalogue: any }) {
     onSuccess: (r: any) => setParams({ tab: "targets", target: String(r.target.id) }) });
   return (
     <div className="max-w-2xl space-y-4">
-      <p className="text-sm text-muted-foreground">Keystone reads the settings it checks from the file and keeps only those values and the file's SHA-256. The file itself is not stored: configuration exports contain password hashes and keys.</p>
+      <p className="text-sm text-muted-foreground">Keystone reads the settings it checks, and your custom checks for this platform, from the file. It keeps only those values and the file's SHA-256. The file itself is not stored, because configuration exports contain password hashes and keys. After adding custom checks, upload the configuration again to evaluate them.</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Firewall"><Select ariaLabel="Firewall platform" value={platform} onChange={(v) => { setPlatform(v ?? "fortigate"); setTargetId(null); }} options={catalogue.platforms.filter((p: any) => p.kind === "firewall").map((p: any) => ({ value: p.key, label: p.label }))} /></Field>
         <Field label="Update"><Select ariaLabel="Existing firewall" value={targetId} onChange={setTargetId} allowEmpty emptyLabel="A new firewall" options={existing.map((t) => ({ value: String(t.id), label: t.name }))} /></Field>

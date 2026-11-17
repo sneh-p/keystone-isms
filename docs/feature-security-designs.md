@@ -179,6 +179,26 @@ scheduler.
   - A test checks that none of the fixtures' secret material reaches any table.
 - **Results.** A missing or unreadable value is *unknown*, never a pass. Exceptions need `risk.accept`, a reason and an
   end date within a year.
+- **Custom checks (round 4, decided by human:sneh, 2026-11-17: "defined in Keystone").** This changes the
+  statement above that agents receive no instructions. Agents now download **read-only probe definitions**
+  (`GET /api/agent/v1/checks`, device token, rate-limited, at most 100, JSON or tab-separated for the POSIX agent).
+  - **The server validates every definition** (`keystone/configcheck/custom.py`):
+    - a fixed list of probes, and narrow character sets for each parameter
+    - no `..`, no regular expressions: matching is literal or numeric only (SC-VAL-004)
+    - Windows registry reads from HKLM only, never the SAM or SECURITY hives
+    - content-reading probes refuse password, key, SSH, home-directory and process-environment paths
+  - **Each agent re-validates independently**, with the same limits hard-coded in the agent, so a compromised or
+    misconfigured server still can't make it read those files or run anything:
+    - no command, script or arbitrary-read probe exists
+    - unknown probes report "unsupported"; refused ones report "refused"
+  - Values are capped at 200 characters and typed. Reported errors are limited to a fixed set of codes for keys the
+    server defined.
+  - Hosts can opt out at install (`-NoCustomChecks` / `--no-custom-checks`). Their custom results then show as
+    unknown.
+  - Metadata probes (exists, mode, owner) may name sensitive paths, so permissions on `/etc/shadow` can be checked
+    without reading the file.
+  - Firewall custom checks run on the uploaded export in memory during the upload. The parsed file is dropped
+    afterwards.
 - **Spec note.** The original spec says "no tokens or secrets on disk". That was written for the collector. An agent
   that reports on a schedule can't work without a stored credential, so each host keeps a narrowly scoped,
   revocable, root/SYSTEM-only device token instead. This is a deliberate deviation, raised here for review.

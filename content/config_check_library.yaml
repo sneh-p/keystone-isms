@@ -1,0 +1,285 @@
+# Custom configuration checks ready to add (Configuration → Custom checks → Library). Keystone-written; each one is a
+# read-only probe from keystone/configcheck/custom.py plus a suggested rule. Values reflect common hardening practice
+# and are a starting point: adjust them to your own baseline.
+checks:
+  # ------------------------------------------------------------------ Windows
+  - slug: tls10_server_disabled
+    platform: windows
+    title: "TLS 1.0 turned off for incoming connections"
+    description: "SCHANNEL's TLS 1.0 server protocol is explicitly disabled (Enabled = 0). Not set counts as enabled."
+    remediation: "Set HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server Enabled = 0 (DWORD), by Group Policy or your management tool, then restart."
+    probe: registry_value
+    params: {path: 'SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server', name: Enabled, mode: value}
+    type: int
+    default: 1
+    rule: {operator: eq, expected: 0, severity: high, controls: [KC-TEC-24]}
+  - slug: tls11_server_disabled
+    platform: windows
+    title: "TLS 1.1 turned off for incoming connections"
+    description: "SCHANNEL's TLS 1.1 server protocol is explicitly disabled (Enabled = 0). Not set counts as enabled."
+    remediation: "Set ...\\SCHANNEL\\Protocols\\TLS 1.1\\Server Enabled = 0 (DWORD), then restart."
+    probe: registry_value
+    params: {path: 'SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server', name: Enabled, mode: value}
+    type: int
+    default: 1
+    rule: {operator: eq, expected: 0, severity: medium, controls: [KC-TEC-24]}
+  - slug: smb_client_signing_required
+    platform: windows
+    title: "SMB client requires signing"
+    description: "The SMB client signs all connections (LanmanWorkstation RequireSecuritySignature = 1)."
+    remediation: "Enable the policy “Microsoft network client: Digitally sign communications (always)”."
+    probe: registry_value
+    params: {path: 'SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters', name: RequireSecuritySignature, mode: value}
+    type: int
+    default: 0
+    rule: {operator: eq, expected: 1, severity: medium, controls: [KC-TEC-20]}
+  - slug: restrict_anonymous_sam
+    platform: windows
+    title: "Anonymous users can't list accounts"
+    description: "RestrictAnonymousSAM is 1, so anonymous connections can't enumerate local accounts."
+    remediation: "Enable “Network access: Do not allow anonymous enumeration of SAM accounts”."
+    probe: registry_value
+    params: {path: 'SYSTEM\CurrentControlSet\Control\Lsa', name: RestrictAnonymousSAM, mode: value}
+    type: int
+    default: 1
+    rule: {operator: eq, expected: 1, severity: medium, controls: [KC-TEC-03]}
+  - slug: firewall_public_log_dropped
+    platform: windows
+    title: "Firewall logs dropped packets (public profile)"
+    description: "Windows Defender Firewall logs dropped packets on the public profile, set by policy."
+    remediation: "In the firewall policy, public profile, Logging: Log dropped packets = Yes."
+    probe: registry_value
+    params: {path: 'SOFTWARE\Policies\Microsoft\WindowsFirewall\PublicProfile\Logging', name: LogDroppedPackets, mode: value}
+    type: int
+    default: 0
+    rule: {operator: eq, expected: 1, severity: low, controls: [KC-TEC-15]}
+  - slug: audit_logon
+    platform: windows
+    title: "Logon events audited (success and failure)"
+    description: "The Logon audit subcategory records both successful and failed sign-ins."
+    remediation: "Advanced Audit Policy → Logon/Logoff → Audit Logon: Success and Failure."
+    probe: audit_policy
+    params: {guid: '{0CCE9215-69AE-11D9-BED3-505054503030}'}
+    type: str
+    rule: {operator: eq, expected: "success and failure", severity: medium, controls: [KC-TEC-15]}
+  - slug: audit_process_creation
+    platform: windows
+    title: "Process creation audited"
+    description: "The Process Creation audit subcategory records successful process starts."
+    remediation: "Advanced Audit Policy → Detailed Tracking → Audit Process Creation: Success."
+    probe: audit_policy
+    params: {guid: '{0CCE922B-69AE-11D9-BED3-505054503030}'}
+    type: str
+    rule: {operator: in, expected: ["success", "success and failure"], severity: low, controls: [KC-TEC-15]}
+  - slug: password_complexity
+    platform: windows
+    title: "Password complexity required (local accounts)"
+    description: "The local password policy requires complex passwords (PasswordComplexity = 1)."
+    remediation: "Enable “Password must meet complexity requirements”, or rely on a long minimum length and a banned-password list."
+    probe: security_policy
+    params: {key: PasswordComplexity}
+    type: int
+    rule: {operator: eq, expected: 1, severity: low, controls: [KC-TEC-05]}
+  - slug: remote_registry_disabled
+    platform: windows
+    title: "Remote Registry service disabled"
+    description: "The Remote Registry service is set to start never."
+    remediation: "Set the Remote Registry service's startup type to Disabled."
+    probe: service
+    params: {name: RemoteRegistry, field: start_type}
+    type: str
+    rule: {operator: in, expected: ["disabled", "absent"], severity: medium, controls: [KC-TEC-09]}
+  - slug: telnet_client_absent
+    platform: windows
+    title: "Telnet client not installed"
+    description: "The Telnet Client optional feature is not enabled."
+    remediation: "Turn off the TelnetClient optional feature."
+    probe: windows_feature
+    params: {name: TelnetClient}
+    type: str
+    rule: {operator: in, expected: ["disabled", "absent"], severity: low, controls: [KC-TEC-09]}
+  - slug: remote_desktop_users_empty
+    platform: windows
+    title: "No members in Remote Desktop Users"
+    description: "The built-in Remote Desktop Users group (S-1-5-32-555) has no members, so only administrators can use RDP."
+    remediation: "Remove members from Remote Desktop Users, or except hosts that need it."
+    probe: local_group_count
+    params: {sid: S-1-5-32-555}
+    type: int
+    rule: {operator: lte, expected: 0, severity: low, controls: [KC-TEC-02]}
+  # ------------------------------------------------------------------ Linux
+  - slug: ssh_login_grace_time
+    platform: linux
+    title: "SSH login grace time at most 60 seconds"
+    description: "The SSH server drops connections that haven't authenticated within LoginGraceTime seconds."
+    remediation: "Set LoginGraceTime 60 in /etc/ssh/sshd_config and reload sshd."
+    probe: sshd_effective
+    params: {key: logingracetime}
+    type: int
+    rule: {operator: lte, expected: 60, severity: low, controls: [KC-TEC-05]}
+  - slug: ssh_tcp_forwarding_off
+    platform: linux
+    title: "SSH TCP forwarding off"
+    description: "The SSH server doesn't forward TCP connections (AllowTcpForwarding no)."
+    remediation: "Set AllowTcpForwarding no in /etc/ssh/sshd_config, unless the host is a jump host."
+    probe: sshd_effective
+    params: {key: allowtcpforwarding}
+    type: str
+    rule: {operator: eq, expected: "no", severity: low, controls: [KC-TEC-20]}
+  - slug: suid_core_dumps_off
+    platform: linux
+    title: "Core dumps of privileged programs off"
+    description: "fs.suid_dumpable is 0, so set-user-ID programs never write memory to core files."
+    remediation: "Set fs.suid_dumpable = 0 in /etc/sysctl.d/ and run sysctl --system."
+    probe: sysctl
+    params: {key: fs.suid_dumpable}
+    type: int
+    rule: {operator: eq, expected: 0, severity: medium, controls: [KC-TEC-09]}
+  - slug: kptr_restrict
+    platform: linux
+    title: "Kernel addresses hidden"
+    description: "kernel.kptr_restrict is at least 1, hiding kernel memory addresses from unprivileged users."
+    remediation: "Set kernel.kptr_restrict = 1 (or 2) in /etc/sysctl.d/."
+    probe: sysctl
+    params: {key: kernel.kptr_restrict}
+    type: int
+    rule: {operator: gte, expected: 1, severity: low, controls: [KC-TEC-09]}
+  - slug: dmesg_restrict
+    platform: linux
+    title: "Kernel log readable by root only"
+    description: "kernel.dmesg_restrict is 1."
+    remediation: "Set kernel.dmesg_restrict = 1 in /etc/sysctl.d/."
+    probe: sysctl
+    params: {key: kernel.dmesg_restrict}
+    type: int
+    rule: {operator: eq, expected: 1, severity: low, controls: [KC-TEC-09]}
+  - slug: icmp_redirects_ignored
+    platform: linux
+    title: "ICMP redirects ignored"
+    description: "net.ipv4.conf.all.accept_redirects is 0, so the routing table can't be changed by ICMP redirects."
+    remediation: "Set net.ipv4.conf.all.accept_redirects = 0 in /etc/sysctl.d/."
+    probe: sysctl
+    params: {key: net.ipv4.conf.all.accept_redirects}
+    type: int
+    rule: {operator: eq, expected: 0, severity: low, controls: [KC-TEC-20]}
+  - slug: shadow_permissions
+    platform: linux
+    title: "/etc/shadow not readable by everyone"
+    description: "The password hash file has restrictive permissions (its contents are never read)."
+    remediation: "chmod 640 /etc/shadow (or 600/000 depending on the distribution)."
+    probe: file_mode
+    params: {path: /etc/shadow, field: mode}
+    type: str
+    rule: {operator: in, expected: ["0", "400", "600", "640"], severity: high, controls: [KC-TEC-03]}
+  - slug: passwd_permissions
+    platform: linux
+    title: "/etc/passwd writable by root only"
+    description: "The account file is mode 644."
+    remediation: "chmod 644 /etc/passwd"
+    probe: file_mode
+    params: {path: /etc/passwd, field: mode}
+    type: str
+    rule: {operator: eq, expected: "644", severity: medium, controls: [KC-TEC-03]}
+  - slug: telnet_server_absent
+    platform: linux
+    title: "Telnet server not installed"
+    description: "The telnetd package isn't installed."
+    remediation: "Remove the telnetd package (apt remove telnetd)."
+    probe: package_installed
+    params: {name: telnetd, field: present}
+    type: bool
+    rule: {operator: is_false, severity: high, controls: [KC-TEC-20]}
+  - slug: aide_installed
+    platform: linux
+    title: "File integrity checker installed (AIDE)"
+    description: "The aide package is installed."
+    remediation: "Install and initialise AIDE, and schedule its checks."
+    probe: package_installed
+    params: {name: aide, field: present}
+    type: bool
+    rule: {operator: is_true, severity: low, controls: [KC-TEC-16]}
+  - slug: rsyslog_active
+    platform: linux
+    title: "rsyslog running"
+    description: "The rsyslog service is active."
+    remediation: "systemctl enable --now rsyslog"
+    probe: service
+    params: {name: rsyslog, field: state}
+    type: str
+    rule: {operator: eq, expected: active, severity: low, controls: [KC-TEC-15]}
+  - slug: pass_min_days
+    platform: linux
+    title: "Passwords can't be changed back immediately"
+    description: "PASS_MIN_DAYS in /etc/login.defs is at least 1."
+    remediation: "Set PASS_MIN_DAYS 1 in /etc/login.defs."
+    probe: file_setting
+    params: {path: /etc/login.defs, key: PASS_MIN_DAYS, separator: whitespace}
+    type: int
+    default: 0
+    rule: {operator: gte, expected: 1, severity: low, controls: [KC-TEC-05]}
+  - slug: cramfs_not_loaded
+    platform: linux
+    title: "cramfs module not loaded"
+    description: "The rarely needed cramfs file system module isn't loaded."
+    remediation: "Add “install cramfs /bin/false” to /etc/modprobe.d/ and unload the module."
+    probe: kernel_module_loaded
+    params: {name: cramfs}
+    type: bool
+    rule: {operator: is_false, severity: low, controls: [KC-TEC-09]}
+  # ------------------------------------------------------------------ firewalls
+  - slug: admin_lockout_threshold
+    platform: fortigate
+    title: "Admin lockout after at most 5 failed sign-ins"
+    description: "system global admin-lockout-threshold (FortiOS default 3)."
+    remediation: "config system global; set admin-lockout-threshold 3; end"
+    probe: fortigate_setting
+    params: {block: system global, setting: admin-lockout-threshold, mode: value}
+    type: int
+    default: 3
+    rule: {operator: lte, expected: 5, severity: medium, controls: [KC-TEC-05]}
+  - slug: pre_login_banner
+    platform: fortigate
+    title: "Pre-login banner shown"
+    description: "system global pre-login-banner is enabled."
+    remediation: "config system global; set pre-login-banner enable; end"
+    probe: fortigate_setting
+    params: {block: system global, setting: pre-login-banner, mode: value}
+    type: str
+    default: disable
+    rule: {operator: eq, expected: enable, severity: low, controls: [KC-TEC-09]}
+  - slug: login_block_for
+    platform: cisco
+    title: "Sign-in attempts throttled (login block-for)"
+    description: "IOS blocks sign-in for a while after repeated failures."
+    remediation: "login block-for 120 attempts 5 within 60"
+    probe: cisco_line
+    params: {prefix: login block-for, mode: present}
+    type: bool
+    rule: {operator: is_true, severity: medium, controls: [KC-TEC-05]}
+  - slug: login_banner
+    platform: cisco
+    title: "Login banner configured"
+    description: "A banner login line is present."
+    remediation: "banner login ^ Authorised use only ^"
+    probe: cisco_line
+    params: {prefix: banner login, mode: present}
+    type: bool
+    rule: {operator: is_true, severity: low, controls: [KC-TEC-09]}
+  - slug: panos_login_banner
+    platform: panos
+    title: "Login banner configured"
+    description: "deviceconfig/system/login-banner is set."
+    remediation: "Device → Setup → Management → General Settings → Login Banner."
+    probe: panos_xpath
+    params: {path: devices/entry/deviceconfig/system/login-banner, mode: exists}
+    type: bool
+    rule: {operator: is_true, severity: low, controls: [KC-TEC-09]}
+  - slug: pfsense_ssh_off
+    platform: pfsense
+    title: "SSH turned off"
+    description: "The firewall's own SSH service isn't enabled (system/ssh/enable absent)."
+    remediation: "System → Advanced → Secure Shell: untick Enable Secure Shell."
+    probe: pfsense_xpath
+    params: {path: system/ssh/enable, mode: exists}
+    type: bool
+    rule: {operator: is_false, severity: low, controls: [KC-TEC-20]}

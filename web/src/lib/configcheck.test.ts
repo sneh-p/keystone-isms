@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { describeExpected, expectedFromInput, expectedToInput, resultLabel } from "./configcheck";
+import { allowedTypes, describeExpected, expectedFromInput, expectedToInput, parseList, parseTags, resultLabel, type Probe } from "./configcheck";
 
 const OPS = { is_true: "is on", lte: "at most", in: "is one of" };
 
@@ -19,5 +19,20 @@ describe("rule values", () => {
     expect(describeExpected(OPS, "in", ["no", "yes"])).toBe("is one of no, yes");
     expect(resultLabel("na")).toBe("Not applicable");
     expect(resultLabel("unknown")).toBe("Unknown");
+  });
+});
+
+
+describe("custom check form helpers", () => {
+  it("parses tags and patterns", () => {
+    expect(parseTags("web, DMZ ,,web")).toEqual(["web", "dmz"]);
+    expect(parseList("DB-*, web-0?")).toEqual(["DB-*", "web-0?"]);
+  });
+  it("offers the value types of the chosen mode", () => {
+    const probe = { key: "registry_value", mode_param: "mode", types: { value: ["int", "str"], exists: ["bool"] } } as unknown as Probe;
+    expect(allowedTypes(probe, { mode: "exists" })).toEqual(["bool"]);
+    expect(allowedTypes(probe, { mode: "value" })).toEqual(["int", "str"]);
+    expect(allowedTypes(probe, {})).toEqual([]);
+    expect(allowedTypes(undefined, {})).toEqual([]);
   });
 });

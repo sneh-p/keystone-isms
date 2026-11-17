@@ -481,7 +481,25 @@ the check errs towards silence rather than false alarms.
    an existing firewall's results. Export the *full* configuration where the device offers it (FortiGate: `show
    full-configuration`): settings left at their defaults are missing from shorter exports and show as unknown. The
    file is not stored.
-4. **Housekeeping.** A job every 6 hours ends expired exceptions, refreshes evidence for baselines that every target
+4. **Custom checks** (Configuration → Custom checks).
+   - Add one from the library, or create your own: choose the platform, what to read (the probe) and its
+     parameters, the value type, and optionally a value to use when the setting isn't present.
+   - Add the check to a baseline as a rule. The rule is pre-filled with the check's suggested value.
+   - Agents fetch the definitions on each run. Firewall checks run when a configuration is uploaded, so upload again
+     after adding one.
+   - Install an agent with `-NoCustomChecks` / `--no-custom-checks` to keep a host on the built-in settings only.
+     Its custom results then show as unknown.
+   - Probes that read file contents refuse password, key and home-directory files. Keystone refuses to save such a
+     check, and the Linux agent refuses to run one even if told to.
+5. **Scoping.** Which baselines apply to a host:
+   - Its pinned baseline, or else the platform default.
+   - Plus every baseline whose scope matches it: one of the baseline's tags, or a host-name pattern such as `web-*`.
+   Give hosts tags at install (`-Tags web,dmz` / `--tags web,dmz`) or on their page. A rule can also be limited to
+   tags ("Only for tags").
+6. **Sharing baselines.** Export a baseline as JSON (with the custom checks it uses) and import it into another
+   Keystone. Imports are validated like hand-made baselines. Unknown control codes are dropped and listed, and a
+   custom check with the same key but a different definition stops the import.
+7. **Housekeeping.** A job every 6 hours ends expired exceptions, refreshes evidence for baselines that every target
    meets, and keeps the last 500 reports of history per target.
 
 Agents report every 4 hours by default (Agents tab). A host is shown as out of date after three missed reports, and a

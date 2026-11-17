@@ -30,6 +30,7 @@ class Parsed:
     hostname: str | None = None
     version: str | None = None
     notes: list[str] = field(default_factory=list)
+    ctx: object = None  # the parsed structure, kept in memory only, for custom checks run during the same upload
 
 
 def parse(platform: str, data: bytes) -> Parsed:
@@ -204,7 +205,7 @@ def fortigate(data: bytes) -> Parsed:
     if snmp is not None or g is not None:
         names = [(_one(c, "name") or "") for c in (snmp.edits.values() if snmp else [])]
         facts["snmp_default_community"] = any(n in ("public", "private") for n in names)
-    return Parsed(facts=facts, hostname=hostname, version=version)
+    return Parsed(facts=facts, hostname=hostname, version=version, ctx=tree)
 
 
 # ----------------------------------------------------------------------------------------------- PAN-OS
@@ -251,7 +252,7 @@ def panos(data: bytes) -> Parsed:
         facts["rules_without_logging"] = sum(1 for r in allows if _t(r, "log-end") == "no")
     timeout = _t(root.find("devices/entry/deviceconfig/setting/management"), "idle-timeout")
     facts["admin_timeout_minutes"] = int(timeout) if timeout and timeout.isdigit() else None
-    return Parsed(facts=facts, hostname=hostname, version=version)
+    return Parsed(facts=facts, hostname=hostname, version=version, ctx=root)
 
 
 # ----------------------------------------------------------------------------------------------- Cisco ASA / IOS
@@ -333,7 +334,7 @@ def cisco(data: bytes) -> Parsed:
     facts["remote_logging"] = has(re.compile(r"logging (host )?(\S+ )?\d+\.\d+\.\d+\.\d+")) or has(re.compile(r"logging host "))
     facts["any_any_allow_rules"] = sum(1 for ln in lines if re.search(r"\bpermit\s+ip\s+any[46]?\s+any[46]?(\s|$)", ln) and "inactive" not in ln)
     facts["snmp_default_community"] = any(re.match(r"snmp-server (community|host \S+ \S+ community) (public|private)\b", ln, re.I) for ln in top)
-    return Parsed(facts=facts, hostname=hostname, version=version)
+    return Parsed(facts=facts, hostname=hostname, version=version, ctx=lines)
 
 
 # ----------------------------------------------------------------------------------------------- pfSense / OPNsense
@@ -371,4 +372,4 @@ def pfsense(data: bytes) -> Parsed:
         facts["snmp_default_community"] = (_t(snmp, "rocommunity") or "").lower() in ("public", "private") and snmp.find("enable") is not None
     else:
         facts["snmp_default_community"] = False
-    return Parsed(facts=facts, hostname=hostname)
+    return Parsed(facts=facts, hostname=hostname, ctx=root)

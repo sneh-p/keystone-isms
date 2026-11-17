@@ -29,6 +29,8 @@ class ConfigBaseline(Audited, OwnedMixin, TimestampMixin, Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     # Applies to every target of the platform that has no baseline of its own. At most one per platform.
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Also applies to targets matching {"tags": [...], "names": [glob, ...]} (either matches). None: no scope.
+    scope: Mapped[dict | None] = mapped_column(JSON)
 
 
 class ConfigRule(Audited, TimestampMixin, Base):
@@ -44,6 +46,30 @@ class ConfigRule(Audited, TimestampMixin, Base):
     severity: Mapped[str] = mapped_column(String(10), nullable=False, default="medium")
     controls: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    applies_to_tags: Mapped[list | None] = mapped_column(JSON)  # only targets with one of these tags; None: all
+    remediation: Mapped[str | None] = mapped_column(Text)  # shown on failing results
+
+
+class ConfigCustomCheck(Audited, OwnedMixin, TimestampMixin, Base):
+    """A read-only probe defined by an administrator (keystone/configcheck/custom.py). Its value is the fact
+    `custom.<slug>`, compared by rules like any built-in setting."""
+
+    __tablename__ = "config_custom_checks"
+    __table_args__ = (UniqueConstraint("platform", "slug"),)
+    REF_PREFIX = "CFC"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    platform: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    slug: Mapped[str] = mapped_column(String(41), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    remediation: Mapped[str | None] = mapped_column(Text)
+    probe: Mapped[str] = mapped_column(String(40), nullable=False)
+    params: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    value_type: Mapped[str] = mapped_column(String(10), nullable=False)
+    default_value: Mapped[object | None] = mapped_column(JSON)
+    recommended: Mapped[dict | None] = mapped_column(JSON)  # {"operator", "expected", "severity", "controls"} to pre-fill rules
+    library_key: Mapped[str | None] = mapped_column(String(60))
 
 
 class ConfigTarget(Base):
@@ -71,6 +97,11 @@ class ConfigTarget(Base):
     facts: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     facts_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+    tags: Mapped[list | None] = mapped_column(JSON)
+    asset_id: Mapped[int | None] = mapped_column(Integer)  # the Asset this host or firewall is (no FK: plain add_column)
+    # Custom checks the agent couldn't evaluate: {"custom.x": "refused" | "missing" | "unsupported" | "error"}.
+    check_errors: Mapped[dict | None] = mapped_column(JSON)
+    custom_checks: Mapped[str | None] = mapped_column(String(10))  # "disabled" when the host opted out at install
 
 
 class ConfigFinding(Base):
