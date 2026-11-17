@@ -1,6 +1,7 @@
-"""Comments and @mentions, saved views, workload."""
+"""Comments and @mentions, saved views, guided tours, workload."""
 
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import Field
@@ -61,6 +62,21 @@ def save_view(page: str, body: ViewIn, user=Depends(perm("read")), db: Session =
 def delete_view(page: str, vid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
     col.delete_view(db, user, vid)
     return {"ok": True}
+
+
+# Guided tours: every role holds "portal" (employees included); the service reads and writes only the caller's own row.
+@router.get("/portal/tours")
+def tours(user=Depends(perm("portal")), db: Session = Depends(get_db)):
+    return col.tours(db, user)
+
+
+class TourIn(In):
+    outcome: Literal["completed", "skipped"] | None
+
+
+@router.put("/portal/tours/{tour}")
+def set_tour(tour: Literal["app", "portal"], body: TourIn, user=Depends(perm("portal")), db: Session = Depends(get_db)):
+    return col.set_tour(db, user, tour, body.outcome)
 
 
 @router.get("/workload")

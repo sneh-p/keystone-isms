@@ -67,7 +67,7 @@ export const NAV: NavSection[] = [
     ],
   },
   {
-    label: "Trust & people",
+    label: "Trust and people",
     items: [
       { label: "People", to: "/people", icon: Users },
       { label: "Access reviews", to: "/access-reviews", icon: UserCheck },

@@ -38,7 +38,7 @@ export function Nonconformities() {
   const att = data.attention;
   return (
     <div className="animate-fade-in">
-      <PageHeader icon={Wrench} title="Nonconformities & corrective actions" description="React, find the root cause, act, and check the action worked (ISO 27001 10.2)."
+      <PageHeader icon={Wrench} title="Nonconformities and corrective actions" description="React, find the root cause, act, and check the action worked (ISO 27001 10.2)."
         actions={(can("nc.write") || can("audit.findings")) && <Button onClick={() => setRaise({ title: "", source: "self_identified", severity: "minor", description: "", common_control_id: null, due_date: null })}><Plus /> Raise nonconformity</Button>} />
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <Stat label="Open" value={data.items.filter((n: any) => n.status !== "closed").length} />

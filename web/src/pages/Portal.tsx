@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SignatureInput, signatureOk } from "@/components/Signature";
 import { Link, useNavigate, useParams } from "react-router";
-import { BookOpen, Check, CheckCircle2, ChevronLeft, Laptop, LogOut, ScrollText, ShieldCheck } from "lucide-react";
+import { BookOpen, Check, CheckCircle2, ChevronLeft, Compass, Laptop, LogOut, ScrollText, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { api, downloadUrl, fragmentParam, setCsrf, upload } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
@@ -17,8 +17,10 @@ import { Progress, Skeleton } from "@/components/ui/misc";
 import { Select } from "@/components/ui/select";
 import { Markdown } from "@/components/Markdown";
 import { NotificationBell } from "@/components/NotificationBell";
+import { Tour, useTourState } from "@/components/Tour";
+import { PORTAL_TOUR } from "@/components/layout/tour-steps";
 
-function PortalShell({ children }: { children: any }) {
+function PortalShell({ children, onTour }: { children: any; onTour?: () => void }) {
   const { me, logout } = useAuth();
   const nav = useNavigate();
   return (
@@ -29,7 +31,8 @@ function PortalShell({ children }: { children: any }) {
           <span className="font-semibold">Employee portal</span>
           <div className="ml-auto flex items-center gap-3 text-sm">
             {me?.permissions.includes("read") && <Link to="/" className="text-primary hover:underline">Back to Keystone</Link>}
-            <NotificationBell />
+            <span data-tour="portal-notifications" className="inline-flex"><NotificationBell /></span>
+            {onTour && <Button size="sm" variant="ghost" onClick={onTour} aria-label="Take the tour"><Compass /><span className="hidden sm:inline">Tour</span></Button>}
             <span className="hidden text-muted-foreground sm:inline">{me?.display_name}</span>
             <Button size="sm" variant="ghost" onClick={() => logout().then(() => nav("/login"))}><LogOut /> Sign out</Button>
           </div>
@@ -53,21 +56,32 @@ export default function Portal() {
     if (dev.file) fd.append("file", dev.file);
     return upload("/portal/devices", fd);
   }, { success: "Device checklist saved.", invalidate: ["/portal"], onSuccess: () => setDev(null) });
+  const tourState = useTourState("portal");
+  const [tour, setTour] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  // Employees see the portal tour once by itself; staff can start it from the header.
+  const tourOpen = !!data && (tour || (tourState.loaded && !tourState.seen && !dismissed && !me?.permissions.includes("read")));
+  const endTour = (completed: boolean) => {
+    setTour(false);
+    setDismissed(true);
+    if (!tourState.seen || completed) tourState.record(completed ? "completed" : "skipped");
+  };
   if (!data) return <PortalShell><Skeleton className="h-96" /></PortalShell>;
   const s = data.status;
   const total = s.policies_total + s.training_total + 1;
   const done = s.policies_done + s.training_done + (s.device_ok ? 1 : 0);
   return (
-    <PortalShell>
+    <PortalShell onTour={() => setTour(true)}>
+      {tourOpen && <Tour label="Employee portal tour" steps={PORTAL_TOUR} onEnd={endTour} />}
       <h1 className="text-2xl font-semibold">Hi {me?.display_name.split(" ")[0]} 👋</h1>
       <p className="mt-1 text-muted-foreground">A few things keep you and the company secure. Here's what's left.</p>
-      <Card className="mt-6"><CardBody>
+      <Card className="mt-6" data-tour="portal-progress"><CardBody>
         <div className="flex items-center justify-between text-sm"><span className="font-medium">Your progress</span><span className="tabular-nums text-muted-foreground">{done} of {total} done</span></div>
         <Progress label="Your progress" className="mt-2" value={(100 * done) / total} tone={s.complete ? "good" : "primary"} />
         {s.complete && <p className="mt-3 flex items-center gap-2 text-sm text-[#0a7a0a] dark:text-good"><CheckCircle2 className="size-4" /> You're all set. Thank you!</p>}
       </CardBody></Card>
 
-      <Card className="mt-6">
+      <Card className="mt-6" data-tour="portal-policies">
         <CardHeader title={<span className="flex items-center gap-2"><ScrollText className="size-4" /> Policies to accept</span>} description={`${s.policies_done} of ${s.policies_total} accepted`} />
         <CardBody className="space-y-2">
           {data.policies.length === 0 ? <p className="flex items-center gap-2 text-sm text-muted-foreground"><Check className="size-4 text-good" /> Nothing waiting.</p> : data.policies.map((v: any) => (
@@ -79,7 +93,7 @@ export default function Portal() {
         </CardBody>
       </Card>
 
-      <Card className="mt-6">
+      <Card className="mt-6" data-tour="portal-training">
         <CardHeader title={<span className="flex items-center gap-2"><BookOpen className="size-4" /> Security training</span>} description={`${s.training_done} of ${s.training_total} completed this year`} />
         <CardBody className="grid gap-3 sm:grid-cols-2">
           {data.training.map((m: any) => (
@@ -93,7 +107,7 @@ export default function Portal() {
         </CardBody>
       </Card>
 
-      <Card className="mt-6">
+      <Card className="mt-6" data-tour="portal-devices">
         <CardHeader title={<span className="flex items-center gap-2"><Laptop className="size-4" /> Device security</span>} description="Confirm each work device meets the basics. Renew every 6 months."
           action={<Button size="sm" variant="outline" onClick={() => setDev({ device_name: "", os: "windows", checks: Object.fromEntries(Object.keys(data.device_checks).map((k) => [k, false])), file: null })}>Add device</Button>} />
         <CardBody className="space-y-2">

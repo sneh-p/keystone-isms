@@ -46,3 +46,4 @@ from keystone.controls.models import ControlTest, evidence_controls
 from keystone.incidents.models import IncidentAction, IncidentEvidence
 from keystone.people.models import TrainingAssignment
 from keystone.org.models import ObjectiveMeasurement
+from keystone.collab.models import TourState

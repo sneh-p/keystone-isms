@@ -60,7 +60,7 @@ function Processes() {
     <>
       <DataTable rows={data} rowKey={(p: any) => p.id} search={(p: any) => p.name} onRowClick={can("continuity.write") ? (p: any) => setEdit({ ...p, impact: p.impact ?? {} }) : undefined}
         empty="No business processes yet. List what the organisation can't stop doing for long: sales, bookings, payroll, customer support."
-        toolbar={can("continuity.write") && <Button size="sm" onClick={() => setEdit({ name: "", criticality: "medium", status: "active", impact: {}, asset_ids: [], vendor_ids: [] })}><Plus /> Add process</Button>}
+        toolbar={can("continuity.write") && <Button onClick={() => setEdit({ name: "", criticality: "medium", status: "active", impact: {}, asset_ids: [], vendor_ids: [] })}><Plus /> Add process</Button>}
         columns={[
           { key: "n", header: "Process", sort: (p: any) => p.name, cell: (p: any) => <div><div className="font-medium">{p.name}</div><div className="text-xs text-muted-foreground">{name(p.owner_id)}</div></div> },
           { key: "c", header: "Criticality", sort: (p: any) => ["critical", "high", "medium", "low"].indexOf(p.criticality), cell: (p: any) => <Badge tone={CRIT_TONE[p.criticality]}>{titleCase(p.criticality)}</Badge> },
@@ -107,7 +107,7 @@ function Plans() {
     <>
       <DataTable rows={data} rowKey={(p: any) => p.id} search={(p: any) => p.title} onRowClick={can("continuity.write") ? (p: any) => setEdit({ ...p }) : undefined}
         empty="No plans yet."
-        toolbar={can("continuity.write") && <Button size="sm" onClick={() => setEdit({ title: "", process_ids: [], test_interval_months: 12, status: "active" })}><Plus /> Add plan</Button>}
+        toolbar={can("continuity.write") && <Button onClick={() => setEdit({ title: "", process_ids: [], test_interval_months: 12, status: "active" })}><Plus /> Add plan</Button>}
         columns={[
           { key: "t", header: "Plan", sort: (p: any) => p.title, cell: (p: any) => <div><div className="font-medium">{p.title}</div><div className="text-xs text-muted-foreground">{(p.process_ids ?? []).map((id: number) => pname.get(id)).filter(Boolean).join(", ") || "No processes"}</div></div> },
           { key: "o", header: "Owner", cell: (p: any) => name(p.owner_id) },
@@ -146,7 +146,7 @@ function Tests() {
   return (
     <>
       <DataTable rows={data} rowKey={(t: any) => t.id} search={(t: any) => t.title} empty="No tests yet. A tabletop exercise is a good first test."
-        toolbar={can("continuity.write") && plans.data.length > 0 && <Button size="sm" onClick={() => setPlan({ plan_id: String(plans.data![0].id), title: "", test_type: "tabletop", planned_on: null, objectives: "", participants: "" })}><Plus /> Plan a test</Button>}
+        toolbar={can("continuity.write") && plans.data.length > 0 && <Button onClick={() => setPlan({ plan_id: String(plans.data![0].id), title: "", test_type: "tabletop", planned_on: null, objectives: "", participants: "" })}><Plus /> Plan a test</Button>}
         columns={[
           { key: "t", header: "Test", cell: (t: any) => <div><div className="font-medium">{t.title}</div><div className="text-xs text-muted-foreground">{titleCase(t.test_type)} · {plname.get(t.plan_id)}</div></div> },
           { key: "d", header: "Date", sort: (t: any) => t.performed_on ?? t.planned_on, cell: (t: any) => t.performed_on ? fmtDate(t.performed_on) : t.planned_on ? `Planned ${fmtDate(t.planned_on)}` : "Not scheduled" },

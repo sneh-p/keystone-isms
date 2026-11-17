@@ -63,13 +63,14 @@ export function Empty({ icon: Icon = Inbox, title, children, action }: { icon?: 
 export function PageHeader({ title, description, actions, icon: Icon }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; icon?: any }) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div className="flex items-start gap-3">
+      {/* The title block may shrink to 24rem, so actions stay on the right on wide screens and wrap below on narrow ones. */}
+      <div className="flex min-w-0 flex-1 basis-96 items-start gap-3">
         {Icon && (
           <div className="mt-0.5 rounded-lg bg-accent p-2 text-accent-foreground">
             <Icon className="size-5" />
           </div>
         )}
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           {description && <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>}
         </div>

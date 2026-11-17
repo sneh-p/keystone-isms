@@ -47,7 +47,7 @@ export function Organisation() {
   const pick = (keys: string[]) => clean(Object.fromEntries(keys.map((k) => [k, f[k]])));
   return (
     <div className="animate-fade-in">
-      <PageHeader icon={Building2} title="Organisation & ISMS scope" description="Context, scope, interested parties, roles and objectives (ISO 27001 clauses 4 to 6)." />
+      <PageHeader icon={Building2} title="Organisation and ISMS scope" description="Context, scope, interested parties, roles and objectives (ISO 27001 clauses 4 to 6)." />
       <Tabs tabs={[
         { value: "ctx", label: "Context (4.1)", content: <Card><CardBody className="grid gap-4 sm:grid-cols-2">
           {t("name", "Organisation name", false)}{t("legal_name", "Legal name", false)}{t("industry", "Industry", false)}<div />
@@ -227,7 +227,7 @@ export function Reports() {
   const fws = useApi<any[]>("/frameworks");
   return (
     <div className="animate-fade-in">
-      <PageHeader icon={Activity} title="Reports & exports" description="Spreadsheet exports are written to the audit log and protected against formula injection. Treat them as confidential." />
+      <PageHeader icon={Activity} title="Reports and exports" description="Spreadsheet exports are written to the audit log and protected against formula injection. Treat them as confidential." />
       <Card className="mb-4"><CardBody className="flex flex-wrap items-center justify-between gap-3">
         <div><div className="font-medium">Board summary</div><div className="text-sm text-muted-foreground">One page for management: readiness, how the headline figures moved over the last 12 weeks, top risks and what needs a decision.</div></div>
         <div className="flex gap-2"><a href={downloadUrl("/reports/board.pdf")}><Button><Download /> PDF</Button></a><a href={downloadUrl("/reports/board.docx")}><Button variant="outline"><Download /> Word</Button></a></div>

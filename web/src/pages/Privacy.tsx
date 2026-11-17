@@ -58,7 +58,7 @@ function Activities() {
     <>
       <DataTable rows={data} rowKey={(a: any) => a.id} search={(a: any) => `${a.name} ${a.purpose}`} onRowClick={can("privacy.write") ? (a: any) => setEdit({ ...a }) : undefined}
         empty="No processing records yet. Start with your main activities: customers, staff, marketing, suppliers."
-        toolbar={can("privacy.write") && <Button size="sm" onClick={() => setEdit({ name: "", purpose: "", role: "controller", lawful_basis: "contract", transfer_safeguard: "none", status: "active", special_category: false, vendor_ids: [], asset_ids: [] })}><Plus /> Add record</Button>}
+        toolbar={can("privacy.write") && <Button onClick={() => setEdit({ name: "", purpose: "", role: "controller", lawful_basis: "contract", transfer_safeguard: "none", status: "active", special_category: false, vendor_ids: [], asset_ids: [] })}><Plus /> Add record</Button>}
         columns={[
           { key: "n", header: "Activity", sort: (a: any) => a.name, cell: (a: any) => <div><div className="font-medium">{a.name}{a.status === "retired" && <Badge tone="outline" className="ml-2">Retired</Badge>}</div><div className="line-clamp-2 text-xs text-muted-foreground">{a.purpose}</div></div> },
           { key: "b", header: "Lawful basis", cell: (a: any) => <span>{titleCase(a.lawful_basis)}{a.special_category && <Badge tone="warning" className="ml-1">Special category</Badge>}</span> },
@@ -114,7 +114,7 @@ function Dpias() {
     <>
       <DataTable rows={data} rowKey={(d: any) => d.id} search={(d: any) => d.title} onRowClick={(d: any) => setEdit({ ...d, risks: d.risks ?? [] })}
         empty="No DPIAs yet. Assess high-risk processing (large-scale special category data, monitoring, new technology) before it starts."
-        toolbar={can("privacy.write") && <Button size="sm" onClick={() => setEdit({ title: "", risks: [], status: "draft" })}><Plus /> New DPIA</Button>}
+        toolbar={can("privacy.write") && <Button onClick={() => setEdit({ title: "", risks: [], status: "draft" })}><Plus /> New DPIA</Button>}
         columns={[
           { key: "t", header: "DPIA", sort: (d: any) => d.title, cell: (d: any) => <div><div className="font-medium">{d.title}</div><div className="text-xs text-muted-foreground">{d.activity_id ? aname.get(d.activity_id) : "No processing record linked"}</div></div> },
           { key: "s", header: "Status", cell: (d: any) => <span className="flex flex-wrap gap-1"><Badge tone={STATUS_TONE[d.status]}>{titleCase(d.status)}</Badge>{d.high_residual && <Badge tone="critical"><AlertTriangle className="h-3 w-3" />High residual risk</Badge>}</span> },
@@ -177,7 +177,7 @@ function Requests() {
       <p className="mb-3 text-sm text-muted-foreground">Visible only to people who handle privacy. Answer within one month; one extension of two more months is allowed with a reason. Names and contact details are removed a year after a request is closed.</p>
       <DataTable rows={data} rowKey={(r: any) => r.id} onRowClick={(r: any) => open(r) && setEdit({ ...r })}
         empty="No requests recorded."
-        toolbar={<Button size="sm" onClick={() => setEdit({ request_type: "access", received_on: today, identity_verified: false })}><Plus /> Log a request</Button>}
+        toolbar={<Button onClick={() => setEdit({ request_type: "access", received_on: today, identity_verified: false })}><Plus /> Log a request</Button>}
         columns={[
           { key: "t", header: "Request", cell: (r: any) => <div><div className="font-medium">{titleCase(r.request_type)}</div><div className="text-xs text-muted-foreground">{r.redacted_at ? "Details removed" : r.requester_name ?? "Name not recorded"} · received {fmtDate(r.received_on)}</div></div> },
           { key: "s", header: "Status", cell: (r: any) => <span className="flex flex-wrap gap-1"><Badge tone={STATUS_TONE[r.status]}>{titleCase(r.status)}</Badge>{!r.identity_verified && open(r) && <Badge tone="warning">Identity not verified</Badge>}</span> },

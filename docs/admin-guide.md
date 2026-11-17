@@ -198,7 +198,7 @@ mappings come from each vendor's documentation: use **Test connection** first.
 
 ## Access reviews
 
-**Trust & people → Access reviews** runs recertification campaigns (permission `access_review.manage`, held by
+**Trust and people → Access reviews** runs recertification campaigns (permission `access_review.manage`, held by
 administrators and ISMS managers). A campaign lists every active Keystone account with its role, and optionally every
 enabled account reported by connected identity sources (Attack surface identities, with administrator flag and last
 sign-in). Each account goes to the person's manager from **People**, otherwise to the campaign owner; nobody reviews

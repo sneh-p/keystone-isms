@@ -6,7 +6,7 @@ import re
 import yaml
 from openpyxl import Workbook, load_workbook
 
-from tests.e2e.conftest import ROOT
+from tests.e2e.conftest import ROOT, set_tours
 
 STAFF_ROUTES = ["/", "/frameworks", "/controls", "/soa", "/evidence", "/risks", "/tasks", "/people", "/trust-center", "/integrations",
                 "/security-questionnaires", "/assets", "/vendors", "/questionnaires", "/assessments", "/exposure", "/policies", "/incidents",
@@ -41,6 +41,9 @@ def test_onboarding_wizard_on_a_new_install(empty_server, open_page):
     p.get_by_role("button", name=re.compile("Create")).click()
     p.wait_for_url(lambda u: "/setup" not in u)
     pg.go("/")
+    tour = p.get_by_role("dialog", name="Keystone tour")  # a new administrator is offered the tour first
+    tour.wait_for()
+    tour.get_by_role("button", name="Skip tour").click()
     p.get_by_role("button", name="Start setup").first.click()
     p.wait_for_url("**/onboarding")
     p.get_by_label("Company name").fill("Fabrikam Outdoor")
@@ -102,6 +105,9 @@ def test_employee_invite_portal_and_isolation(demo_server, open_page):
     pw.nth(1).fill("Jo-Rivera-Secure-2026")
     e.get_by_role("button", name="Create my account").click()
     e.wait_for_url("**/portal")
+    tour = e.get_by_role("dialog", name="Employee portal tour")  # a new employee is offered the portal tour
+    tour.wait_for()
+    tour.get_by_role("button", name="Skip tour").click()
     e.get_by_role("button", name="Read and accept").first.click()
     accept = e.get_by_role("button", name="I have read and understood this policy")
     assert accept.is_disabled()  # an e-signature is needed first
@@ -181,6 +187,34 @@ A11Y_ROUTES = STAFF_ROUTES + ["/frameworks/ISO27001_2022", "/onboarding"]
 AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"]
 
 
+def test_first_sign_in_tour(demo_server, open_page):
+    pg = open_page(demo_server)
+    p = pg.login("mia.isms", tour=True)
+    set_tours(p, demo_server, None)  # as if signing in for the first time
+    tour = p.get_by_role("dialog", name="Keystone tour")
+    tour.wait_for()
+    assert "Step 1 of" in tour.inner_text()
+    tour.get_by_role("button", name="Start tour").click()
+    assert "Search or jump to" in tour.inner_text()
+    p.keyboard.press("ArrowRight")
+    assert "Overview" in tour.inner_text()
+    p.keyboard.press("Escape")  # ending the tour early is remembered
+    tour.wait_for(state="detached")
+    pg.go("/risks")
+    p.wait_for_timeout(500)
+    assert p.get_by_role("dialog", name="Keystone tour").count() == 0
+    assert p.request.get(f"{demo_server}/api/portal/tours").json()["app"]["outcome"] == "skipped"
+    p.locator("[data-tour=account]").click()  # and it can be taken again
+    p.get_by_role("menuitem", name="Take the tour").click()
+    tour.wait_for()
+    while tour.get_by_role("button", name="Finish").count() == 0:
+        tour.get_by_role("button", name=re.compile("Start tour|Next")).click()
+    tour.get_by_role("button", name="Finish").click()
+    tour.wait_for(state="detached")
+    p.wait_for_timeout(300)
+    assert p.request.get(f"{demo_server}/api/portal/tours").json()["app"]["outcome"] == "completed"
+
+
 def _axe(page) -> list[dict]:
     page.add_script_tag(path=str(ROOT / "web" / "node_modules" / "axe-core" / "axe.min.js"))
     return page.evaluate("async (tags) => (await axe.run(document, {runOnly: {type: 'tag', values: tags}})).violations"
@@ -201,6 +235,12 @@ def test_accessibility_wcag21_aa(demo_server, browser):
         page.locator("input[type=password]").fill("Demo-Password-2026!")
         page.get_by_role("button", name="Sign in").click()
         page.wait_for_url(lambda u: "/login" not in u)
+        if scheme == "light":  # the guided tour opens on first sign-in: check it, then end it
+            set_tours(page, demo_server, None)
+            page.get_by_role("dialog", name="Keystone tour").wait_for()
+            problems["tour"] = _axe(page)
+            page.keyboard.press("Escape")
+            page.get_by_role("dialog", name="Keystone tour").wait_for(state="detached")
         for route in A11Y_ROUTES:
             page.goto(demo_server + route, wait_until="networkidle")
             found = _axe(page)

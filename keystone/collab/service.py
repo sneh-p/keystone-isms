@@ -17,10 +17,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from keystone.core.auth import User, expired
+from keystone.core.db import utcnow
 from keystone.core.rbac import Role, has_permission
 from keystone.core.services import authorize, get_or_404, require_text, today
 
-from .models import Comment, SavedView
+from .models import Comment, SavedView, TourState
 
 MAX_COMMENT = 5000
 MENTION = re.compile(r"(?<![\w.@])@([a-z0-9][a-z0-9._-]{1,149})", re.I)
@@ -138,6 +139,44 @@ def delete_view(session: Session, actor, view_id: int) -> None:
         raise LookupError("View not found")
     session.delete(v)
     session.flush()
+
+
+# ---- guided tours (each user's own) ----------------------------------------------------------------------
+
+# Bump a tour's version when its steps change enough that everyone should see it again.
+TOURS = {"app": 1, "portal": 1}
+TOUR_OUTCOMES = ("completed", "skipped")
+
+
+def tours(session: Session, actor) -> dict[str, dict]:
+    """Each tour's state for the signed-in user: ``seen`` is true once they finished or ended the current version."""
+    authorize(session, actor, "portal")
+    rows = {t.tour: t for t in session.scalars(select(TourState).where(TourState.user_id == actor.id))}
+    out = {}
+    for key, version in TOURS.items():
+        r = rows.get(key)
+        out[key] = {"version": version, "seen": bool(r and r.version >= version), "outcome": r.outcome if r else None}
+    return out
+
+
+def set_tour(session: Session, actor, tour: str, outcome: str | None) -> dict[str, dict]:
+    """Record that the user finished (``completed``) or ended (``skipped``) a tour; ``None`` shows it again next time."""
+    authorize(session, actor, "portal")
+    if tour not in TOURS:
+        raise ValueError("Unknown tour.")
+    row = session.get(TourState, (actor.id, tour))
+    if outcome is None:
+        if row is not None:
+            session.delete(row)
+    else:
+        if outcome not in TOUR_OUTCOMES:
+            raise ValueError("Unknown outcome.")
+        if row is None:
+            row = TourState(user_id=actor.id, tour=tour, version=TOURS[tour], outcome=outcome)
+            session.add(row)
+        row.version, row.outcome, row.at = TOURS[tour], outcome, utcnow()
+    session.flush()
+    return tours(session, actor)
 
 
 # ---- workload ------------------------------------------------------------------------------------------

@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { Command } from "cmdk";
 import * as D from "@radix-ui/react-dialog";
-import { ChevronDown, ChevronsLeft, ChevronsRight, FileSearch, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Sun, User } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, Compass, FileSearch, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Sun, User } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -10,7 +10,9 @@ import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Menu } from "@/components/ui/dropdown";
 import { NotificationBell } from "@/components/NotificationBell";
+import { Tour, useTourState } from "@/components/Tour";
 import { AREAS, BUILT, NAV, PAGES, type NavItem } from "./nav";
+import { appTourSteps, sectionTourName } from "./tour-steps";
 
 function Logo({ collapsed }: { collapsed?: boolean }) {
   return (
@@ -58,7 +60,7 @@ function Sidebar({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: (
         const open = collapsed || !s.label || hasActive || !closed.includes(s.label);
         const listId = `nav-group-${i}`;
         return (
-          <div key={i}>
+          <div key={i} data-tour={sectionTourName(s.label, s.items[0].label)}>
             {s.label && !collapsed && (
               <button type="button" onClick={() => toggle(s.label!)} aria-expanded={open} aria-controls={listId} disabled={hasActive}
                 className="mb-1 flex w-full items-center justify-between rounded px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground disabled:cursor-default disabled:hover:text-muted-foreground">
@@ -173,6 +175,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [palette, setPalette] = useState(false);
   const nav = useNavigate();
   const loc = useLocation();
+  const sections = useNav();
+  const tourState = useTourState("app");
+  const [tour, setTour] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  // First visit: the tour starts by itself once, except in the setup wizard (it would cover the wizard).
+  const autoTour = tourState.loaded && !tourState.seen && !dismissed && loc.pathname !== "/onboarding";
+  const tourOpen = tour || autoTour;
+  const phone = useMemo(() => tourOpen && window.matchMedia("(max-width: 767px)").matches, [tourOpen]);
+  useEffect(() => {
+    if (tourOpen) { setMobile(false); setPalette(false); }
+  }, [tourOpen]);
+  const endTour = (completed: boolean) => {
+    setTour(false);
+    setDismissed(true);
+    if (!tourState.seen || completed) tourState.record(completed ? "completed" : "skipped");
+  };
   useEffect(() => setMobile(false), [loc.pathname]);
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
@@ -214,16 +232,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-card/80 px-4 backdrop-blur">
-          <button className="rounded p-1.5 hover:bg-muted md:hidden" onClick={() => setMobile(true)} aria-label="Open menu">
+          <button data-tour="menu" className="rounded p-1.5 hover:bg-muted md:hidden" onClick={() => setMobile(true)} aria-label="Open menu">
             <MenuIcon className="size-5" />
           </button>
-          <button onClick={() => setPalette(true)} className="flex h-9 w-full max-w-sm items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground hover:bg-muted">
+          <button data-tour="search" onClick={() => setPalette(true)} className="flex h-9 w-full max-w-sm items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground hover:bg-muted">
             <Search className="size-4" />
             <span className="flex-1 text-left">Search or jump to…</span>
             <kbd className="hidden rounded border bg-muted px-1.5 text-[10px] font-medium sm:inline">⌘K</kbd>
           </button>
           <div className="ml-auto flex items-center gap-1">
-            <NotificationBell />
+            <span data-tour="notifications" className="inline-flex"><NotificationBell /></span>
             <Menu
               trigger={<button className="rounded-md p-2 hover:bg-muted" aria-label="Theme"><ThemeIcon className="size-4" /></button>}
               items={[
@@ -234,7 +252,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
             <Menu
               trigger={
-                <button className="flex items-center gap-2 rounded-md py-1 pl-1 pr-2 hover:bg-muted">
+                <button data-tour="account" className="flex items-center gap-2 rounded-md py-1 pl-1 pr-2 hover:bg-muted">
                   <span className="grid size-7 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">{me?.display_name.split(" ").map((p) => p[0]).slice(0, 2).join("")}</span>
                   <span className="hidden text-left leading-tight sm:block">
                     <span className="block text-sm font-medium">{me?.display_name}</span>
@@ -245,6 +263,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               items={[
                 { label: "My account", icon: User, onSelect: () => { void nav("/settings/account"); } },
                 { label: "My employee portal", icon: User, onSelect: () => { void nav("/portal"); } },
+                { label: "Take the tour", icon: Compass, onSelect: () => setTour(true) },
                 "sep",
                 { label: "Sign out", icon: LogOut, onSelect: () => { logout().then(() => nav("/login"), () => nav("/login")); }, danger: true },
               ]}
@@ -256,6 +275,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
       </div>
       <CommandPalette open={palette} setOpen={setPalette} />
+      {tourOpen && <Tour label="Keystone tour" steps={appTourSteps(me?.display_name.split(" ")[0] ?? "", sections.map((x) => sectionTourName(x.label, x.items[0].label)), phone)} onEnd={endTour} />}
     </div>
   );
 }

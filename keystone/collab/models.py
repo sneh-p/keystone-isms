@@ -1,11 +1,13 @@
-"""Comments on records, and saved register views."""
+"""Comments on records, saved register views, and each user's guided-tour state."""
 
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from keystone.core.db import Audited, Base, OwnedMixin, TimestampMixin
+from keystone.core.db import Audited, Base, OwnedMixin, TimestampMixin, utcnow
 
 
 class Comment(Audited, OwnedMixin, TimestampMixin, Base):
@@ -32,3 +34,18 @@ class SavedView(TimestampMixin, Base):
     page: Mapped[str] = mapped_column(String(40), nullable=False)
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     query: Mapped[str] = mapped_column(String(1000), nullable=False)
+
+
+class TourState(Base):
+    """Whether a user has finished or ended a guided tour (``app`` for staff, ``portal`` for the employee portal).
+
+    A user interface preference, not an ISMS record, so it isn't audited. No row means the tour hasn't been seen.
+    """
+
+    __tablename__ = "tour_states"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    tour: Mapped[str] = mapped_column(String(20), primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    outcome: Mapped[str] = mapped_column(String(20), nullable=False)  # completed | skipped
+    at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)

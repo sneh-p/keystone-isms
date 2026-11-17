@@ -65,7 +65,7 @@ export function Frameworks() {
 export function FrameworkDetail() {
   const { code } = useParams();
   const { can } = useAuth();
-  const { data } = useApi<any>(`/frameworks/${code}/requirements`);
+  const { data, isError } = useApi<any>(`/frameworks/${code}/requirements`);
   const [imp, setImp] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const doImport = useAction(async () => {
@@ -73,6 +73,7 @@ export function FrameworkDetail() {
     fd.append("file", file as File);
     return upload(`/frameworks/${code}/licensed-text`, fd);
   }, { success: (r: any) => `Imported ${r.updated} requirement texts.`, invalidate: ["/frameworks"], onSuccess: (r: any) => { setImp(false); if (r.unknown_refs?.length) toast.warning(`Unknown refs: ${r.unknown_refs.slice(0, 10).join(", ")}`); } });
+  if (isError) return <Empty title="Framework not found" action={<Link to="/frameworks" className="text-sm text-primary hover:underline">All frameworks</Link>}>It may have been removed, or the link is wrong.</Empty>;
   if (!data) return <Skeleton className="h-96" />;
   const groups = new Map<string, any>(data.groups.map((g: any) => [g.ref, g]));
   return (

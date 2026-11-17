@@ -91,13 +91,28 @@ class Page:
         self.page.goto(self.base + path, wait_until="networkidle")
         return self.page
 
-    def login(self, username: str, password: str = PASSWORD):
+    def login(self, username: str, password: str = PASSWORD, tour: bool = False):
         p = self.go("/login")
         p.get_by_label("Username").fill(username)
         p.locator("input[type=password]").fill(password)
         p.get_by_role("button", name="Sign in").click()
         p.wait_for_url(lambda u: "/login" not in u)
+        if not tour:
+            skip_tours(p, self.base)
         return p
+
+
+def set_tours(p, base: str, outcome: str | None) -> None:
+    """Set both guided tours for the signed-in user: "skipped" stops them opening, None shows them as on a first sign-in."""
+    csrf = p.request.get(f"{base}/api/auth/me").json()["csrf_token"]
+    for t in ("app", "portal"):
+        r = p.request.put(f"{base}/api/portal/tours/{t}", data={"outcome": outcome}, headers={"X-CSRF-Token": csrf})
+        assert r.ok, r.text()
+    p.reload(wait_until="networkidle")
+
+
+def skip_tours(p, base: str) -> None:
+    set_tours(p, base, "skipped")
 
 
 @pytest.fixture
