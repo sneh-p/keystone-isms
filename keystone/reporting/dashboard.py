@@ -82,6 +82,9 @@ def overview(session: Session, on: date | None = None) -> dict:
     ba = bcs.attention(session, on)
     add(len(ba["processes_without_plan"]), "critical or high business process(es) without a continuity plan", "/continuity")
     add(len(ba["plans_test_due"]), "continuity plan(s) due for a test", "/continuity?tab=plans")
+    from keystone.access_reviews.models import AccessReview
+
+    add(sum(1 for r in session.scalars(select(AccessReview).where(AccessReview.status == "open")) if r.due_date < on), "access review(s) past their due date", "/access-reviews")
     from keystone.asm.external import summary as ext_summary
 
     es = ext_summary(session)

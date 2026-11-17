@@ -179,6 +179,13 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
 - **PDFs with ReportLab.** ReportLab (BSD, pure-Python wheel) renders the PDF; its Paragraph markup is applied only
   after escaping, so policy text can't add links, images or fonts. Markdown is rendered as headings, lists and
   paragraphs, enough for policies; tables and code blocks print as text.
+- **HR sync proposes, people decide.** The HR system is the source for who works here and their dates, but it never
+  completes offboarding or deactivates an account: leavers move to offboarding and the people managers are notified.
+  Account deactivation stays with an administrator, the identity provider (SCIM) or an access review. Only work fields
+  are requested from HR systems.
+- **Access reviews never touch other systems.** Revocations of Keystone accounts are one administrator click; for
+  everything else the campaign produces a task listing the decisions. Reviewer assignment uses the People register's
+  manager links, so it stays correct as HR sync updates them; items about the reviewer go to someone else.
 - **Connector client decoding bug (found 2026-11-16).** The shared client rebuilt responses from already-decompressed
   bytes but kept `Content-Encoding`, so any real API that gzips its responses failed with `DecodingError`. Mocked
   connector tests never sent compressed responses; a regression test now does. This affected every attack surface

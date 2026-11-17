@@ -43,6 +43,11 @@ class Person(Audited, OwnedMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="onboarding")
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), unique=True)
     offboarding: Mapped[dict | None] = mapped_column(JSON)  # {item: {"by": username, "at": iso}}
+    # Set when an HR system integration manages this person (round 3): which one, and its id for them.
+    # No foreign key on purpose: adding one would rebuild this table on SQLite (see migration 0015); a removed
+    # integration just leaves a stale id, which only affects matching.
+    hr_integration_id: Mapped[int | None] = mapped_column(Integer)
+    hr_external_id: Mapped[str | None] = mapped_column(String(100))
 
 
 class Invitation(Base):

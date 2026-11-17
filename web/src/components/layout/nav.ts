@@ -1,6 +1,6 @@
 import {
   Activity, AlertOctagon, CalendarDays, Crosshair, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Fingerprint, Handshake, HeartPulse, KeyRound, LifeBuoy,
-  LayoutDashboard, ListChecks, Mail, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, Settings, ShieldCheck, Siren, Sparkles, UserCog, Users, Wrench,
+  LayoutDashboard, ListChecks, Mail, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, Settings, ShieldCheck, Siren, Sparkles, UserCheck, UserCog, Users, Wrench,
 } from "lucide-react";
 
 export type NavItem = { label: string; to: string; icon: any; perm?: string; also?: string[] };
@@ -68,6 +68,7 @@ export const NAV: NavSection[] = [
     label: "Trust & people",
     items: [
       { label: "People", to: "/people", icon: Users },
+      { label: "Access reviews", to: "/access-reviews", icon: UserCheck },
       { label: "Trust Center", to: "/trust-center", icon: Globe2 },
       { label: "Customer questionnaires", to: "/security-questionnaires", icon: MessageSquareText },
       { label: "Integrations", to: "/integrations", icon: Plug },

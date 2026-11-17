@@ -62,6 +62,7 @@ ALL_PERMISSIONS = frozenset(
         "ai.manage",
         "privacy.write",  # round 3: records of processing, DPIAs, data subject requests, breach assessments
         "continuity.write",  # round 3: business impact analysis, continuity plans and tests
+        "access_review.manage",  # round 3: run access review campaigns (reviewers decide their own items with "read")
     }
 )
 

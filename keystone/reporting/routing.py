@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from keystone.core.auth import User, expired
@@ -165,6 +165,17 @@ def routed_items(session: Session, on: date | None = None) -> dict[int, list[dic
         to_owner(a.owner_id, item(f"Review the processing record {a.name}", "/privacy", a.next_review_date), "ropa_review", "processing record(s) due for review", "/privacy")
     for i in patt_["breaches_unassessed"]:
         to_holders("privacy.write", item(f"Assess incident {i.ref} as a personal data breach", "/privacy?tab=breaches"))
+
+    # Access reviews: each reviewer's open items, one line per campaign
+    from keystone.access_reviews.models import AccessReview, AccessReviewItem
+
+    open_items = session.execute(select(AccessReviewItem.reviewer_id, AccessReview.id, AccessReview.title, AccessReview.due_date, func.count())
+                                 .join(AccessReview, AccessReview.id == AccessReviewItem.review_id)
+                                 .where(AccessReview.status == "open", AccessReviewItem.decision.is_(None))
+                                 .group_by(AccessReviewItem.reviewer_id, AccessReview.id, AccessReview.title, AccessReview.due_date))
+    for reviewer_id, rid, title, due, n in open_items:
+        if reviewer_id in active:
+            out[reviewer_id].append(item(f"Review {n} account(s) in “{title}”", f"/access-reviews?open={rid}", due))
 
     # Business continuity: plan tests and BIA reviews to their owners
     batt = bcs.attention(session, on)

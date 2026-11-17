@@ -23,6 +23,7 @@ from .providers.asm_rmm import ConnectWiseAutomateProvider, DattoRmmProvider, NC
 from .providers.asm_vuln import QualysProvider, Rapid7Provider, TenableProvider
 from .providers.aws import AwsProvider
 from .providers.base import InventoryProvider, Outcome, Provider
+from .providers.hr import HR_PROVIDERS, HrProvider
 from .providers.ticketing import TICKET_PROVIDERS, TicketProvider
 from .providers.entra import EntraProvider
 from .providers.github import GitHubProvider
@@ -38,6 +39,8 @@ PROVIDERS: dict[str, Provider] = {p.key: p for p in (
     AwsSecurityHubProvider(), DefenderForCloudProvider(), GoogleSccProvider(),
     # ticketing (round 3): the only connectors that write, and only new tickets
     *TICKET_PROVIDERS,
+    # HR systems (round 3): read-only source for the People register
+    *HR_PROVIDERS,
 )}
 
 
@@ -104,6 +107,10 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
         secrets = json.loads(crypto.decrypt(i.secret_enc)) if i.secret_enc else {}
         if isinstance(p, InventoryProvider):  # attack surface source: collect now, store below
             inventory, outcomes = p.collect(i.config or {}, secrets), []
+        elif isinstance(p, HrProvider):  # HR system: apply people to the register
+            from keystone.people import hr_sync
+
+            outcomes = [Outcome("people", "pass", hr_sync.describe(hr_sync.sync(session, i, p.collect(i.config or {}, secrets))))]
         else:
             outcomes = p.run(i.config or {}, secrets, session)
             if isinstance(p, TicketProvider):  # ticketing: read open tickets' status, open automatic ones

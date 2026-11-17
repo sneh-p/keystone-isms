@@ -177,6 +177,38 @@ The client secret is encrypted and write-only. Each SSO sign-in and each refusal
 the emergency route if the provider is down; keep administrators few and their passwords strong. It can only be turned
 on while a provider is on, and the last provider can't be turned off while it applies.
 
+## HR systems (BambooHR, Personio, HiBob)
+
+**Integrations → HR systems** keeps **People** in step with your HR system, read-only. Keystone reads only work data:
+name, work email, job title, department, employment type, start and end dates and manager. No salaries, home
+addresses or personal contact details.
+
+| System | Keystone needs |
+|---|---|
+| BambooHR | Company subdomain and an API key created by a user whose access level can view only those fields |
+| Personio | API credentials (client ID and secret) with read access to those employee attributes only |
+| HiBob | A service user (ID and token) whose permission group can view only About, Work and lifecycle status |
+
+Each run (daily by default) matches people by the HR system's id, then by work email. New joiners are added as
+onboarding; name, title, department, type, dates and manager follow the HR system. Someone whose end date has passed,
+or who is marked inactive or terminated, moves to **offboarding** (which opens the offboarding checklist), and everyone
+who manages people is notified. Keystone never completes offboarding or deactivates accounts by itself. People the HR
+system doesn't list (often contractors) are left alone. Changes are audited as `hr:<integration name>`. The field
+mappings come from each vendor's documentation: use **Test connection** first.
+
+## Access reviews
+
+**Trust & people → Access reviews** runs recertification campaigns (permission `access_review.manage`, held by
+administrators and ISMS managers). A campaign lists every active Keystone account with its role, and optionally every
+enabled account reported by connected identity sources (Attack surface identities, with administrator flag and last
+sign-in). Each account goes to the person's manager from **People**, otherwise to the campaign owner; nobody reviews
+their own access. Reviewers see their items in My tasks and decide **keep**, **revoke** or **change** (with a reason).
+
+An administrator applies a revoke of a Keystone account with **Deactivate account** (sessions end immediately). For
+accounts in other systems, and for changes, completing the campaign creates a task for the owner listing what to do:
+Keystone doesn't change other systems. Completing also files evidence on KC-ORG-18 (access rights) and KC-TEC-02
+(privileged access).
+
 ## Provisioning (SCIM 2.0)
 
 **Settings → Provisioning** lets an identity provider create, update and deactivate accounts. Create a token (choose

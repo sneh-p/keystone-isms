@@ -39,12 +39,13 @@ export default function Integrations() {
         <Stat label="Checks failing" value={failing} tone={failing ? "critical" : undefined} />
         <Stat label="Errors or unknown" value={all.filter((r: any) => ["error", "unknown"].includes(r.result)).length} tone={all.some((r: any) => r.result === "error") ? "warning" : undefined} />
       </div>
-      {[["Control checks", (p: any) => !p.inventory && !p.ticketing], ["Attack surface sources", (p: any) => p.inventory], ["Ticketing", (p: any) => p.ticketing]].map(([title, test]: any) => {
+      {[["Control checks", (p: any) => !p.inventory && !p.ticketing && !p.hr], ["Attack surface sources", (p: any) => p.inventory], ["Ticketing", (p: any) => p.ticketing], ["HR systems", (p: any) => p.hr]].map(([title, test]: any) => {
         const list = data.providers.filter(test);
         if (!list.length) return null;
         return (
           <section key={title} className="mb-6" aria-label={title}>
             <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+            {title === "HR systems" && <p className="mb-3 text-sm text-muted-foreground">Keep <Link to="/people" className="text-primary underline">People</Link> in step with your HR system: joiners are added for onboarding, and leavers move to offboarding with a notification. Read-only: names, work emails, titles, departments and dates only.</p>}
             {title === "Ticketing" && <p className="mb-3 text-sm text-muted-foreground">Open a ticket in your service desk from a vulnerability, finding, task or nonconformity, and see when it's closed. Keystone only creates tickets and reads their status; it never edits or closes them.</p>}
             {title === "Attack surface sources" && <p className="mb-3 text-sm text-muted-foreground">Read-only device, identity, vulnerability and configuration data for <Link to="/attack-surface" className="text-primary underline">Attack surface</Link>, checked against your baselines.</p>}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -56,7 +57,7 @@ export default function Integrations() {
                     <CardBody className="flex flex-1 flex-col">
                       <div className="flex items-center gap-3"><div className="rounded-lg bg-accent p-2 text-accent-foreground"><Icon className="size-5" /></div><div className="font-semibold leading-tight">{p.name}</div></div>
                       <p className="mt-3 flex-1 text-sm text-muted-foreground">{p.description}</p>
-                      <div className="mt-3 text-xs text-muted-foreground">{p.ticketing ? "Creates tickets; reads their status" : p.inventory ? `Provides: ${p.categories.map((c: string) => CATEGORY[c] ?? c).join(", ")}` : `${p.checks.length} checks · maps to ${[...new Set(p.checks.flatMap((c: any) => c.controls))].length} controls`}</div>
+                      <div className="mt-3 text-xs text-muted-foreground">{p.hr ? "Joiners, movers and leavers" : p.ticketing ? "Creates tickets; reads their status" : p.inventory ? `Provides: ${p.categories.map((c: string) => CATEGORY[c] ?? c).join(", ")}` : `${p.checks.length} checks · maps to ${[...new Set(p.checks.flatMap((c: any) => c.controls))].length} controls`}</div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {mine.map((i: any) => <Button key={i.id} size="sm" variant="secondary" onClick={() => setOpen(i.id)}>{i.name} <StatusBadge status={i.last_status === "error" ? "error" : i.results.some((r: any) => r.result === "fail") ? "fail" : i.results.length ? "pass" : "unknown"} label=" " /></Button>)}
                         {can("integration.manage") && <Button size="sm" variant="outline" onClick={() => setConnect({ provider: p.key, name: p.name, values: {}, schedule_hours: p.ticketing ? 1 : p.inventory ? 6 : 24 })}>Connect</Button>}

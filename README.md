@@ -18,6 +18,7 @@ All screenshots show the fictional demo organisation, Alpine Ski House.
 - [Quick start](#quick-start)
 - [Attack surface management](#attack-surface-management)
 - [Privacy and business continuity](#privacy-and-business-continuity)
+- [Identity](#identity)
 - [Policy signatures and PDFs](#policy-signatures-and-pdfs)
 - [Ticketing](#ticketing)
 - [Integrations](#integrations)
@@ -155,6 +156,12 @@ Data a tool doesn't report is "no data", never compliant; failed or partial runs
 deadlines and automatic removal of requesters' details after closing, and a breach log built on incidents.
 **Business continuity**: business impact analysis with RTO/RPO/MTPD, continuity plans, and tests whose results are
 checked against the objectives and filed as evidence.
+
+## Identity
+
+Sign in with **Microsoft Entra ID, Google or Okta**; provision and deprovision accounts with **SCIM 2.0**; keep People
+in step with **BambooHR, Personio or HiBob** (joiners onboarded, leavers moved to offboarding); and run **access review
+campaigns** where managers confirm or revoke each account, with the result filed as evidence.
 
 ## Policy signatures and PDFs
 

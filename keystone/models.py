@@ -37,3 +37,4 @@ from keystone.ticketing.models import TicketLink
 from keystone.privacy.models import BreachAssessment, DataSubjectRequest, Dpia, ProcessingActivity
 from keystone.continuity.models import BusinessProcess, ContinuityPlan, ContinuityTest
 from keystone.scim.models import ScimToken
+from keystone.access_reviews.models import AccessReview, AccessReviewItem

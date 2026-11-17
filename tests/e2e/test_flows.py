@@ -15,7 +15,7 @@ STAFF_ROUTES = ["/", "/frameworks", "/controls", "/soa", "/evidence", "/risks", 
                 # round 3 screens
                 "/attack-surface", "/attack-surface?tab=vulnerabilities", "/attack-surface?tab=external", "/privacy", "/privacy?tab=dpias",
                 "/privacy?tab=requests", "/privacy?tab=breaches", "/continuity", "/continuity?tab=plans", "/continuity?tab=tests", "/settings/system",
-                "/calendar", "/workload"]
+                "/calendar", "/workload", "/access-reviews", "/settings/provisioning"]
 
 
 def test_every_screen_renders(demo_server, open_page):

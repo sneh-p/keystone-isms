@@ -47,6 +47,7 @@ const QuestionnaireDetail = lazy(() => import("@/pages/SecurityQuestionnaires").
 const VendorPortal = lazy(() => import("@/pages/VendorPortal"));
 const Workload = lazy(() => import("@/pages/Workload"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
+const AccessReviews = lazy(() => import("@/pages/AccessReviews"));
 const Continuity = lazy(() => import("@/pages/Continuity"));
 const CalendarPage = lazy(() => import("@/pages/Calendar"));
 const AttackSurface = lazy(() => import("@/pages/AttackSurface"));
@@ -59,6 +60,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/controls", element: <Controls />, nav: true },
   { path: "/soa", element: <Soa />, nav: true },
   { path: "/privacy", element: <Privacy />, nav: true },
+  { path: "/access-reviews", element: <AccessReviews />, nav: true },
   { path: "/evidence", element: <Evidence />, nav: true },
   { path: "/risks", element: <Risks />, nav: true },
   { path: "/tasks", element: <Tasks />, nav: true },
