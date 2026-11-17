@@ -128,7 +128,7 @@ Describe 'Invoke-KeystoneRun' {
         $script:Calls = [System.Collections.Generic.List[object]]::new()
         Mock Send-KeystoneRequest {
             $script:Calls.Add([pscustomobject]@{ Path = $Path; Headers = $Headers; Body = $Body })
-            if ($Path -eq 'enrol') { [pscustomobject]@{ device_id = 7; token = 'kagt_abc-DEF_123' } } else { [pscustomobject]@{ accepted = 1 } }
+            if ($Path -eq 'enrol') { [pscustomobject]@{ device_id = 7; token = 'kagt_test' } } else { [pscustomobject]@{ accepted = 1 } }
         }
     }
 
@@ -138,9 +138,9 @@ Describe 'Invoke-KeystoneRun' {
         $script:Calls.Path | Should -Be @('enrol', 'report')
         $script:Calls[0].Body.enrolment_key | Should -Be 'kenr_secret'
         $script:Calls[0].Body.platform | Should -Be 'windows'
-        $script:Calls[1].Headers.Authorization | Should -Be 'Bearer kagt_abc-DEF_123'
+        $script:Calls[1].Headers.Authorization | Should -Be 'Bearer kagt_test'
         (Get-Content $script:ConfigPath -Raw) | Should -Not -Match 'kenr_'
-        [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($script:TokenPath)) | Should -Be 'protected:kagt_abc-DEF_123'
+        [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($script:TokenPath)) | Should -Be 'protected:kagt_test'
         (Get-Content $script:LogPath -Raw) | Should -Not -Match 'kagt_|kenr_'
 
         $script:Calls.Clear()

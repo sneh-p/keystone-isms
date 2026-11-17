@@ -32,6 +32,24 @@ and firewall configuration uploads (FortiGate, PAN-OS, Cisco ASA/IOS, pfSense/OP
 run for real against a local Keystone. The Windows agent is tested with Pester mocks only, because there is no
 Windows host here. The firewall parsers are tested with fictional exports, not real devices.
 
+## Round 4 (requested by human:sneh, 2026-11-17): every component deepened, customisable configuration checks
+
+| Area | Done |
+|---|---|
+| Configuration | Custom checks defined in Keystone: read-only probes, library of 30, re-validated by the agents, opt-out per host. Scoping by tag and host-name pattern; rule tags. Copy, JSON export/import, reset, how-to-fix text, bulk exceptions, asset links, xlsx report |
+| Cross-cutting | Safe delete on 16 registers, CSV export on every searchable table, record search in ⌘K, calendar sources, comments on more records, email digest categories |
+| Assets | Reviews and reminders, lifecycle dates, linked records, device links, offboarding returns |
+| Controls and evidence | Evidence for several controls, accept/reject with SoD, control tests, custom mappings and controls; SoA shows evidence and tests |
+| Risk | Risk treatment plan export, linked incidents and vendors, ticketing |
+| Incidents | Playbooks, response actions, evidence with hash and chain of custody, NC from incident, risk link, ticketing |
+| Audits and NCs | Three-year audit programme, editable findings, root-cause method, recurrence warnings |
+| Suppliers | Questionnaire template editor with versions, offboarding checklist gating termination |
+| People and policies | Training assignment, due dates, reminders and matrix; acknowledgement audiences; minor versions keep acceptances; version compare |
+| Objectives and access reviews | Measurement history and metric links; recurring campaigns and export |
+
+Not in round 4, each needs its own decision (SC-AGT-006): SSO group-to-role mapping, a public DSR intake form, emails
+to Trust Center subscribers, an iCal feed, and automatic reminder emails to vendors.
+
 Needs the organisation (can't be done from here): validating attack surface connectors with read-only keys, a real
 TLS certificate and domain, pushing to a remote, and entering SMTP, SSO and connector credentials.
 

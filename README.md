@@ -48,6 +48,7 @@ All screenshots show the fictional demo organisation, Alpine Ski House.
 | **Incidents and improvement** | Incident timeline with regulator-notification deadlines; nonconformities with corrective actions and effectiveness checks; internal audits with an **auditor workspace** (expiring auditor accounts, evidence request list, audit pack ZIP, in-app document viewer); management review with ISO 9.3.2 inputs compiled automatically |
 | **Trust Center** | A public page with "frameworks we align to", certifications, passing controls, policies, subprocessors and FAQs; gated documents behind access requests, NDA and expiring links |
 | **Customer questionnaires** | Import a customer's spreadsheet, answer from approved policies and a knowledge base (optionally drafted by AI with verified quotes), approve each answer, export into their file |
+| **Find and export** | ⌘K finds records by reference or title; every searchable table exports to CSV; records created by mistake can be deleted while nothing depends on them |
 | **Working together** | Notifications (in-app and a daily email digest) routed to the owner of each record; comments with @mentions; a one-page board summary |
 | **Sign-in** | Local accounts or **single sign-on** with Microsoft Entra ID or Google; optional "SSO required" with administrators as break-glass |
 | **Assurance** | Seven roles, segregation of duties throughout, an append-only hash-chained audit log, register exports and CSV imports |

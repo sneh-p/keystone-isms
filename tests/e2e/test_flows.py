@@ -17,7 +17,9 @@ STAFF_ROUTES = ["/", "/frameworks", "/controls", "/soa", "/evidence", "/risks", 
                 "/privacy?tab=requests", "/privacy?tab=breaches", "/continuity", "/continuity?tab=plans", "/continuity?tab=tests", "/settings/system",
                 "/calendar", "/workload", "/access-reviews", "/settings/provisioning",
                 # configuration baselines
-                "/configuration", "/configuration?tab=targets", "/configuration?tab=baselines", "/configuration?tab=agents", "/configuration?tab=upload"]
+                "/configuration", "/configuration?tab=targets", "/configuration?tab=baselines", "/configuration?tab=agents", "/configuration?tab=upload",
+                # round 4
+                "/configuration?tab=custom", "/people?tab=training"]
 
 
 def test_every_screen_renders(demo_server, open_page):
