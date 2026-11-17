@@ -32,6 +32,11 @@ def add_comment(kind: str, rid: int, body: CommentIn, user=Depends(perm("read"))
     return {**ser(c, COMMENT), "notified": [u.display_name for u in notified]}
 
 
+@router.get("/history/{kind}/{rid}")
+def history(kind: str, rid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
+    return col.history(db, user, kind, rid)
+
+
 @router.get("/mentionable")
 def mentionable(user=Depends(perm("read")), db: Session = Depends(get_db)):
     return col.mentionable(db, user)

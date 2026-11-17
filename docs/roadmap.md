@@ -23,7 +23,7 @@ access, logins, uploads or outbound connections follow the secure coding standar
 | 15 | Access review campaigns | Done |
 | 16 | Slack and Teams notifications | Planned |
 | 17 | Scheduled report emails; board summary as PDF | Planned |
-| 18 | Per-record history for staff | Planned |
+| 18 | Per-record history for staff | Done (visible to anyone who can read the record) |
 | 19 | API tokens and outbound webhooks | Planned |
 | 20 | AI: control narratives, evidence review, risk suggestions, audit-prep assistant | Planned |
 

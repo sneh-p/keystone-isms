@@ -159,3 +159,27 @@ def workload(session: Session, actor) -> list[dict]:
                 "needs_attention": 0, "controls": session.scalar(select(func.count(CommonControl.id)).where(CommonControl.owner_id.is_(None), CommonControl.status != "not_applicable")) or 0,
                 "risks": session.scalar(select(func.count(Risk.id)).where(Risk.owner_id.is_(None), Risk.status != "closed")) or 0})
     return out
+
+
+# ---- per-record history -----------------------------------------------------------------------------------------------
+
+HISTORY_LIMIT = 300
+
+
+def history(session: Session, actor, kind: str, record_id: int) -> list[dict]:
+    """Who changed what on a record, from the audit log. Shown to anyone who can read the record: every field it lists
+    is already visible on the record. Redacted fields stay redacted. A policy's history includes its versions."""
+    from keystone.core.audit import AuditLog
+
+    authorize(session, actor, "read")
+    rec, _page = _record(session, kind, record_id)
+    targets = [(type(rec).__name__, [rec.id])]
+    if kind == "policy":
+        targets.append(("PolicyVersion", [v.id for v in rec.versions]))
+    from sqlalchemy import or_
+
+    clauses = [(AuditLog.entity_type == et) & (AuditLog.entity_id.in_(ids)) for et, ids in targets if ids]
+    rows = session.scalars(select(AuditLog).where(or_(*clauses)).order_by(AuditLog.id.desc()).limit(HISTORY_LIMIT))
+    return [{"id": a.id, "ts": a.ts, "actor": a.actor_name, "action": a.action, "entity_type": a.entity_type, "entity_id": a.entity_id,
+             "summary": a.summary, "changes": {k: v for k, v in (a.changes or {}).items() if k not in ("created_by_id", "id")} if a.action == "update" else None}
+            for a in rows]

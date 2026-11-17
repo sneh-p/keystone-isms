@@ -192,6 +192,12 @@ Once the vendor submits, the questionnaire is read-only for them and its owner i
    expired credentials, credentials added to vendor apps, and tenants where users can consent.
    Export them to Excel for the Entra administrators.
 
+## Record history
+
+Under each record's **Discussion** (risks, controls, policies, vendors, incidents, tasks, nonconformities and audits),
+**Show history** lists who changed what and when, with old and new values, from the audit log. Anyone who can read the
+record can see it; redacted fields such as secrets stay hidden.
+
 ## Privacy
 
 **Compliance → Privacy** holds four registers:

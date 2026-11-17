@@ -66,6 +66,41 @@ export function Comments({ kind, id }: { kind: Kind; id: number }) {
         )}
       </div>
       <Button size="sm" className="mt-2" disabled={!text.trim()} loading={post.isPending} onClick={() => post.mutate(undefined)}><MessageSquare /> Comment</Button>
+      <RecordHistory kind={kind} id={id} />
     </Section>
+  );
+}
+
+function fmtValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "empty";
+  if (typeof v === "boolean") return v ? "yes" : "no";
+  const s = typeof v === "object" ? JSON.stringify(v) : String(v);
+  return s.length > 80 ? `${s.slice(0, 80)}…` : s;
+}
+
+/** Who changed what on this record, from the audit log. Loaded only when opened. */
+function RecordHistory({ kind, id }: { kind: Kind; id: number }) {
+  const [open, setOpen] = useState(false);
+  const { data } = useApi<any[]>(open ? `/history/${kind}/${id}` : null);
+  return (
+    <div className="mt-4 border-t pt-3">
+      <button type="button" className="text-sm font-medium text-primary hover:underline" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "Hide history" : "Show history"}</button>
+      {open && (!data ? <p className="mt-2 text-sm text-muted-foreground">Loading…</p> : (
+        <ol className="mt-2 space-y-2 text-sm">
+          {data.length === 0 && <li className="text-muted-foreground">No recorded changes.</li>}
+          {data.map((h) => (
+            <li key={h.id} className="border-l-2 pl-3">
+              <div className="text-xs text-muted-foreground">{fmtDate(h.ts, true)} · {h.actor}</div>
+              <div>{h.summary}</div>
+              {h.changes && Object.keys(h.changes).length > 0 && (
+                <ul className="mt-0.5 text-xs text-muted-foreground">
+                  {Object.entries(h.changes).map(([k, v]: [string, any]) => <li key={k}><span className="font-medium">{k.replace(/_/g, " ")}</span>: {fmtValue(v?.[0])} → {fmtValue(v?.[1])}</li>)}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ol>
+      ))}
+    </div>
   );
 }
