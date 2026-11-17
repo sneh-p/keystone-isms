@@ -529,7 +529,14 @@ The server needs outbound HTTPS to `api.anthropic.com`.
 
 What is sent: the policy assistant sends the document being edited, its linked controls, the
 instruction and the organisation profile. Questionnaire drafting sends the questions and the
-text of **approved** policies and approved knowledge-base answers. People records, users,
-risks, incidents, evidence files and credentials are never sent. Every call is listed under
+text of **approved** policies and approved knowledge-base answers. **Control narratives**
+(Controls → Edit → Draft with AI) send the control, the identifiers and Keystone-written titles of
+the requirements it maps to (never licensed text), the titles of linked approved policies, its
+current implementation notes and the organisation profile. **Risk suggestions** (Risk register →
+Suggest risks) send the organisation profile, the asset list (name, type, classification, ratings,
+personal-data flag), active suppliers (name, services, criticality) and the control catalogue;
+existing risks are never sent, and suggestions that duplicate one are removed inside Keystone.
+People records, users, risks, incidents, evidence files and credentials are never sent.
+Everything Claude returns is a draft: a person saves the notes or picks which risks to add. Every call is listed under
 **Settings → AI** with its user, feature, model and token counts, and written to the audit
 log. A refused or failed call is recorded too and changes nothing.

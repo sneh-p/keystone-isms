@@ -16,6 +16,7 @@ import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { ViewAttachment } from "@/components/DocumentViewer";
 import { Comments } from "@/components/Comments";
+import { ControlNarrativeButton } from "@/components/AiAssist";
 import { SavedViews } from "@/components/SavedViews";
 
 export const CONTROL_STATUS = [
@@ -181,6 +182,7 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
                 </div>
                 {ownerChanged && <label className="mt-2 flex items-center gap-1.5 text-xs"><input type="checkbox" checked={handOver} onChange={(e) => setHandOver(e.target.checked)} /> Also give this control's open tasks to the new owner</label>}
                 <Field className="mt-4" label="How it is implemented"><Textarea value={f.implementation_notes} onChange={(e) => setF({ ...f, implementation_notes: e.target.value })} /></Field>
+                <div className="mt-2"><ControlNarrativeButton controlId={id} onUse={(text) => setF({ ...f, implementation_notes: text })} /></div>
                 {f.status === "not_applicable" && <Field className="mt-4" label="Why not applicable" required><Textarea value={f.na_justification} onChange={(e) => setF({ ...f, na_justification: e.target.value })} /></Field>}
                 <Field className="mt-4 max-w-xs" label="Review every (days)"><Input type="number" min={30} max={1095} value={f.review_interval_days} onChange={(e) => setF({ ...f, review_interval_days: Number(e.target.value) })} /></Field>
                 <div className="mt-4 flex gap-2">

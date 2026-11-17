@@ -20,6 +20,7 @@ import { HeatMap } from "@/components/viz/HeatMap";
 import { clean, DateInput, EnumSelect, OwnerSelect, RangeInput } from "@/components/forms";
 import { ImportButton } from "@/components/ImportDialog";
 import { Comments } from "@/components/Comments";
+import { RiskSuggestButton } from "@/components/AiAssist";
 
 const LossCurve = lazy(() => import("@/components/viz/LossCurve"));
 
@@ -42,7 +43,7 @@ export default function Risks() {
   return (
     <div className="animate-fade-in">
       <PageHeader icon={Gauge} title="Risk register" description={`Risk appetite: residual risk up to ${matrix.data.appetite_max_level}. Matrix and appetite are calibration starting points in config/risk_matrix.yaml.`}
-        actions={can("risk.write") && <><ImportButton register="risks" noun="risks" invalidate={["/risks", "/dashboard"]} /><RiskLibrary onAdded={(id) => setParams({ open: String(id) })} /><Button onClick={() => setParams({ open: "new" })}><Plus /> New risk</Button></>} />
+        actions={can("risk.write") && <><ImportButton register="risks" noun="risks" invalidate={["/risks", "/dashboard"]} /><RiskLibrary onAdded={(id) => setParams({ open: String(id) })} /><RiskSuggestButton /><Button onClick={() => setParams({ open: "new" })}><Plus /> New risk</Button></>} />
       <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label="Open risks" value={data.risks.filter((r: any) => r.status !== "closed").length} />
         <Stat label="Above appetite, untreated" value={att.above_appetite_untreated.length} tone={att.above_appetite_untreated.length ? "critical" : undefined} />

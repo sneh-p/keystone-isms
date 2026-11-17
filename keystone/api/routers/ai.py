@@ -59,3 +59,49 @@ class AcceptIn(In):
 @router.post("/ai/policies/{did}/accept")
 def accept(did: int, body: AcceptIn, user=Depends(perm("policy.write")), db: Session = Depends(get_db)):
     return policy_assistant.accept(db, user, did, body.body, body.change_summary)
+
+
+# ---- control narratives and risk suggestions (round 3) -----------------------------------------------------------
+
+class NarrativeIn(In):
+    instruction: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/ai/controls/{cid}/narrative")
+def control_narrative(cid: int, body: NarrativeIn, user=Depends(perm("control.write")), db: Session = Depends(get_db)):
+    from keystone.ai import control_assistant
+
+    return control_assistant.propose(db, user, cid, body.instruction)
+
+
+class SuggestIn(In):
+    focus: str | None = Field(default=None, max_length=1000)
+
+
+@router.post("/ai/risks/suggest")
+def risk_suggestions(body: SuggestIn, user=Depends(perm("risk.write")), db: Session = Depends(get_db)):
+    from keystone.ai import risk_assistant
+
+    return risk_assistant.suggest(db, user, body.focus)
+
+
+class SuggestionIn(In):
+    title: str = Field(min_length=3, max_length=300)
+    category: str = Field(max_length=30)
+    threat: str | None = Field(default=None, max_length=1000)
+    vulnerability: str | None = Field(default=None, max_length=1000)
+    consequence: str | None = Field(default=None, max_length=1000)
+    likelihood: int | None = Field(default=None, ge=1, le=5)
+    impact: int | None = Field(default=None, ge=1, le=5)
+    asset_ids: list[int] = Field(default_factory=list, max_length=20)
+    control_ids: list[int] = Field(default_factory=list, max_length=10)
+    owner_id: int | None = None
+
+
+@router.post("/ai/risks/accept")
+def accept_risk_suggestion(body: SuggestionIn, user=Depends(perm("risk.write")), db: Session = Depends(get_db)):
+    from keystone.ai import risk_assistant
+
+    d = body.model_dump()
+    r = risk_assistant.accept(db, user, d, d.pop("owner_id"))
+    return {"id": r.id, "ref": r.ref}

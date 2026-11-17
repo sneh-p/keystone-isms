@@ -25,7 +25,7 @@ access, logins, uploads or outbound connections follow the secure coding standar
 | 17 | Scheduled report emails; board summary as PDF | Done |
 | 18 | Per-record history for staff | Done (visible to anyone who can read the record) |
 | 19 | API tokens and outbound webhooks | Done |
-| 20 | AI: control narratives, evidence review, risk suggestions, audit-prep assistant | Planned |
+| 20 | AI: control narratives, evidence review, risk suggestions, audit-prep assistant | Control narratives and risk suggestions done; evidence review and audit-prep assistant not built (conflict with SC-LLM-004, decision needed) |
 
 Needs the organisation (can't be done from here): validating attack surface connectors with read-only keys, a real
 TLS certificate and domain, pushing to a remote, and entering SMTP, SSO and connector credentials.

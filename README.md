@@ -197,7 +197,7 @@ tickets automatically for known-exploited vulnerabilities.
 | Vulnerability management | Tenable, Qualys VMDR, Rapid7 InsightVM (and Defender Vulnerability Management above) |
 | Email | Any SMTP relay (STARTTLS or TLS) for digests, invitations, vendor links and Trust Center access |
 | Sign-in | Microsoft Entra ID and Google (OIDC) |
-| AI (optional) | Claude API for the policy assistant and questionnaire drafting |
+| AI (optional) | Claude API for the policy assistant, questionnaire drafting, control implementation narratives and risk suggestions |
 
 Every connector is read-only, with step-by-step setup and a **Test connection** dry run that saves nothing. For attack
 surface sources the dry run also lists the field names the API returned, so a mapping can be confirmed against your
@@ -290,7 +290,7 @@ are decided by AppSec first; the decisions are recorded in
 ## Development
 
 ```bash
-.venv/bin/python -m pytest tests/ -q                     # Python (≈545 tests) on SQLite
+.venv/bin/python -m pytest tests/ -q                     # Python (≈640 tests) on SQLite
 KEYSTONE_TEST_PG_URL=postgresql+psycopg://…/keystone_test scripts/test-postgres.sh   # the same suite on PostgreSQL
 (cd web && npm run typecheck && npm run lint && npm test)  # web app
 scripts/security-check.sh all                            # every security gate (see AGENTS.md)

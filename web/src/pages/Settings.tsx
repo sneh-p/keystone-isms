@@ -282,7 +282,7 @@ function ReportSchedules() {
   );
 }
 
-const FEATURE_LABEL: Record<string, string> = { policy_assistant: "Policy assistant", questionnaire_answers: "Questionnaire answers" };
+const FEATURE_LABEL: Record<string, string> = { policy_assistant: "Policy assistant", questionnaire_answers: "Questionnaire answers", control_narrative: "Control narratives", risk_suggestions: "Risk suggestions" };
 
 export function AiSettings() {
   const { data } = useApi<any>("/ai/settings");
