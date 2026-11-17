@@ -174,6 +174,7 @@ def seed(session: Session, admin) -> dict:
     _seed_workflows(session, people, fab, nw)
     _seed_trend_history(session)
     _seed_attack_surface(session, admin)
+    _seed_configuration(session, admin)
     seed_external(session)
     seed_privacy_continuity(session, people)
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
@@ -226,6 +227,107 @@ def _seed_attack_surface(session: Session, admin) -> None:
     ingest(session, None, "Demo data", "demo", Inventory(identities=ids, settings=settings))
     asm_baselines.add_recommended(session, admin)
     asm_baselines.evaluate(session)
+
+
+# A fictional FortiGate export (documentation addresses, no secrets) with some common weaknesses.
+_DEMO_FORTIGATE = """#config-version=FGT60F-7.2.5-FW-build1517-230606:opmode=0:vdom=0:user=admin
+config system global
+    set admintimeout 30
+    set hostname "ASH-FW-HQ"
+    set strong-crypto enable
+    set admin-lockout-threshold 3
+end
+config system interface
+    edit "wan1"
+        set ip 192.0.2.1 255.255.255.0
+        set allowaccess ping https
+    next
+    edit "internal"
+        set ip 198.51.100.1 255.255.255.0
+        set allowaccess ping https ssh
+    next
+end
+config system ntp
+    set ntpsync enable
+end
+config log syslogd setting
+    set status disable
+end
+config firewall policy
+    edit 1
+        set name "guest-wifi-out"
+        set srcintf "internal"
+        set dstintf "wan1"
+        set action accept
+        set srcaddr "all"
+        set dstaddr "all"
+        set service "ALL"
+        set logtraffic disable
+    next
+    edit 2
+        set name "booking-web"
+        set srcintf "wan1"
+        set dstintf "internal"
+        set action accept
+        set srcaddr "all"
+        set dstaddr "booking-web"
+        set service "HTTPS"
+        set logtraffic all
+    next
+end
+"""
+
+
+def _passing_facts(platform: str) -> dict:
+    """Values that meet Keystone's recommended rule for every setting of a platform."""
+    from keystone.configcheck import catalogue as cat
+
+    out: dict = {}
+    for st in cat.settings_for(platform):
+        if st.recommended is None:
+            continue
+        op, expected = st.recommended[0], st.recommended[1]
+        if op == "in" and isinstance(expected, (list, tuple)):
+            out[st.key] = expected[0]
+        else:
+            out[st.key] = {"is_true": True, "is_false": False, "empty": []}.get(op, expected)
+    return out
+
+
+def _seed_configuration(session: Session, admin) -> None:
+    """Fictional hosts and a firewall checked against configuration baselines, so the configuration screens have
+    something to show. The hosts are recorded as if their agents had reported; they have no device token."""
+    from keystone.configcheck import service as cfg
+    from keystone.configcheck.models import ConfigTarget
+
+    base = {platform: cfg.create_baseline(session, admin, name=name, platform=platform)
+            for platform, name in (("windows", "Windows workstations"), ("linux", "Linux servers"), ("fortigate", "FortiGate firewalls"))}
+    for key in ("ssh_login_grace_time", "ssh_tcp_forwarding_off", "tls10_server_disabled", "admin_lockout_threshold"):
+        cfg.add_from_library(session, admin, key)
+    cfg.save_rule(session, admin, baseline_id=base["windows"].id, key="custom.tls10_server_disabled", operator="eq", expected=0, severity="high", reevaluate=False)
+    cfg.save_rule(session, admin, baseline_id=base["fortigate"].id, key="custom.admin_lockout_threshold", operator="lte", expected=5, severity="medium", reevaluate=False)
+    dmz = cfg.create_baseline(session, admin, name="Internet-facing Linux", platform="linux", recommended=False, is_default=False,
+                              description="Stricter SSH for servers reachable from the internet.", scope={"tags": ["dmz"]})
+    cfg.save_rule(session, admin, baseline_id=dmz.id, key="custom.ssh_login_grace_time", operator="lte", expected=60, severity="medium", reevaluate=False)
+    cfg.save_rule(session, admin, baseline_id=dmz.id, key="custom.ssh_tcp_forwarding_off", operator="eq", expected="no", severity="medium", reevaluate=False)
+
+    now = datetime.now()
+    hosts = (
+        ("windows", "ASH-LT-001", "Microsoft Windows 11 Pro", "10.0.26100", None, {"rdp_enabled": False, "custom.tls10_server_disabled": 0}),
+        ("windows", "ASH-SRV-FILE", "Microsoft Windows Server 2016 Standard", "10.0.14393", ["server"],
+         {"rdp_enabled": True, "smb1_enabled": True, "smb_signing_required": False, "last_update_installed_days": 64, "lm_compatibility_level": 3, "custom.tls10_server_disabled": 1}),
+        ("linux", "ash-web-01", "Ubuntu 22.04.5 LTS", "5.15.0-125-generic", ["dmz"],
+         {"ssh_password_authentication": True, "security_updates_pending": 4, "custom.ssh_login_grace_time": 120, "custom.ssh_tcp_forwarding_off": "yes"}),
+        ("linux", "ash-db-01", "Debian GNU/Linux 12", "6.1.0-28-amd64", None, {"custom.ssh_login_grace_time": 30, "custom.ssh_tcp_forwarding_off": "no"}),
+    )
+    for platform, name, os_name, os_version, tags, overrides in hosts:
+        t = ConfigTarget(kind="agent", platform=platform, name=name, hostname=name, os_name=os_name, os_version=os_version, agent_version="1.1.0",
+                         enrolled_at=now - timedelta(days=20), last_ip="198.51.100.20", facts={}, created_at=now - timedelta(days=20), tags=tags)
+        session.add(t)
+        session.flush()
+        cfg.report(session, t, facts={**_passing_facts(platform), "ssh_server_installed": platform == "linux", **overrides}, hostname=name,
+                   os_name=os_name, os_version=os_version, agent_version="1.1.0", ip="198.51.100.20")
+    cfg.upload_firewall(session, admin, platform="fortigate", filename="ASH-FW-HQ_backup.conf", data=_DEMO_FORTIGATE.encode())
 
 
 def _seed_trend_history(session: Session, weeks: int = 11) -> None:

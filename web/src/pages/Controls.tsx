@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { AlertTriangle, CheckCircle2, Clock, Pencil, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Pencil, Plus, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi, usePeople, useUnsavedGuard, useUrlFilter } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { fmtDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sheet } from "@/components/ui/dialog";
+import { Dialog, Sheet } from "@/components/ui/dialog";
 import { Field, Textarea, Input } from "@/components/ui/input";
 import { KeyValue, PageHeader, Section, Skeleton, Stat } from "@/components/ui/misc";
 import { Markdown } from "@/components/Markdown";
@@ -44,6 +44,7 @@ export default function Controls() {
   const [flag, setFlag] = useUrlFilter("flag");
   const [open, setOpen] = useUrlFilter("open");
   const [selected, setSelected] = useState<Set<string | number>>(new Set());
+  const [creating, setCreating] = useState(false);
   const rows = useMemo(() => (data ?? []).filter((c) =>
     (!domain || c.domain === domain) && (!status || c.status === status)
     && (!owner || (owner === "none" ? !c.owner_id && c.status !== "not_applicable" : String(c.owner_id) === owner))
@@ -54,7 +55,9 @@ export default function Controls() {
   const editable = can("control.write");
   return (
     <div className="animate-fade-in">
-      <PageHeader icon={ShieldCheck} title="Controls" description="Keystone's common controls. Each one counts towards every framework it maps to." />
+      <PageHeader icon={ShieldCheck} title="Controls" description="Keystone's common controls. Each one counts towards every framework it maps to."
+        actions={can("framework.write") && <Button onClick={() => setCreating(true)}><Plus /> New control</Button>} />
+      {creating && <NewControl domains={domains} people={people} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setOpen(String(id)); }} />}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <Stat label="Implemented" value={counts("implemented")} tone="good" to="/controls?status=implemented" />
         <Stat label="Partial" value={counts("partial")} tone="warning" to="/controls?status=partial" />
@@ -225,5 +228,26 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
         </div>
       )}
     </Sheet>
+  );
+}
+
+
+/** An organisation's own control (KC-CUS-nn), for requirements met in a way Keystone's catalogue doesn't cover. */
+function NewControl({ domains, people, onClose, onCreated }: { domains: string[]; people: { id: number; display_name: string }[]; onClose: () => void; onCreated: (id: number) => void }) {
+  const [f, setF] = useState<{ title: string; domain: string; description: string; owner_id: string | null }>({ title: "", domain: "Custom", description: "", owner_id: null });
+  const save = useAction(() => api<any>("/controls", { body: { title: f.title, domain: f.domain || "Custom", description: f.description || null, owner_id: f.owner_id ? Number(f.owner_id) : null } }),
+    { success: (c: any) => `${c.code} created. Map it to the requirements it meets.`, invalidate: ["/controls", "/dashboard", "/soa"], onSuccess: (c: any) => onCreated(c.id) });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()} title="New control" description="Your own control, numbered KC-CUS-nn. After creating it, map it to the requirements it meets."
+      footer={<Button disabled={!f.title.trim()} loading={save.isPending} onClick={() => save.mutate(undefined)}>Create control</Button>}>
+      <div className="space-y-4">
+        <Field label="Title" required><Input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Quarterly review of guest Wi-Fi isolation" /></Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Domain"><Select value={f.domain} onChange={(v) => setF({ ...f, domain: v ?? "Custom" })} options={[...new Set(["Custom", ...domains])].map((d) => ({ value: d, label: d }))} /></Field>
+          <Field label="Owner"><Select value={f.owner_id} allowEmpty emptyLabel="No owner yet" onChange={(v) => setF({ ...f, owner_id: v })} options={people.map((p) => ({ value: String(p.id), label: p.display_name }))} /></Field>
+        </div>
+        <Field label="What the control requires"><Textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
+      </div>
+    </Dialog>
   );
 }

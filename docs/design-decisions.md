@@ -292,3 +292,17 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   deletion with the last values, and an explicit entry names who deleted what.
 - Comments and ticket links on the record go with it. Ids in other records' JSON lists are removed, and optional
   links are cleared.
+
+## Guided tour (round 5)
+
+- **Stored per user on the server**, not in the browser, so the tour opens once per person rather than once per
+  device. A tour has a version: bumping it in `keystone/collab/service.py` (`TOURS`) shows it again to everyone.
+- **Not audited.** Whether someone finished or skipped the tour is a user-interface preference, not an ISMS record,
+  so it isn't written to the audit log (like saved views).
+- **"portal" permission.** Every role holds it, employees included; the service reads and writes only the caller's
+  own row, so there is no route by which one user can see or change another's tour state.
+- **Accessible by construction.** The card is a labelled modal dialog: the app underneath is `inert`, keys are handled
+  on the document so Escape works wherever focus is, focus returns where it was, and the steps adapt to the sections a
+  role can see and to phones. The e2e suite runs axe on the open tour.
+- **Not shown over the setup wizard**, which a new administrator lands in; it starts once the wizard is done.
+

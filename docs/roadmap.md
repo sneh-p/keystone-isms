@@ -50,6 +50,16 @@ Windows host here. The firewall parsers are tested with fictional exports, not r
 Not in round 4, each needs its own decision (SC-AGT-006): SSO group-to-role mapping, a public DSR intake form, emails
 to Trust Center subscribers, an iCal feed, and automatic reminder emails to vendors.
 
+### Round 5: guidance and consistency
+
+| Area | Done |
+|---|---|
+| Guided tour | First sign-in tour for staff (role-aware, one step on phones) and for the employee portal; end at any step, take again from the account menu; seen-state stored per user |
+| User guide | Rewritten as one guide for everyone who signs in, with 63 screenshots taken from a fresh demo by `scripts/guide_screenshots.py` |
+| Consistency | Header actions stay on the right; toolbar buttons match field height; "and" in titles; load failures shown instead of endless placeholders; framework not found state; **New control** button for the existing custom-control API |
+| Demo | Configuration baselines, hosts, a firewall and custom checks in the demo data |
+| Deployment | README: tested step-by-step install on a fresh Ubuntu 24.04 server (systemd, nginx, Let's Encrypt, ClamAV), upgrade and troubleshooting |
+
 Needs the organisation (can't be done from here): validating attack surface connectors with read-only keys, a real
 TLS certificate and domain, pushing to a remote, and entering SMTP, SSO and connector credentials.
 

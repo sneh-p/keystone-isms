@@ -2,6 +2,9 @@
 
 ## Installing
 
+For a complete, step-by-step installation on a new Ubuntu server (systemd, nginx, Let's Encrypt and ClamAV), follow
+[Deploy on a fresh server](../README.md#deploy-on-a-fresh-server) in the README. This section is the reference.
+
 **Python** 3.12 (the hashed lockfile is resolved for 3.12; the Docker image uses it) and **Node.js** 22 (to build the web app once):
 
 ```bash
