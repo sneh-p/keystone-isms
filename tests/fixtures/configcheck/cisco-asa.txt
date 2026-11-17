@@ -1,0 +1,22 @@
+: Saved
+:
+ASA Version 9.16(4)
+!
+hostname ASA-FICTIONAL
+enable password $sha512$5000$FAKEASAHASHnotreal== pbkdf2
+password encryption aes
+!
+ssh 198.51.100.0 255.255.255.0 inside
+ssh timeout 10
+ssh version 2
+http server enable
+http 198.51.100.0 255.255.255.0 inside
+aaa authentication ssh console LOCAL
+!
+access-list OUTSIDE extended permit tcp any4 host 192.0.2.20 eq https
+!
+logging enable
+logging host inside 198.51.100.50
+ntp server 198.51.100.123
+!
+: end

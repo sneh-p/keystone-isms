@@ -182,3 +182,14 @@ prompt contains only readable records.
 
 **verification.md**
 - `typecheck` now runs mypy (settings in `pyproject.toml`) as well as tsc.
+
+## Configuration agents (2026-11-17)
+
+- **Lint gate coverage for the agents.** `scripts/security-check.sh lint` runs PSScriptAnalyzer on `./collector`
+  only. The new Windows agent in `agents/windows` was checked by hand (`Invoke-ScriptAnalyzer -Path ./agents/windows
+  -Recurse`, no findings at any severity), and its Pester tests (`tests/agents`) pass. Proposed: add `./agents` to the
+  PSScriptAnalyzer step and run `Invoke-Pester ./tests/agents` in the gate. Add shellcheck for `agents/linux` when it
+  is available. `scripts/security-check.sh` is a protected file, so this needs a human to apply it.
+- **A stored device credential.** The original spec says no tokens or secrets on disk. That was written for the
+  collector, and a scheduled agent needs a stored credential. See feature-security-designs.md §5b for how the device
+  token is limited, and confirm the deviation.

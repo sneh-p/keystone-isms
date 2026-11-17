@@ -113,3 +113,12 @@ def system_alerts() -> None:
 
     with db.session_scope() as s:
         alert(s)
+
+
+@register("config-baselines", minutes=360)
+def config_baselines() -> None:
+    """Configuration baselines: lapse expired exceptions (and re-evaluate), refresh evidence, trim drift history."""
+    from keystone.configcheck import service as cfg
+
+    with db.session_scope() as s:
+        cfg.housekeeping(s)

@@ -55,6 +55,19 @@ baselines** and adjust scope and severity. **Findings** lists the gaps; they clo
 Missing coverage is a finding too, for example a device the RMM manages but no EDR agent reports. If a gap is accepted
 for a while, someone with risk-acceptance rights can approve an **exception** with a reason and an end date.
 
+## Configuration
+
+**Risk → Configuration** shows whether your Windows and Linux hosts and your firewalls are set up the way your
+baselines require.
+- **Hosts and firewalls** lists each one with its status. Open one to see every rule's result, the reported settings
+  and the history of what changed.
+- A setting that wasn't reported shows as **Unknown**, never as passing. **Not applicable** means a prerequisite is
+  off, for example SSH rules on a host without an SSH server.
+- **Baselines** holds the required settings per platform; open a baseline to change values, severities and linked
+  controls.
+- To accept a failing setting for a while, someone with risk-acceptance rights grants an **exception** with a reason
+  and an end date.
+
 ## Working together
 
 - **Discussion:** risks, controls, tasks, incidents, policies, vendors, nonconformities and audits have a discussion.

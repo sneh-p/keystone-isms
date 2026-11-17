@@ -1,6 +1,6 @@
 import {
   Activity, AlertOctagon, CalendarDays, Crosshair, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Fingerprint, Handshake, HeartPulse, KeyRound, LifeBuoy,
-  LayoutDashboard, ListChecks, Mail, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, Settings, ShieldCheck, Siren, Sparkles, UserCheck, UserCog, Users, Wrench,
+  LayoutDashboard, ListChecks, Mail, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, ServerCog, Settings, ShieldCheck, Siren, Sparkles, UserCheck, UserCog, Users, Wrench,
 } from "lucide-react";
 
 export type NavItem = { label: string; to: string; icon: any; perm?: string; also?: string[] };
@@ -56,6 +56,7 @@ export const NAV: NavSection[] = [
       { label: "Risk register", to: "/risks", icon: Gauge },
       { label: "Assets", to: "/assets", icon: Boxes },
       { label: "Attack surface", to: "/attack-surface", icon: Crosshair },
+      { label: "Configuration", to: "/configuration", icon: ServerCog },
     ],
   },
   {

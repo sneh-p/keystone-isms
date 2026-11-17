@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<pfsense>
+  <version>23.3</version>
+  <system>
+    <hostname>pf-fictional</hostname>
+    <domain>example.org</domain>
+    <timeservers>0.pfsense.pool.ntp.org</timeservers>
+    <webgui><protocol>https</protocol></webgui>
+    <user><name>admin</name><bcrypt-hash>$2y$10$FAKEPFSENSEHASHnotreal</bcrypt-hash></user>
+  </system>
+  <filter>
+    <rule><type>pass</type><interface>wan</interface><source><any/></source><destination><any/></destination><descr>wide open</descr></rule>
+    <rule><type>pass</type><interface>lan</interface><source><network>lan</network></source><destination><any/></destination><log/></rule>
+    <rule><type>block</type><interface>wan</interface><source><any/></source><destination><any/></destination></rule>
+  </filter>
+  <syslog><enable/><remoteserver>192.0.2.60:514</remoteserver></syslog>
+  <snmpd><rocommunity>public</rocommunity></snmpd>
+</pfsense>

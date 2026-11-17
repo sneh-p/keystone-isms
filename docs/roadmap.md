@@ -27,6 +27,11 @@ access, logins, uploads or outbound connections follow the secure coding standar
 | 19 | API tokens and outbound webhooks | Done |
 | 20 | AI: control narratives, evidence review, risk suggestions, audit-prep assistant | Control narratives and risk suggestions done; evidence review and audit-prep assistant not built (conflict with SC-LLM-004, decision needed) |
 
+Added 2026-11-17 (requested by human:sneh): **configuration baselines** with report-only agents for Windows and Linux
+and firewall configuration uploads (FortiGate, PAN-OS, Cisco ASA/IOS, pfSense/OPNsense). Done. The Linux agent was
+run for real against a local Keystone. The Windows agent is tested with Pester mocks only, because there is no
+Windows host here. The firewall parsers are tested with fictional exports, not real devices.
+
 Needs the organisation (can't be done from here): validating attack surface connectors with read-only keys, a real
 TLS certificate and domain, pushing to a remote, and entering SMTP, SSO and connector credentials.
 

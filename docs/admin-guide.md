@@ -459,6 +459,34 @@ DNS queries go through the server's own resolver; allow `crt.sh` through your eg
 providers answer "no records" instead of "no such name" for missing names, so a dangling CNAME there isn't detected:
 the check errs towards silence rather than false alarms.
 
+## Configuration baselines and agents
+
+**Configuration** (needs `integration.manage`) holds the baselines, the agents and firewall uploads.
+
+1. **Baselines.** Create one per platform. "Start with the recommended settings" fills in Keystone's recommended
+   rules. The first baseline of a platform becomes its default.
+2. **Agents.** Set `KEYSTONE_PUBLIC_URL` to the HTTPS address hosts reach Keystone on. The Agents tab shows the
+   download, its SHA-256 and the one-line install command with the enrolment key.
+   - **Windows** (elevated PowerShell 5.1+): installs to `%ProgramFiles%\Keystone Agent`, keeps its config and token in
+     `%ProgramData%\Keystone Agent` (SYSTEM and Administrators only), and registers the scheduled task "Keystone Agent"
+     (SYSTEM, at startup and every 4 hours by default). `-Collect` prints what would be sent without sending.
+   - **Linux** (root, `sh` and `curl`): installs to `/usr/local/lib/keystone-agent`, keeps config and token in
+     `/etc/keystone-agent` (mode 600), and adds a systemd timer, or `/etc/cron.d/keystone-agent` without systemd.
+     `sh keystone-agent.sh collect` prints what would be sent.
+   - For many hosts, deploy the same command through your RMM, Group Policy, Intune, Ansible or similar.
+   - Rotate the enrolment key when installs are done; enrolled agents keep working.
+   - Revoke a device from its page.
+   - A reinstall enrols as a new device, so remove the old entry.
+3. **Firewalls.** Upload a configuration export under "Upload firewall configuration", choosing "Update" to replace
+   an existing firewall's results. Export the *full* configuration where the device offers it (FortiGate: `show
+   full-configuration`): settings left at their defaults are missing from shorter exports and show as unknown. The
+   file is not stored.
+4. **Housekeeping.** A job every 6 hours ends expired exceptions, refreshes evidence for baselines that every target
+   meets, and keeps the last 500 reports of history per target.
+
+Agents report every 4 hours by default (Agents tab). A host is shown as out of date after three missed reports, and a
+firewall after 90 days without an upload.
+
 ## API tokens
 
 Staff can create personal API tokens under **My account** for scripts and reporting tools (`Authorization: Bearer

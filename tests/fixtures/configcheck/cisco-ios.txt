@@ -1,0 +1,27 @@
+!
+version 15.2
+service timestamps debug datetime msec
+no service password-encryption
+!
+hostname RTR-FICTIONAL-EDGE
+!
+enable password 0 FakeEnablePassword123
+!
+no aaa new-model
+ip http server
+ip ssh version 1
+!
+snmp-server community public RO
+!
+ip access-list extended OUTSIDE-IN
+ permit tcp any host 192.0.2.10 eq 443
+ permit ip any any
+!
+line con 0
+ exec-timeout 0 0
+line vty 0 4
+ password 7 FAKEVTYPASSWORD0000
+ exec-timeout 0 0
+ transport input telnet ssh
+!
+end

@@ -141,6 +141,48 @@ Microsoft APIs directly, read-only (the Entra exposure module keeps using the co
 - Connectors were built from vendor documentation and tested with sample responses, not live tenants; each records how
   its field mapping was verified, and Test connection lists the field names a real API returns.
 
+## 5b. Configuration baselines and agents
+
+**What changes:** two endpoints without a session for host agents, a new kind of credential (enrolment key and
+per-device tokens), and uploads of firewall configuration exports. Requested and approved by human:sneh (2026-11-17):
+FortiGate, PAN-OS, Cisco ASA/IOS, pfSense/OPNsense; firewalls by uploaded export; agents report only; scripts with a
+scheduler.
+
+**As built:**
+- **Agents are report-only.** They read settings and post them; there is no endpoint that returns instructions, and
+  the agents run no commands they receive.
+  - Windows agent: PowerShell 5.1+, a scheduled task as SYSTEM.
+  - Linux agent: POSIX `sh` + curl, a systemd timer (`NoNewPrivileges`, `ProtectSystem=full`, `ProtectHome=read-only`,
+    `PrivateTmp`) or cron.
+- **Enrolment key.** One per organisation, shown only to `integration.manage`, encrypted at rest, rotatable.
+  - It only enrols. Rotating it doesn't affect agents already enrolled.
+  - Linux reads it from an environment variable at install, not the command line, and doesn't keep it.
+  - Windows deletes it from its config once enrolled.
+- **Device tokens.** Each is 256 bits, prefixed `kagt_`, stored only as a SHA-256 hash and compared in constant time.
+  It is good only for posting reports for its own device, and is rejected everywhere else (the staff API takes only
+  `kst_` tokens and sessions). It is revocable per device.
+  - On the host it is readable only by root (Linux file mode 600).
+  - On Windows it is encrypted with DPAPI for the SYSTEM account, in a folder only SYSTEM and Administrators can read.
+- **Agent endpoints** (`/api/agent/v1/enrol`, `/api/agent/v1/report`):
+  - Rate-limited per address and per device.
+  - Body capped at 256 KB and validated by Pydantic models.
+  - Host names restricted to a safe pattern.
+  - Reported values accepted only for keys in the settings catalogue, coerced to their type, and otherwise dropped
+    (listed back to the agent).
+  - Enrolments and administrative actions are in the audit log; tokens and keys never are.
+- **Transport.** Agents require HTTPS with certificate validation; plain HTTP is accepted only for `localhost` /
+  `127.0.0.1` (testing). They don't follow redirects to other schemes. The Linux agent passes its token to curl in a
+  header file, never on the command line.
+- **Firewall uploads** (`integration.manage`):
+  - Read with a 10 MB cap and parsed in memory. XML is parsed with defusedxml with DTDs and entities refused.
+  - Never stored. Only the extracted values and the file's SHA-256 are kept.
+  - A test checks that none of the fixtures' secret material reaches any table.
+- **Results.** A missing or unreadable value is *unknown*, never a pass. Exceptions need `risk.accept`, a reason and an
+  end date within a year.
+- **Spec note.** The original spec says "no tokens or secrets on disk". That was written for the collector. An agent
+  that reports on a schedule can't work without a stored credential, so each host keeps a narrowly scoped,
+  revocable, root/SYSTEM-only device token instead. This is a deliberate deviation, raised here for review.
+
 ## 6. Smaller decisions
 
 | Decision | Detail |

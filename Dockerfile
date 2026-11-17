@@ -31,6 +31,7 @@ COPY --chown=keystone:keystone content/ content/
 COPY --chown=keystone:keystone config/ config/
 COPY --chown=keystone:keystone schemas/ schemas/
 COPY --chown=keystone:keystone collector/ collector/
+COPY --chown=keystone:keystone agents/ agents/
 COPY --chown=keystone:keystone scripts/ scripts/
 COPY --chown=keystone:keystone alembic.ini pyproject.toml README.md ./
 COPY --from=web --chown=keystone:keystone /web/dist web/dist

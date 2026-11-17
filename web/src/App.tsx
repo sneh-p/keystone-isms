@@ -52,6 +52,7 @@ const AccessReviews = lazy(() => import("@/pages/AccessReviews"));
 const Continuity = lazy(() => import("@/pages/Continuity"));
 const CalendarPage = lazy(() => import("@/pages/Calendar"));
 const AttackSurface = lazy(() => import("@/pages/AttackSurface"));
+const Configuration = lazy(() => import("@/pages/Configuration"));
 
 /** Authenticated application routes. `nav` marks routes that appear in the sidebar. */
 export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] = [
@@ -73,6 +74,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/security-questionnaires/:id", element: <QuestionnaireDetail /> },
   { path: "/assets", element: <Assets />, nav: true },
   { path: "/attack-surface", element: <AttackSurface />, nav: true },
+  { path: "/configuration", element: <Configuration />, nav: true },
   { path: "/vendors", element: <Vendors />, nav: true },
   { path: "/questionnaires", element: <Questionnaires />, nav: true },
   { path: "/assessments", element: <Assessments />, nav: true },

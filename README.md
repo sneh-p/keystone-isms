@@ -17,6 +17,7 @@ All screenshots show the fictional demo organisation, Alpine Ski House.
 - [Screenshots](#screenshots)
 - [Quick start](#quick-start)
 - [Attack surface management](#attack-surface-management)
+- [Configuration baselines](#configuration-baselines)
 - [Privacy and business continuity](#privacy-and-business-continuity)
 - [Identity](#identity)
 - [Policy signatures and PDFs](#policy-signatures-and-pdfs)
@@ -39,6 +40,7 @@ All screenshots show the fictional demo organisation, Alpine Ski House.
 | **Tasks and calendar** | Recurring evidence tasks with independent approval that file evidence on their controls; tasks follow control owners; a calendar of every test, review, renewal and audit; a workload view per person |
 | **Risk** | Asset register, risk register with a configurable 5×5 matrix and appetite, treatment actions, time-limited acceptance, **FAIR Monte Carlo** quantification, a library of 24 common scenarios, incidents that bring a risk's review forward |
 | **Attack surface** | Devices, accounts, vulnerabilities and tenant settings from your tools, checked against baselines you set; findings, exceptions and alerts ([details](#attack-surface-management)) |
+| **Configuration** | Required settings for Windows, Linux, FortiGate, PAN-OS, Cisco ASA/IOS and pfSense/OPNsense; report-only agents for Windows and Linux; firewall configuration uploads checked without storing the file ([details](#configuration-baselines)) |
 | **Third parties** | Vendor register with tiering, questionnaires with scoring, a **vendor self-service portal** with virus-scanned uploads, FAIR vendor assessments with approval |
 | **Entra exposure** | Read-only PowerShell collector and importer for third-party apps in Entra ID: exposure scoring, vendor matching, FAIR suggestions, snapshot comparison, remediation candidates |
 | **Policies** | Versioned documents, approval by someone other than the author, review cycle, staff acceptance tracking, an optional AI policy assistant |
@@ -150,7 +152,30 @@ nightly and test-restores each backup; copy the backups off the host and keep th
 
 Data a tool doesn't report is "no data", never compliant; failed or partial runs never retire anything.
 
-## Privacy and business continuity
+## Configuration baselines
+
+**Risk → Configuration** checks how hosts and firewalls are configured against the settings you require.
+
+1. **Baselines.** Create one per platform: Windows, Linux, Fortinet FortiGate, Palo Alto PAN-OS, Cisco ASA / IOS,
+   pfSense / OPNsense. Each starts with Keystone's recommended settings (for example *firewall on for every profile*,
+   *SMBv1 off*, *SSH root login off*, *no any-to-any allow rules*, *management not over Telnet or HTTP*, *logs sent to
+   a remote server*), mapped to Keystone controls. Change values and severities, turn rules off, or add rules from the
+   settings catalogue. A platform's default baseline applies to every host without one of its own.
+2. **Agents for Windows and Linux** (Configuration → Agents) read settings and send them to Keystone over HTTPS every
+   few hours. They are **report-only**: they never change the host, and Keystone can't send them commands.
+   - Windows: a PowerShell script that installs a scheduled task running as SYSTEM.
+   - Linux: a POSIX `sh` script with a systemd timer, falling back to cron.
+   Install with the one-line command shown on the page. Each agent swaps the enrolment key for its own device token,
+   which can only send reports for that host.
+3. **Firewalls** are checked from an uploaded configuration export. Keystone keeps only the values it checks and the
+   file's SHA-256, never the file itself, because exports contain password hashes and keys.
+4. **Results** are pass, fail, unknown or not applicable. A setting that wasn't reported is *unknown*, never a pass.
+   SSH rules are not applicable on a host without an SSH server.
+   - Each report records what changed (drift history).
+   - New critical and high failures alert the ISMS managers and can be sent to Slack, Teams or a webhook.
+   - A baseline met by every target files evidence on its controls.
+   - Exceptions need risk-acceptance rights, a reason and an end date within a year.
+
 
 **Privacy**: records of processing (Article 30), DPIAs with an independent decision, data subject requests with legal
 deadlines and automatic removal of requesters' details after closing, and a breach log built on incidents.
