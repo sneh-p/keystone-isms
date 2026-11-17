@@ -3,6 +3,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, Header, Request, Response, UploadFile
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 from keystone.core import auth, sessions
@@ -13,7 +14,7 @@ from keystone.policies import service as pol
 
 from ..deps import COOKIE, get_db, perm
 from ..serialize import ser
-from .common import In, public_link
+from .common import In, public_link, xlsx_response
 
 router = APIRouter(tags=["people"])
 PERSON = ("id", "full_name", "email", "job_title", "department", "employment_type", "manager_id", "start_date", "end_date", "status", "user_id", "offboarding")
@@ -188,3 +189,43 @@ def person_assets(pid: int, user=Depends(perm("read")), db: Session = Depends(ge
 
     p = get_or_404(db, Person, pid)
     return [{"id": a.id, "name": a.name, "asset_type": a.asset_type, "classification": a.classification} for a in (assets_of_user(db, p.user_id) if p.user_id else [])]
+
+
+
+@router.get("/training/assignments")
+def training_assignments(user=Depends(perm("read")), db: Session = Depends(get_db)):
+    from keystone.core import audience
+
+    assigned = ppl.assignments(db)
+    return {"modules": [{"key": m["key"], "title": m["title"], "minutes": m["minutes"], "version": m["version"],
+                         "audience": assigned[m["key"]].audience if m["key"] in assigned else None,
+                         "due_days": assigned[m["key"]].due_days if m["key"] in assigned else ppl.DEFAULT_DUE_DAYS} for m in ppl.modules()],
+            "departments": audience.departments(db), "overdue": ppl.training_overdue(db)}
+
+
+class AssignmentIn(In):
+    audience: dict | None = None
+    due_days: int = Field(30, ge=1, le=365)
+
+
+@router.put("/training/assignments/{key}")
+def set_training_assignment(key: str, body: AssignmentIn, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+    a = ppl.set_assignment(db, user, key, audience=body.audience, due_days=body.due_days)
+    return {"key": a.module_key, "audience": a.audience, "due_days": a.due_days}
+
+
+@router.get("/training/matrix.xlsx")
+def training_matrix(user=Depends(perm("read")), db: Session = Depends(get_db)):
+    from keystone.core.audit import log_event
+    from keystone.reporting.exports import xlsx
+
+    headers, rows = ppl.training_matrix(db, user)
+    log_event(db, user, "export", "TrainingCompletion", None, f"Training matrix exported ({len(rows)} people)")
+    return xlsx_response(xlsx({"Training": (headers, rows)}, title="Security awareness training"), "training-matrix.xlsx")
+
+
+@router.get("/audience/departments")
+def departments(user=Depends(perm("read")), db: Session = Depends(get_db)):
+    from keystone.core import audience
+
+    return audience.departments(db)

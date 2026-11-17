@@ -90,3 +90,16 @@ class DeviceAttestation(Audited, TimestampMixin, Base):
     checks: Mapped[dict] = mapped_column(JSON, nullable=False)
     attested_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     attachment_id: Mapped[int | None] = mapped_column(ForeignKey("attachments.id"))
+
+
+class TrainingAssignment(Audited, TimestampMixin, Base):
+    """Who must complete a training module, and how soon (ISO 27001 A.6.3). Modules without an assignment apply to
+    everyone. Completions stay valid for a year; a new module version asks for it again."""
+
+    __tablename__ = "training_assignments"
+    REF_PREFIX = "TRA"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    module_key: Mapped[str] = mapped_column(String(60), unique=True, nullable=False)
+    audience: Mapped[dict | None] = mapped_column(JSON)  # keystone/core/audience.py; None means everyone
+    due_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)  # after starting (or after assignment)

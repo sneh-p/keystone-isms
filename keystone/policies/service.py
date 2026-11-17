@@ -42,12 +42,16 @@ def next_label(previous: str | None, major: bool) -> str:
     return f"{a + 1}.0" if major else f"{a}.{b + 1}"
 
 
-DOC_FIELDS = {"code", "title", "doc_type", "owner_id", "review_interval_months", "requires_acknowledgement"}
+DOC_FIELDS = {"code", "title", "doc_type", "owner_id", "review_interval_months", "requires_acknowledgement", "ack_audience"}
 
 
 def save_document(session: Session, actor, document_id: int | None = None, *, control_ids: list[int] | None = None, **fields) -> PolicyDocument:
     authorize(session, actor, "policy.write")
     d = get_or_404(session, PolicyDocument, document_id) if document_id else PolicyDocument(status="draft", doc_type="policy", review_interval_months=12, requires_acknowledgement=False)
+    if "ack_audience" in fields:
+        from keystone.core import audience
+
+        fields["ack_audience"] = audience.clean(fields["ack_audience"])
     apply_fields(d, fields, DOC_FIELDS)
     require_text(d.code, "Document code")
     require_text(d.title, "Title")
@@ -233,12 +237,36 @@ def portal_document(session: Session, actor, version_id: int):
     return att
 
 
+def _major(label: str | None) -> str:
+    return (label or "").split(".")[0]
+
+
+def acknowledged(session: Session, doc: PolicyDocument, acked_ids: set[int]) -> bool:
+    """Acknowledged the current version, or an earlier approved version with the same major number: a minor revision
+    (1.0 to 1.1) doesn't ask everyone to accept the document again; a major one (1.x to 2.0) does."""
+    if not doc.current_version_id:
+        return True
+    if doc.current_version_id in acked_ids:
+        return True
+    cur = session.get(PolicyVersion, doc.current_version_id)
+    if cur is None:
+        return False
+    major = _major(cur.version_label)
+    return any(v.id in acked_ids and v.approved_at is not None and _major(v.version_label) == major for v in doc.versions)
+
+
+def applies_to(session: Session, doc: PolicyDocument, user: User) -> bool:
+    from keystone.core import audience
+
+    return audience.matches(doc.ack_audience, audience.person_of(session, user.id)) if doc.ack_audience else True
+
+
 def pending_for(session: Session, user: User) -> list[PolicyVersion]:
-    """Current versions the user still has to acknowledge."""
+    """Current versions the user still has to acknowledge (only documents whose audience includes them)."""
     acked = set(session.scalars(select(PolicyAcknowledgement.version_id).where(PolicyAcknowledgement.user_id == user.id)))
     out: list[PolicyVersion] = []
     for d in documents(session):
-        if d.requires_acknowledgement and d.status == "approved" and d.current_version_id and d.current_version_id not in acked:
+        if d.requires_acknowledgement and d.status == "approved" and d.current_version_id and applies_to(session, d, user) and not acknowledged(session, d, acked):
             v = session.get(PolicyVersion, d.current_version_id)
             if v is not None:
                 out.append(v)
@@ -258,9 +286,13 @@ class AckStatus:
 def ack_status(session: Session, doc: PolicyDocument) -> AckStatus | None:
     if not doc.requires_acknowledgement or not doc.current_version_id:
         return None
-    total = session.scalar(select(func.count(User.id)).where(User.active.is_(True))) or 0
-    done = session.scalar(select(func.count(PolicyAcknowledgement.id)).join(User, User.id == PolicyAcknowledgement.user_id).where(PolicyAcknowledgement.version_id == doc.current_version_id, User.active.is_(True))) or 0
-    return AckStatus(done, total)
+    users = [u for u in session.scalars(select(User).where(User.active.is_(True))) if applies_to(session, doc, u)]
+    version_ids = [v.id for v in doc.versions]
+    acks: dict[int, set[int]] = {}
+    for user_id, version_id in session.execute(select(PolicyAcknowledgement.user_id, PolicyAcknowledgement.version_id).where(PolicyAcknowledgement.version_id.in_(version_ids))):
+        acks.setdefault(user_id, set()).add(version_id)
+    done = sum(1 for u in users if acknowledged(session, doc, acks.get(u.id, set())))
+    return AckStatus(done, len(users))
 
 
 def policy_attention(session: Session, on: date | None = None) -> dict[str, list[PolicyDocument]]:

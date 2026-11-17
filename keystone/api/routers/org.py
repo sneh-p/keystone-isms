@@ -51,6 +51,7 @@ class ObjectiveIn(In):
     owner_id: int | None = None
     due_date: date | None = None
     status: str | None = None
+    metric_key: str | None = None
 
 
 @router.get("")
@@ -105,7 +106,7 @@ def del_role(rid: int, user=Depends(perm("org.write")), db: Session = Depends(ge
     return {"ok": True}
 
 
-OBJ = ("id", "title", "measure", "target", "current_value", "owner_id", "due_date", "status")
+OBJ = ("id", "title", "measure", "target", "current_value", "owner_id", "due_date", "status", "metric_key")
 
 
 @router.get("/objectives")
@@ -121,6 +122,27 @@ def add_objective(body: ObjectiveIn, user=Depends(perm("org.write")), db: Sessio
 @router.patch("/objectives/{oid}")
 def edit_objective(oid: int, body: ObjectiveIn, user=Depends(perm("org.write")), db: Session = Depends(get_db)):
     return ser(org.save_objective(db, user, oid, **body.model_dump(exclude_unset=True)), OBJ)
+
+
+@router.get("/objectives/{oid}/measurements")
+def objective_measurements(oid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
+    from keystone.core.services import get_or_404
+    from keystone.reporting.dashboard import METRIC_LABELS
+
+    get_or_404(db, SecurityObjective, oid)
+    return {"measurements": [ser(m, ("id", "measured_on", "value", "note", "source", "recorded_by")) for m in org.measurements(db, oid)], "metrics": METRIC_LABELS}
+
+
+class MeasurementIn(In):
+    value: float
+    measured_on: date | None = None
+    note: str | None = None
+
+
+@router.post("/objectives/{oid}/measurements")
+def add_measurement(oid: int, body: MeasurementIn, user=Depends(perm("org.write")), db: Session = Depends(get_db)):
+    m = org.record_measurement(db, user, oid, value=body.value, measured_on=body.measured_on, note=body.note)
+    return ser(m, ("id", "measured_on", "value", "note", "source", "recorded_by"))
 
 
 # ---- deleting records created in error (keystone/core/deletion.py: refused while anything depends on them)

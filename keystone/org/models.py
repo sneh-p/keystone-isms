@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from keystone.core.db import Audited, Base, OwnedMixin, TimestampMixin
@@ -70,3 +70,18 @@ class SecurityObjective(Audited, OwnedMixin, TimestampMixin, Base):
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     due_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="on_track")  # on_track|at_risk|achieved|missed
+    metric_key: Mapped[str | None] = mapped_column(String(40))  # a dashboard metric recorded automatically each day
+
+
+class ObjectiveMeasurement(Base):
+    """One measurement of an objective (ISO 27001 9.1): manual, or taken from a dashboard metric by the daily job."""
+
+    __tablename__ = "objective_measurements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    objective_id: Mapped[int] = mapped_column(ForeignKey("security_objectives.id", ondelete="CASCADE"), nullable=False, index=True)
+    measured_on: Mapped[date] = mapped_column(Date, nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(10), nullable=False, default="manual")  # manual | metric
+    recorded_by: Mapped[str | None] = mapped_column(String(150))

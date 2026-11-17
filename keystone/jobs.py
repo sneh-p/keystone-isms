@@ -122,3 +122,12 @@ def config_baselines() -> None:
 
     with db.session_scope() as s:
         cfg.housekeeping(s)
+
+
+@register("access-review-schedule", minutes=720)
+def recurring_access_reviews() -> None:
+    """Start the next campaign of recurring access reviews whose date has come."""
+    from keystone.access_reviews import service as ar
+
+    with db.session_scope() as s:
+        ar.start_due_campaigns(s)

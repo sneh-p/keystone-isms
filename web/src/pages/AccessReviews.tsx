@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router";
-import { Plus, UserCheck } from "lucide-react";
-import { api } from "@/lib/api";
+import { Download, Plus, UserCheck } from "lucide-react";
+import { api, downloadUrl } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { fmtDate, titleCase } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, Sheet } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/input";
 import { PageHeader, Progress, Skeleton, Switch } from "@/components/ui/misc";
+import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/table";
 import { DateInput, OwnerSelect } from "@/components/forms";
 
@@ -24,14 +25,14 @@ export default function AccessReviews() {
   const open = params.get("open");
   const { data } = useApi<any[]>("/access-reviews");
   const [start, setStart] = useState<any>(null);
-  const create = useAction(() => api<any>("/access-reviews", { body: { title: start.title, due_date: start.due_date, owner_id: start.owner_id, sources: [...(start.keystone ? ["keystone"] : []), ...(start.identities ? ["identities"] : [])] } }),
+  const create = useAction(() => api<any>("/access-reviews", { body: { title: start.title, due_date: start.due_date, owner_id: start.owner_id, repeat_months: start.repeat_months ? Number(start.repeat_months) : null, sources: [...(start.keystone ? ["keystone"] : []), ...(start.identities ? ["identities"] : [])] } }),
     { success: "Campaign started. Reviewers see their items in My tasks.", invalidate: inv, onSuccess: (r: any) => { setStart(null); setParams({ open: String(r.id) }); } });
   if (!data) return <Skeleton className="h-96" />;
   const today = new Date().toISOString().slice(0, 10);
   return (
     <div className="animate-fade-in">
       <PageHeader icon={UserCheck} title="Access reviews" description="Periodic confirmation of who has access: managers keep, revoke or change each account, and the result becomes evidence."
-        actions={can("access_review.manage") && <Button onClick={() => setStart({ title: `Access review ${new Date().getFullYear()} Q${Math.floor(new Date().getMonth() / 3) + 1}`, due_date: null, owner_id: null, keystone: true, identities: true })}><Plus /> Start a campaign</Button>} />
+        actions={can("access_review.manage") && <Button onClick={() => setStart({ title: `Access review ${new Date().getFullYear()} Q${Math.floor(new Date().getMonth() / 3) + 1}`, due_date: null, owner_id: null, keystone: true, identities: true, repeat_months: "3" })}><Plus /> Start a campaign</Button>} />
       <DataTable rows={data} rowKey={(r: any) => r.id} onRowClick={(r: any) => setParams({ open: String(r.id) })} empty="No campaigns yet. Review access at least once a year, privileged access more often."
         columns={[
           { key: "t", header: "Campaign", cell: (r: any) => <div><div className="font-medium">{r.title}</div><div className="text-xs text-muted-foreground">{r.sources.map((x: string) => (x === "keystone" ? "Keystone accounts" : "Connected identities")).join(" + ")} · owner {name(r.owner_id)}</div></div> },
@@ -47,6 +48,7 @@ export default function AccessReviews() {
           <Switch checked={start.keystone} onChange={(v) => setStart({ ...start, keystone: v })} label="Keystone accounts and roles" />
           <Switch checked={start.identities} onChange={(v) => setStart({ ...start, identities: v })} label="Accounts from connected identity sources (Attack surface)" />
           <Field label="Due" required><DateInput value={start.due_date} onChange={(v) => setStart({ ...start, due_date: v })} /></Field>
+          <Field label="Repeat" hint="The next campaign starts by itself, with 30 days to complete."><Select ariaLabel="Repeat" value={start.repeat_months} onChange={(v) => setStart({ ...start, repeat_months: v })} allowEmpty emptyLabel="Don't repeat" options={[{ value: "3", label: "Every 3 months" }, { value: "6", label: "Every 6 months" }, { value: "12", label: "Every year" }]} /></Field>
           <Field label="Owner" hint="Defaults to you. Reviews items nobody else can, and receives the follow-up task."><OwnerSelect value={start.owner_id} onChange={(v) => setStart({ ...start, owner_id: v })} emptyLabel="Me" /></Field>
         </div>}
       </Dialog>
@@ -66,7 +68,10 @@ function Campaign({ id, review, onClose }: { id: number; review: any; onClose: (
   const isOpen = review?.status === "open";
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()} title={review?.title ?? "Access review"} subtitle={review && `Due ${fmtDate(review.due_date)} · ${review.decided}/${review.total} decided`}
-      actions={isOpen && can("access_review.manage") && <Button size="sm" disabled={review.decided !== review.total} loading={complete.isPending} onClick={() => complete.mutate(undefined)}>Complete campaign</Button>}>
+      actions={review && <>
+        <a href={downloadUrl(`/access-reviews/${review.id}/export.xlsx`)}><Button size="sm" variant="outline"><Download /> Export</Button></a>
+        {isOpen && can("access_review.manage") && <Button size="sm" disabled={review.decided !== review.total} loading={complete.isPending} onClick={() => complete.mutate(undefined)}>Complete campaign</Button>}
+      </>}>
       <div className="space-y-3">
         {can("access_review.manage") && <Switch checked={mine} onChange={setMine} label="Only items I review" />}
         {!data ? <Skeleton className="h-64" /> : (

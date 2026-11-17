@@ -86,7 +86,8 @@ export default function Portal() {
             <Link key={m.key} to={`/portal/training/${m.key}`} className={cn("rounded-lg border p-4 transition-colors hover:bg-muted/50", m.completed_at && "border-good/30")}>
               <div className="flex items-start justify-between gap-2"><span className="font-medium">{m.title}</span>{m.completed_at ? <Badge tone="good"><Check className="size-3" /> Done</Badge> : <Badge tone="outline">{m.minutes} min</Badge>}</div>
               <p className="mt-1 text-xs text-muted-foreground">{m.summary}</p>
-              {m.completed_at && <p className="mt-2 text-xs text-muted-foreground">Completed {fmtDate(m.completed_at)}</p>}
+              {m.completed_at ? <p className="mt-2 text-xs text-muted-foreground">Completed {fmtDate(m.completed_at)} · valid until {fmtDate(m.due)}</p>
+                : m.due && <p className={cn("mt-2 text-xs", m.due < new Date().toISOString().slice(0, 10) ? "font-medium text-critical" : "text-muted-foreground")}>Due {fmtDate(m.due)}</p>}
             </Link>
           ))}
         </CardBody>

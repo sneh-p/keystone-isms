@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { DateInput } from "@/components/forms";
 import { VendorPortalPanel } from "@/components/VendorPortalPanel";
+import { TemplatesButton } from "@/components/QuestionnaireTemplates";
 
 export default function Questionnaires() {
   const { can } = useAuth();
@@ -30,7 +31,7 @@ export default function Questionnaires() {
   return (
     <div className="animate-fade-in">
       <PageHeader icon={ClipboardList} title="Vendor questionnaires" description="Send a template, record the vendor's answers, and review the findings."
-        actions={can("vendor.write") && (tpls.data.length ? <Button onClick={() => setSend({ vendor_id: null, template_id: String(tpls.data![0].id), due_date: null })}><Send /> Send questionnaire</Button> : <Button onClick={() => load.mutate(undefined)} loading={load.isPending}>Load baseline template</Button>)} />
+        actions={can("vendor.write") && <><TemplatesButton />{tpls.data.length ? <Button onClick={() => setSend({ vendor_id: null, template_id: String(tpls.data![0].id), due_date: null })}><Send /> Send questionnaire</Button> : <Button onClick={() => load.mutate(undefined)} loading={load.isPending}>Load baseline template</Button>}</>} />
       {data.length === 0 ? <Empty icon={ClipboardList} title="No questionnaires yet">Send the Keystone baseline security questionnaire to a vendor.</Empty> : (
         <DataTable rows={data} rowKey={(q: any) => q.id} onRowClick={(q: any) => setParams({ open: String(q.id) })} search={(q: any) => `${vname.get(q.vendor_id)} ${q.template_name}`} columns={[
           { key: "v", header: "Vendor", cell: (q: any) => <span className="font-medium">{vname.get(q.vendor_id) as string}</span>, sort: (q: any) => String(vname.get(q.vendor_id)) },

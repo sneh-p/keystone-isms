@@ -11,7 +11,7 @@ from ..serialize import ser
 from .common import In
 
 router = APIRouter(prefix="/policies", tags=["policies"])
-DOC = ("id", "code", "title", "doc_type", "owner_id", "status", "review_interval_months", "next_review_date", "requires_acknowledgement", "current_version_id")
+DOC = ("id", "code", "title", "doc_type", "owner_id", "status", "review_interval_months", "next_review_date", "requires_acknowledgement", "ack_audience", "current_version_id")
 VER = ("id", "document_id", "version_label", "body", "attachment_id", "change_summary", "status", "author_id", "submitted_at", "approved_by_id", "approved_at", "approval_note", "approval_signed_name", "content_sha256")
 
 
@@ -50,6 +50,7 @@ class DocIn(In):
     owner_id: int | None = None
     review_interval_months: int | None = None
     requires_acknowledgement: bool | None = None
+    ack_audience: dict | None = None
     control_ids: list[int] | None = None
 
 

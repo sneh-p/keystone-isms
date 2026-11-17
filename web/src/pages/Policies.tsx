@@ -20,6 +20,7 @@ import { Markdown } from "@/components/Markdown";
 import { PolicyAssistant } from "@/components/PolicyAssistant";
 import { EnumSelect, OwnerSelect } from "@/components/forms";
 import { Comments } from "@/components/Comments";
+import { AckAudience, CompareVersions } from "@/components/PolicyExtras";
 
 const TYPES = ["policy", "standard", "procedure", "guideline", "plan"];
 
@@ -183,6 +184,7 @@ function DocumentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
               { key: "ap", header: "Approved", cell: (v: any) => (v.approved_at ? <div>{fmtDate(v.approved_at)} · {name(v.approved_by_id)}{v.approval_signed_name && <div className="text-xs text-muted-foreground">Signed “{v.approval_signed_name}”</div>}</div> : "—") },
               { key: "c", header: "Changes", cell: (v: any) => v.change_summary ?? "" },
               { key: "pdf", header: "", cell: (v: any) => <span className="flex gap-1">
+                <CompareVersions versions={data.versions} version={v} />
                 <a href={downloadUrl(`/policies/versions/${v.id}/pdf`)}><Button size="sm" variant="ghost"><Download /> PDF</Button></a>
                 {can("policy.write") && v.status !== "draft" && <a href={downloadUrl(`/policies/versions/${v.id}/pdf?signatures=true`)}><Button size="sm" variant="ghost" title="Includes the acknowledgement register">PDF + signatures</Button></a>}
               </span> },
@@ -190,7 +192,8 @@ function DocumentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
           ) },
           { value: "ack", label: "Acknowledgement", content: (
             <Section title="Staff acknowledgement">
-              {data.ack ? <div className="max-w-sm"><Progress label="Acknowledgement progress" value={data.ack.pct} tone={data.ack.pct === 100 ? "good" : "primary"} /><p className="mt-2 text-sm">{data.ack.acknowledged} of {data.ack.total} active users ({data.ack.pct}%)</p></div> : <p className="text-sm text-muted-foreground">Not required, or no approved version yet.</p>}
+              {data.ack ? <div className="max-w-sm"><Progress label="Acknowledgement progress" value={data.ack.pct} tone={data.ack.pct === 100 ? "good" : "primary"} /><p className="mt-2 text-sm">{data.ack.acknowledged} of {data.ack.total} people it applies to ({data.ack.pct}%)</p></div> : <p className="text-sm text-muted-foreground">Not required, or no approved version yet.</p>}
+              <AckAudience doc={data} />
             </Section>
           ) },
           { value: "discussion", label: "Discussion", content: <Comments kind="policy" id={id} /> },

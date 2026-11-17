@@ -42,8 +42,13 @@ def _managers(session: Session) -> dict[int, int]:
     return out
 
 
-def start(session: Session, actor, title: str, sources: list[str], due_date: date, owner_id: int | None = None) -> AccessReview:
+REPEATS = (3, 6, 12)
+
+
+def start(session: Session, actor, title: str, sources: list[str], due_date: date, owner_id: int | None = None, repeat_months: int | None = None) -> AccessReview:
     authorize(session, actor, "access_review.manage")
+    if repeat_months is not None and repeat_months not in REPEATS:
+        raise ValueError("Repeat every 3, 6 or 12 months.")
     if not sources or set(sources) - set(SOURCES):
         raise ValueError("Choose what to review: Keystone accounts, connected identities, or both.")
     if due_date <= today() or due_date > today() + timedelta(days=180):
@@ -51,7 +56,10 @@ def start(session: Session, actor, title: str, sources: list[str], due_date: dat
     owner = get_or_404(session, User, owner_id or actor.id)
     if not has_permission(owner, "access_review.manage"):
         raise ValueError("The campaign owner must be able to manage access reviews.")
-    r = AccessReview(title=require_text(title, "Title")[:300], sources=sorted(set(sources)), owner_id=owner.id, due_date=due_date, status="open")
+    from keystone.core.services import add_months
+
+    r = AccessReview(title=require_text(title, "Title")[:300], sources=sorted(set(sources)), owner_id=owner.id, due_date=due_date, status="open",
+                     repeat_months=repeat_months, next_start_on=add_months(today(), repeat_months) if repeat_months else None)
     session.add(r)
     session.flush()
     mgr = _managers(session)
@@ -191,3 +199,31 @@ def complete(session: Session, actor, review_id: int) -> AccessReview:
 def pending_for(session: Session, user_id: int) -> list[AccessReviewItem]:
     return list(session.scalars(select(AccessReviewItem).join(AccessReview, AccessReview.id == AccessReviewItem.review_id)
                                 .where(AccessReview.status == "open", AccessReviewItem.reviewer_id == user_id, AccessReviewItem.decision.is_(None))))
+
+
+def start_due_campaigns(session: Session, on: date | None = None) -> list[AccessReview]:
+    """The scheduled job: start the next campaign of every recurring one whose date has come. The new campaign takes over
+    the schedule, so each series has one pending start. It runs as the campaign owner."""
+    on = on or today()
+    started = []
+    for r in list(session.scalars(select(AccessReview).where(AccessReview.next_start_on.is_not(None), AccessReview.next_start_on <= on))):
+        owner = session.get(User, r.owner_id)
+        if owner is None or not owner.active or expired(owner) or not has_permission(owner, "access_review.manage"):
+            continue  # an administrator restarts it with a new owner
+        base = r.title.split(" (")[0]
+        new = start(session, owner, f"{base} ({on:%b %Y})", list(r.sources), on + timedelta(days=30), owner.id, r.repeat_months)
+        r.next_start_on = None
+        started.append(new)
+    session.flush()
+    return started
+
+
+def export_rows(session: Session, actor, review_id: int) -> tuple[list[str], list[list]]:
+    """The campaign's decisions, for the auditor: who reviewed what, the decision, and whether it was carried out."""
+    authorize(session, actor, "read")
+    r = get_or_404(session, AccessReview, review_id)
+    names = {u.id: u.display_name for u in session.scalars(select(User))}
+    headers = ["Account", "Source", "Access", "Reviewer", "Decision", "Comment", "Decided by", "Decided at", "Carried out"]
+    rows = [[i.subject, i.source, i.access, names.get(i.reviewer_id, ""), i.decision or "pending", i.comment or "", names.get(i.decided_by_id or 0, ""), i.decided_at, i.actioned_at]
+            for i in session.scalars(select(AccessReviewItem).where(AccessReviewItem.review_id == r.id).order_by(AccessReviewItem.id))]
+    return headers, rows

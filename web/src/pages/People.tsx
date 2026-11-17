@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
+import { TrainingAssignments } from "@/components/Training";
+import { Tabs } from "@/components/ui/tabs";
 import { Check, Link2, LogOut, Mail, Plus, Users as UsersIcon } from "lucide-react";
 import { CopyButton } from "@/components/CopyButton";
 import { absoluteLink, api } from "@/lib/api";
@@ -49,12 +51,9 @@ export default function People() {
         <Stat label="Not invited yet" value={ppl.filter((p: any) => !p.user_id).length} />
         <Stat label="Offboarding" value={ppl.filter((p: any) => p.status === "offboarding").length} tone={ppl.some((p: any) => p.status === "offboarding") ? "warning" : undefined} />
       </div>
-      <DataTable rows={ppl} rowKey={(p: any) => p.id} onRowClick={(p: any) => setParams({ open: String(p.id) })} search={(p: any) => `${p.full_name} ${p.email} ${p.department ?? ""}`} columns={[
-        { key: "n", header: "Person", cell: (p: any) => <div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">{p.full_name.split(" ").map((x: string) => x[0]).slice(0, 2).join("")}</span><div><div className="font-medium">{p.full_name}</div><div className="text-xs text-muted-foreground">{p.email}</div></div></div>, sort: (p: any) => p.full_name },
-        { key: "r", header: "Role", cell: (p: any) => <div><div>{p.job_title ?? "—"}</div><div className="text-xs text-muted-foreground">{p.department}{p.employment_type === "contractor" ? " · contractor" : ""}</div></div> },
-        { key: "s", header: "Status", cell: (p: any) => <Badge tone={STATUS_TONE[p.status]}>{titleCase(p.status)}</Badge>, sort: (p: any) => p.status },
-        { key: "c", header: "Compliance", cell: (p: any) => <Compliance c={p.compliance} /> },
-        { key: "d", header: "Start", cell: (p: any) => fmtDate(p.start_date), sort: (p: any) => p.start_date ?? "" },
+      <Tabs value={params.get("tab") ?? "people"} onValueChange={(v) => setParams({ tab: v })} tabs={[
+        { value: "people", label: "People", content: <PeopleTable ppl={ppl} onOpen={(id) => setParams({ open: String(id) })} /> },
+        { value: "training", label: "Training", content: <TrainingAssignments /> },
       ]} />
       <Dialog open={!!np} onOpenChange={(o) => !o && setNp(null)} title="Add person" wide footer={<Button loading={create.isPending} onClick={() => create.mutate(clean(np))}>Add</Button>}>
         {np && <div className="grid gap-4 sm:grid-cols-2">
@@ -68,6 +67,18 @@ export default function People() {
       </Dialog>
       {params.get("open") && <PersonDrawer person={ppl.find((p: any) => String(p.id) === params.get("open"))} items={data.offboarding_items} onClose={() => setParams({})} />}
     </div>
+  );
+}
+
+function PeopleTable({ ppl, onOpen }: { ppl: any[]; onOpen: (id: number) => void }) {
+  return (
+      <DataTable rows={ppl} rowKey={(p: any) => p.id} onRowClick={(p: any) => onOpen(p.id)} search={(p: any) => `${p.full_name} ${p.email} ${p.department ?? ""}`} columns={[
+        { key: "n", header: "Person", cell: (p: any) => <div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">{p.full_name.split(" ").map((x: string) => x[0]).slice(0, 2).join("")}</span><div><div className="font-medium">{p.full_name}</div><div className="text-xs text-muted-foreground">{p.email}</div></div></div>, sort: (p: any) => p.full_name },
+        { key: "r", header: "Role", cell: (p: any) => <div><div>{p.job_title ?? "—"}</div><div className="text-xs text-muted-foreground">{p.department}{p.employment_type === "contractor" ? " · contractor" : ""}</div></div> },
+        { key: "s", header: "Status", cell: (p: any) => <Badge tone={STATUS_TONE[p.status]}>{titleCase(p.status)}</Badge>, sort: (p: any) => p.status },
+        { key: "c", header: "Compliance", cell: (p: any) => <Compliance c={p.compliance} /> },
+        { key: "d", header: "Start", cell: (p: any) => fmtDate(p.start_date), sort: (p: any) => p.start_date ?? "" },
+      ]} />
   );
 }
 

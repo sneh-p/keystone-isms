@@ -60,6 +60,15 @@ When someone is offboarded, their page lists the assets they own so they can be 
   about it was approved, accepted, signed, notified or verified, and says what to do instead (close, retire,
   terminate). The audit log keeps the deleted record's last values.
 
+## Objectives and access reviews
+
+- **Objectives** (Settings → Organisation → Objectives). Record measurements over time and see the trend against the
+  target, or link an objective to a dashboard figure (for example overdue tasks) so it's measured every day.
+- **Access reviews** can repeat every 3, 6 or 12 months: the next campaign starts by itself with 30 days to
+  complete. Each campaign's decisions export to a spreadsheet for auditors.
+- The **dashboard** shows how many hosts and firewalls meet their configuration baselines, and lists failing and
+  out-of-date ones under "needs attention".
+
 ## Notifications
 
 The bell at the top of every page (and of the employee portal) lists what needs you: tasks and
@@ -144,6 +153,17 @@ assignee approves it: the note or files are filed as evidence on every linked co
 next occurrence is scheduled. Overdue tasks make their controls not ready.
 
 ## People and the employee portal
+
+- **Training assignment** (People → Training). Each module applies to everyone unless you limit it to departments or
+  employment types. Set how many days new starters have to finish it.
+  - Passes last a year, and a new version of a module asks for it again.
+  - Whoever manages people is reminded when someone is overdue, and the **training matrix** downloads everyone's
+    status.
+  - Employees see their due dates in the portal.
+- **Who must accept a policy** (Policies → Acknowledgement). Limit acceptance to departments or employment types. A
+  minor version (1.0 to 1.1) keeps earlier acceptances; a major one (2.0) asks everyone again.
+- **History → Compare** shows what changed between a policy version and the one before it.
+
 
 Add people under **People** and choose **Email invitation** (when email is set up) or create an
 invitation link and send it yourself. In the portal,
@@ -234,6 +254,22 @@ the knowledge base so the next questionnaire is faster.
   and export to Excel or Word. Keystone shows what has changed since the last approved version.
 
 ## Third parties
+
+- **Questionnaire templates** (Vendor questionnaires → Templates). Write your own questions with sections, answer
+  types, weights and the controls they evidence. A template that has been sent keeps its questions: change it by
+  saving a new version, which retires the old one from new sends.
+- **Offboarding a vendor.** Setting a vendor to offboarding shows a checklist:
+  - access removed
+  - data returned or deleted
+  - equipment returned
+  - DPA closed
+  - subprocessor lists and the Trust Center updated
+  - dependent risks reviewed
+
+  The vendor can't be set to terminated until every item is done, and the owner is reminded meanwhile.
+- **Reminders.** Owners are reminded of overdue questionnaires. To chase the vendor, send a new portal link (it
+  replaces the old one).
+
 
 **Vendor portal.** In a vendor questionnaire, enter the contact and choose **Email link to the contact** (when
 email is set up) or **Create vendor link** to copy it yourself. They answer the questions and upload supporting documents (PDF, PNG, JPG, DOCX or XLSX,

@@ -66,7 +66,7 @@ function VendorDrawer({ id, tiers, onClose, onCreated }: { id: string; tiers: an
     <Sheet open onOpenChange={(o) => !o && onClose()} title={isNew ? "New vendor" : data?.name ?? "Loading…"} subtitle={data ? `Tier ${data.tier} · ${data.tier_label}` : undefined}>
       {isNew ? <VendorForm tiers={tiers} onSaved={(v) => onCreated(v.id)} /> : !data ? <Skeleton className="h-64" /> : (
         <Tabs tabs={[
-          { value: "d", label: "Details", content: <VendorForm vendor={data} tiers={tiers} /> },
+          { value: "d", label: "Details", content: <>{data.status === "offboarding" && <VendorOffboarding vendor={data} />}<VendorForm vendor={data} tiers={tiers} /></> },
           { value: "q", label: `Questionnaires (${data.questionnaires.length})`, content: (
             <DataTable rows={data.questionnaires} rowKey={(q: any) => q.id} empty="None sent yet." columns={[
               { key: "t", header: "Template", cell: (q: any) => <Link className="text-primary hover:underline" to={`/questionnaires?open=${q.id}`}>{q.template_name}</Link> },
@@ -152,6 +152,32 @@ function VendorForm({ vendor, tiers, onSaved }: { vendor?: any; tiers: any[]; on
           {vendor && <Button variant="outline" loading={review.isPending} onClick={() => review.mutate(undefined)}><CheckCircle2 /> Record review</Button>}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Ending a supplier relationship (A.5.19, A.5.20): every item is ticked before the vendor can be set to terminated. */
+function VendorOffboarding({ vendor }: { vendor: any }) {
+  const { can } = useAuth();
+  const { data: items } = useApi<Record<string, string>>("/vendor-offboarding-items");
+  const tick = useAction((v: { item: string; done: boolean }) => api(`/vendors/${vendor.id}/offboarding`, { body: v }), { invalidate: ["/vendors", "/dashboard"] });
+  if (!items) return null;
+  const state = vendor.offboarding ?? {};
+  const left = Object.keys(items).filter((k) => !state[k]).length;
+  return (
+    <div className="mb-6 rounded-lg border border-warning/40 bg-warning/5 p-4">
+      <div className="mb-2 font-medium">Offboarding checklist</div>
+      <p className="mb-3 text-xs text-muted-foreground">{left ? `${left} item(s) left. Set the status to terminated once every item is done.` : "All done: you can set the status to terminated."}</p>
+      <ul className="space-y-1.5">
+        {Object.entries(items).map(([k, label]) => (
+          <li key={k}>
+            <label className="flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-2 text-sm">
+              <span className="flex items-center gap-2"><input type="checkbox" disabled={!can("vendor.write")} checked={!!state[k]} onChange={(e) => tick.mutate({ item: k, done: e.target.checked })} />{label}</span>
+              {state[k] && <span className="shrink-0 text-xs text-muted-foreground">{state[k].by} · {fmtDate(state[k].at, true)}</span>}
+            </label>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

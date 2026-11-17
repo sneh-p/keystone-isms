@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertOctagon, Building2, CheckCircle2, Download, HardDriveDownload, HeartPulse, KeyRound, Plus, ShieldAlert, Sparkles, Stamp, Trash2, UserCog, Activity, Mail } from "lucide-react";
 import { usageSummary } from "@/lib/ai-usage";
+import { ObjectiveMeasurements } from "@/components/ObjectiveMeasurements";
 import { api, downloadUrl } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -26,6 +27,7 @@ export function Organisation() {
   const parties = useApi<any[]>("/org/parties");
   const roles = useApi<any[]>("/org/roles");
   const objectives = useApi<any[]>("/org/objectives");
+  const [measure, setMeasure] = useState<any>(null);
   const [f, setF] = useState<any>(null);
   useEffect(() => { if (!isLoading) setF({ name: "", legal_name: "", industry: "", description: "", internal_issues: "", external_issues: "", risk_appetite: "", scope_statement: "", scope_inclusions: "", scope_exclusions: "", scope_interfaces: "", ...Object.fromEntries(Object.entries(data ?? {}).map(([k, v]) => [k, v ?? ""])) }); }, [data, isLoading]);
   const [party, setParty] = useState<any>(null);
@@ -81,7 +83,9 @@ export function Organisation() {
             { key: "p", header: "Current / target", cell: (o: any) => `${o.current_value ?? "—"} / ${o.target ?? "—"}` }, { key: "o", header: "Owner", cell: (o: any) => name(o.owner_id) },
             { key: "d", header: "Due", cell: (o: any) => fmtDate(o.due_date) },
             { key: "s", header: "Status", cell: (o: any) => <Badge tone={o.status === "achieved" ? "good" : o.status === "at_risk" ? "warning" : o.status === "missed" ? "critical" : "primary"}>{titleCase(o.status)}</Badge> },
+            { key: "m", header: "", cell: (o: any) => <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setMeasure(o); }}>Measurements</Button> },
           ]} />
+          {measure && <ObjectiveMeasurements objective={measure} onClose={() => setMeasure(null)} />}
         </> },
       ]} />
       <Dialog open={!!party} onOpenChange={(o) => !o && setParty(null)} title="Interested party" footer={<Button onClick={() => addParty.mutate(clean(party))}>Add</Button>}>
@@ -91,7 +95,7 @@ export function Organisation() {
         {role && <div className="space-y-3"><Field label="Role title"><Input value={role.title} onChange={(e) => setRole({ ...role, title: e.target.value })} /></Field><Field label="Holder"><OwnerSelect value={role.user_id} onChange={(v) => setRole({ ...role, user_id: v })} /></Field><Field label="Deputy"><OwnerSelect value={role.deputy_user_id} onChange={(v) => setRole({ ...role, deputy_user_id: v })} /></Field><Field label="Responsibilities and authorities"><Textarea value={role.responsibilities} onChange={(e) => setRole({ ...role, responsibilities: e.target.value })} /></Field></div>}
       </Dialog>
       <Dialog open={!!obj} onOpenChange={(o) => !o && setObj(null)} title="Security objective" footer={<Button onClick={() => saveObj.mutate(obj)}>Save</Button>}>
-        {obj && <div className="grid gap-3 sm:grid-cols-2"><Field label="Objective" className="sm:col-span-2"><Input value={obj.title} onChange={(e) => setObj({ ...obj, title: e.target.value })} /></Field><Field label="How it is measured" className="sm:col-span-2"><Input value={obj.measure ?? ""} onChange={(e) => setObj({ ...obj, measure: e.target.value })} /></Field><Field label="Target"><Input value={obj.target ?? ""} onChange={(e) => setObj({ ...obj, target: e.target.value })} /></Field><Field label="Current value"><Input value={obj.current_value ?? ""} onChange={(e) => setObj({ ...obj, current_value: e.target.value })} /></Field><Field label="Owner"><OwnerSelect value={obj.owner_id} onChange={(v) => setObj({ ...obj, owner_id: v })} /></Field><Field label="Due"><DateInput value={obj.due_date} onChange={(v) => setObj({ ...obj, due_date: v })} /></Field><Field label="Status"><EnumSelect value={obj.status} onChange={(v) => setObj({ ...obj, status: v })} values={["on_track", "at_risk", "achieved", "missed"]} /></Field></div>}
+        {obj && <div className="grid gap-3 sm:grid-cols-2"><Field label="Objective" className="sm:col-span-2"><Input value={obj.title} onChange={(e) => setObj({ ...obj, title: e.target.value })} /></Field><Field label="How it is measured" className="sm:col-span-2"><Input value={obj.measure ?? ""} onChange={(e) => setObj({ ...obj, measure: e.target.value })} /></Field><Field label="Target"><Input value={obj.target ?? ""} onChange={(e) => setObj({ ...obj, target: e.target.value })} /></Field><Field label="Current value"><Input value={obj.current_value ?? ""} onChange={(e) => setObj({ ...obj, current_value: e.target.value })} /></Field><Field label="Owner"><OwnerSelect value={obj.owner_id} onChange={(v) => setObj({ ...obj, owner_id: v })} /></Field><Field label="Due"><DateInput value={obj.due_date} onChange={(v) => setObj({ ...obj, due_date: v })} /></Field><Field label="Status"><EnumSelect value={obj.status} onChange={(v) => setObj({ ...obj, status: v })} values={["on_track", "at_risk", "achieved", "missed"]} /></Field><Field label="Measure automatically from" hint="Records the dashboard figure every day."><EnumSelect value={obj.metric_key ?? null} onChange={(v) => setObj({ ...obj, metric_key: v })} values={["open_risks", "high_risks", "open_incidents", "open_ncs", "controls_audited", "controls_implemented", "readiness_pct", "tasks_overdue"]} labels={{ open_risks: "Open risks", high_risks: "High and critical risks", open_incidents: "Open incidents", open_ncs: "Open nonconformities", controls_audited: "Controls audited", controls_implemented: "Controls implemented", readiness_pct: "Framework readiness (%)", tasks_overdue: "Overdue tasks" }} allowEmpty /></Field></div>}
       </Dialog>
     </div>
   );

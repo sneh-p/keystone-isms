@@ -53,6 +53,7 @@ class Vendor(Audited, OwnedMixin, TimestampMixin, Base):
     dpa_signed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     next_review_date: Mapped[date | None] = mapped_column(Date)
     notes: Mapped[str | None] = mapped_column(Text)
+    offboarding: Mapped[dict | None] = mapped_column(JSON)  # checklist item -> {"by", "at"} while offboarding
 
     assets = relationship("Asset", secondary=vendor_assets, lazy="selectin")
     risks = relationship("Risk", secondary=vendor_risks, lazy="selectin")

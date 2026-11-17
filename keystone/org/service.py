@@ -73,7 +73,12 @@ def save_objective(session: Session, actor, objective_id: int | None = None, **f
     obj = get_or_404(session, SecurityObjective, objective_id) if objective_id else SecurityObjective()
     if "status" in fields and fields["status"] not in OBJECTIVE_STATUSES:
         raise ValueError(f"status must be one of {OBJECTIVE_STATUSES}")
-    apply_fields(obj, fields, {"title", "measure", "target", "current_value", "owner_id", "due_date", "status"})
+    if fields.get("metric_key"):
+        from keystone.reporting.dashboard import METRIC_LABELS
+
+        if fields["metric_key"] not in METRIC_LABELS:
+            raise ValueError("Choose a metric from the list.")
+    apply_fields(obj, fields, {"title", "measure", "target", "current_value", "owner_id", "due_date", "status", "metric_key"})
     require_text(obj.title, "Objective title")
     session.add(obj)
     session.flush()
@@ -84,3 +89,34 @@ def delete_record(session: Session, actor, model, obj_id: int) -> None:
     authorize(session, actor, "org.write")
     session.delete(get_or_404(session, model, obj_id))
     session.flush()
+
+
+def record_measurement(session: Session, actor, objective_id: int, *, value: float, measured_on=None, note: str | None = None, source: str = "manual"):
+    from keystone.core.services import today
+
+    from .models import ObjectiveMeasurement
+
+    if actor is not None:
+        authorize(session, actor, "org.write")
+    obj = get_or_404(session, SecurityObjective, objective_id)
+    measured_on = measured_on or today()
+    if measured_on > today():
+        raise ValueError("A measurement can't be in the future.")
+    m = session.scalar(select(ObjectiveMeasurement).where(ObjectiveMeasurement.objective_id == obj.id, ObjectiveMeasurement.measured_on == measured_on,
+                                                          ObjectiveMeasurement.source == source))
+    if m is None:
+        m = ObjectiveMeasurement(objective_id=obj.id, measured_on=measured_on, source=source)
+        session.add(m)
+    m.value, m.note = float(value), (note or "").strip()[:2000] or None
+    m.recorded_by = (getattr(actor, "display_name", None) or getattr(actor, "username", None)) if actor is not None else "Keystone (daily metric)"
+    latest = session.scalar(select(ObjectiveMeasurement).where(ObjectiveMeasurement.objective_id == obj.id).order_by(ObjectiveMeasurement.measured_on.desc(), ObjectiveMeasurement.id.desc()).limit(1))
+    if latest is None or measured_on >= latest.measured_on:
+        obj.current_value = f"{value:g}"
+    session.flush()
+    return m
+
+
+def measurements(session: Session, objective_id: int, limit: int = 365) -> list:
+    from .models import ObjectiveMeasurement
+
+    return list(session.scalars(select(ObjectiveMeasurement).where(ObjectiveMeasurement.objective_id == objective_id).order_by(ObjectiveMeasurement.measured_on).limit(limit)))

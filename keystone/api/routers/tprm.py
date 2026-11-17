@@ -1,6 +1,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 from keystone.core.services import get_or_404
@@ -13,7 +14,7 @@ from ..serialize import ser
 from .common import In
 
 router = APIRouter(tags=["third parties"])
-VENDOR = ("id", "name", "legal_name", "website", "description", "services", "category", "owner_id", "status", "data_sensitivity", "operational_criticality", "access_level", "processes_personal_data", "computed_tier", "tier_override", "tier_override_reason", "contract_start", "contract_end", "dpa_signed", "next_review_date", "notes")
+VENDOR = ("id", "name", "legal_name", "website", "description", "services", "category", "owner_id", "status", "data_sensitivity", "operational_criticality", "access_level", "processes_personal_data", "computed_tier", "tier_override", "tier_override_reason", "contract_start", "contract_end", "dpa_signed", "next_review_date", "notes", "offboarding")
 
 
 def vendor_out(db, v: Vendor, detail=False) -> dict:
@@ -92,6 +93,66 @@ def q_out(q: VendorQuestionnaire, detail=False) -> dict:
 @router.get("/questionnaire-templates")
 def templates(user=Depends(perm("read")), db: Session = Depends(get_db)):
     return [ser(t, ("id", "name", "version", "description"), question_count=len(t.questions)) for t in tprm.templates(db)]
+
+
+@router.get("/questionnaire-templates/{tid}")
+def template(tid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
+    from keystone.tprm.models import QuestionnaireTemplate
+
+    t = get_or_404(db, QuestionnaireTemplate, tid)
+    return ser(t, ("id", "name", "version", "description", "questions", "active"), in_use=tprm.template_in_use(db, t.id), question_types=list(tprm.QUESTION_TYPES))
+
+
+class TemplateIn(In):
+    name: str = Field(min_length=1, max_length=200)
+    version: str = Field(min_length=1, max_length=20)
+    description: str | None = Field(None, max_length=4000)
+    questions: list[dict] = Field(max_length=200)
+
+
+@router.post("/questionnaire-templates")
+def create_template(body: TemplateIn, user=Depends(perm("vendor.write")), db: Session = Depends(get_db)):
+    t = tprm.save_template(db, user, name=body.name, version=body.version, description=body.description, questions=tprm.clean_questions(body.questions))
+    return {"id": t.id}
+
+
+class TemplatePatch(In):
+    name: str | None = Field(None, min_length=1, max_length=200)
+    version: str | None = Field(None, min_length=1, max_length=20)
+    description: str | None = Field(None, max_length=4000)
+    questions: list[dict] | None = Field(None, max_length=200)
+    active: bool | None = None
+
+
+@router.patch("/questionnaire-templates/{tid}")
+def update_template(tid: int, body: TemplatePatch, user=Depends(perm("vendor.write")), db: Session = Depends(get_db)):
+    t = tprm.update_template(db, user, tid, **body.model_dump(exclude_unset=True))
+    return {"id": t.id}
+
+
+class TemplateVersionIn(In):
+    version: str = Field(min_length=1, max_length=20)
+    questions: list[dict] | None = Field(None, max_length=200)
+
+
+@router.post("/questionnaire-templates/{tid}/versions")
+def new_template_version(tid: int, body: TemplateVersionIn, user=Depends(perm("vendor.write")), db: Session = Depends(get_db)):
+    return {"id": tprm.new_template_version(db, user, tid, body.version, body.questions).id}
+
+
+class OffboardingTickIn(In):
+    item: str = Field(max_length=40)
+    done: bool
+
+
+@router.post("/vendors/{vid}/offboarding")
+def vendor_offboarding(vid: int, body: OffboardingTickIn, user=Depends(perm("vendor.write")), db: Session = Depends(get_db)):
+    return vendor_out(db, tprm.tick_vendor_offboarding(db, user, vid, body.item, body.done), True)
+
+
+@router.get("/vendor-offboarding-items")
+def vendor_offboarding_items(user=Depends(perm("read"))):
+    return tprm.OFFBOARDING_ITEMS
 
 
 @router.post("/questionnaire-templates/load-defaults")

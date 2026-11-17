@@ -24,6 +24,8 @@ class AccessReview(Audited, OwnedMixin, TimestampMixin, Base):
     due_date: Mapped[date] = mapped_column(Date, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")  # open | completed
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    repeat_months: Mapped[int | None] = mapped_column(Integer)  # 3, 6 or 12: the next campaign starts by itself
+    next_start_on: Mapped[date | None] = mapped_column(Date)
 
 
 class AccessReviewItem(Audited, TimestampMixin, Base):

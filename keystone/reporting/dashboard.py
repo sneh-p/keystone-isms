@@ -57,6 +57,12 @@ def overview(session: Session, on: date | None = None) -> dict:
     add(len(vatt["contract_ending"]), "vendor contract(s) ending soon", "/vendors")
     add(len(patt["review_overdue"]), "policy review(s) overdue", "/policies")
     add(len(patt["awaiting_approval"]), "policy version(s) awaiting approval", "/policies")
+    from keystone.configcheck import service as cfg
+
+    per = cfg.overview(session)["platforms"].values()
+    config = {k: sum(p[k] for p in per) for k in ("targets", "compliant", "failing", "stale")}
+    add(config["failing"], "host(s) or firewall(s) failing their configuration baseline", "/configuration?tab=targets")
+    add(config["stale"], "host(s) or firewall(s) with out-of-date configuration results", "/configuration?tab=targets")
     from keystone.tasks import service as tsk
 
     open_tasks = tsk.list_tasks(session, include_closed=False)
@@ -101,6 +107,7 @@ def overview(session: Session, on: date | None = None) -> dict:
         "vendors": len(tprm.list_vendors(session)),
         "audit_coverage_pct": audit_cov["pct"],
         "audit_coverage": {"audited": audit_cov["audited"], "applicable": audit_cov["applicable"]},
+        "configuration": config,
         "attention": attention,
     }
 
@@ -163,10 +170,24 @@ def metrics(session: Session, on: date | None = None, ov: dict | None = None) ->
     }
 
 
+METRIC_LABELS = {
+    "open_risks": "Open risks", "high_risks": "High and critical risks", "open_incidents": "Open incidents", "open_ncs": "Open nonconformities",
+    "vendors": "Vendors", "controls_audited": "Controls audited", "controls_implemented": "Controls implemented",
+    "readiness_pct": "Framework readiness (%)", "tasks_overdue": "Overdue tasks",
+}
+
+
 def take_snapshot(session: Session, on: date | None = None) -> MetricSnapshot:
-    """Record today's metrics (idempotent: re-running the same day replaces that day's values)."""
+    """Record today's metrics (idempotent: re-running the same day replaces that day's values), and the measurement of
+    every objective linked to one of them."""
+    from keystone.org.models import SecurityObjective
+    from keystone.org.service import record_measurement
+
     on = on or date.today()
     values = metrics(session, on)
+    for o in session.scalars(select(SecurityObjective).where(SecurityObjective.metric_key.is_not(None))):
+        if o.metric_key in values:
+            record_measurement(session, None, o.id, value=values[o.metric_key], measured_on=on, source="metric")
     snap = session.scalar(select(MetricSnapshot).where(MetricSnapshot.day == on))
     if snap is None:
         snap = MetricSnapshot(day=on, values=values, taken_at=datetime.now())

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router";
-import { AlertTriangle, ArrowRight, CheckCircle2, Gauge, Handshake, LayoutDashboard, ShieldCheck, Siren, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Gauge, Handshake, LayoutDashboard, ServerCog, ShieldCheck, Siren, Wrench } from "lucide-react";
 import { useApi } from "@/lib/hooks";
 import { fmtDate, daysUntil, cn } from "@/lib/utils";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -49,13 +49,15 @@ export default function Dashboard() {
           </CardBody>
         </Card>
       )}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+      <div className={`grid grid-cols-2 gap-3 sm:gap-4 ${data.configuration.targets > 0 ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-5"}`}>
         <Stat label="Open risks" value={data.open_risks} icon={Gauge} to="/risks" hint={`${lv.Critical + lv.High} critical or high`} tone={lv.Critical ? "critical" : undefined} trend={trend("open_risks", false)} />
         <Stat label="Open incidents" value={data.open_incidents} icon={Siren} to="/incidents" tone={data.open_incidents ? "warning" : undefined} trend={trend("open_incidents", false)} />
         <Stat label="Open nonconformities" value={data.open_ncs} icon={Wrench} to="/nonconformities" trend={trend("open_ncs", false)} />
         <Stat label="Vendors" value={data.vendors} icon={Handshake} to="/vendors" trend={trend("vendors", null)} />
         <Stat label="Controls audited in 3 years" value={<>{data.audit_coverage.audited} <span className="text-base font-normal text-muted-foreground">of {data.audit_coverage.applicable}</span></>} icon={ShieldCheck} to="/audits"
           hint={`${data.audit_coverage_pct}% of applicable controls`} trend={trend("controls_audited", true)} />
+        {data.configuration.targets > 0 && <Stat label="Configuration compliant" value={<>{data.configuration.compliant} <span className="text-base font-normal text-muted-foreground">of {data.configuration.targets}</span></>} icon={ServerCog} to="/configuration"
+          hint={data.configuration.failing ? `${data.configuration.failing} failing their baseline` : "Hosts and firewalls meeting their baselines"} tone={data.configuration.failing ? "warning" : "good"} />}
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

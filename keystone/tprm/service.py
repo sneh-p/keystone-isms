@@ -77,7 +77,12 @@ VENDOR_FIELDS = {"name", "legal_name", "website", "description", "services", "ca
 def save_vendor(session: Session, actor, vendor_id: int | None = None, *, asset_ids: list[int] | None = None, risk_ids: list[int] | None = None, **fields) -> Vendor:
     authorize(session, actor, "vendor.write")
     v = get_or_404(session, Vendor, vendor_id) if vendor_id else Vendor(status="prospective", data_sensitivity="none", operational_criticality="low", access_level="none", processes_personal_data=False, dpa_signed=False)
+    was = v.status
     apply_fields(v, fields, VENDOR_FIELDS)
+    if v.status == "terminated" and was in ("active", "offboarding"):
+        missing = [label for k, label in OFFBOARDING_ITEMS.items() if k not in (v.offboarding or {})]
+        if missing:
+            raise ValueError("Finish the offboarding checklist before terminating: " + "; ".join(missing[:3]) + ("…" if len(missing) > 3 else "") + ". Set the vendor to offboarding to get the checklist.")
     require_text(v.name, "Vendor name")
     for val, allowed, label in ((v.status, VENDOR_STATUSES, "status"), (v.data_sensitivity, SENSITIVITY, "data_sensitivity"), (v.operational_criticality, CRITICALITY, "operational_criticality"), (v.access_level, ACCESS_LEVELS, "access_level")):
         if val not in allowed:
@@ -120,9 +125,11 @@ def latest_approved_assessment(session: Session, vendor_id: int) -> VendorAssess
 def vendor_attention(session: Session, on: date | None = None) -> dict[str, list[Vendor]]:
     on = on or today()
     cfg = load_config()
-    out: dict[str, list[Vendor]] = {"review_overdue": [], "contract_ending": [], "needs_assessment": [], "no_dpa": [], "questionnaire_overdue": []}
+    out: dict[str, list[Vendor]] = {"review_overdue": [], "contract_ending": [], "needs_assessment": [], "no_dpa": [], "questionnaire_overdue": [], "offboarding": []}
     overdue_q = {q.vendor_id for q in session.scalars(select(VendorQuestionnaire).where(VendorQuestionnaire.status == "sent", VendorQuestionnaire.due_date < on))}
     for v in list_vendors(session):
+        if v.status == "offboarding":
+            out["offboarding"].append(v)
         if v.status not in ("active", "prospective"):
             continue
         if v.next_review_date and v.next_review_date < on:
@@ -160,6 +167,110 @@ def validate_questions(questions: list[dict]) -> None:
         require_text(q.get("text"), f"Question {q['id']} text")
         if float(q.get("weight", 1)) < 0:
             raise ValueError(f"Question {q['id']}: weight must not be negative")
+
+
+QUESTION_KEYS = {"id", "section", "text", "type", "weight", "control", "required"}
+MAX_QUESTIONS = 200
+
+
+def clean_questions(questions: list[dict]) -> list[dict]:
+    """Questions as stored: known keys only, trimmed text, ids short and unique, weights 0-10, control codes checked by
+    format only (a template may name a control a later content pack adds)."""
+    import re
+
+    if not isinstance(questions, list) or not 0 < len(questions) <= MAX_QUESTIONS:
+        raise ValueError(f"A template has between 1 and {MAX_QUESTIONS} questions.")
+    out = []
+    for q in questions:
+        if not isinstance(q, dict) or set(q) - QUESTION_KEYS:
+            raise ValueError("Each question has an id, section, text, type, weight, control and required flag only.")
+        qid = str(q.get("id") or "").strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,30}", qid):
+            raise ValueError(f"Question id {qid[:30]!r}: letters, digits, - and _ (up to 30).")
+        try:
+            weight = float(q.get("weight", 1))
+        except (TypeError, ValueError):
+            raise ValueError(f"Question {qid}: weight must be a number.") from None
+        if not 0 <= weight <= 10:
+            raise ValueError(f"Question {qid}: weight must be between 0 and 10.")
+        control = str(q.get("control") or "").strip() or None
+        if control and not re.fullmatch(r"KC-[A-Z]{2,4}-[0-9]{2,3}", control):
+            raise ValueError(f"Question {qid}: {control[:20]!r} isn't a Keystone control code.")
+        out.append({"id": qid, "section": str(q.get("section") or "General").strip()[:100], "text": str(q.get("text") or "").strip()[:2000],
+                    "type": q.get("type"), "weight": weight, **({"control": control} if control else {}), "required": bool(q.get("required"))})
+    validate_questions(out)
+    return out
+
+
+def template_in_use(session: Session, template_id: int) -> bool:
+    return session.scalar(select(VendorQuestionnaire.id).where(VendorQuestionnaire.template_id == template_id)) is not None
+
+
+def update_template(session: Session, actor, template_id: int, *, name: str | None = None, version: str | None = None, description: str | None = None,
+                    questions: list[dict] | None = None, active: bool | None = None) -> QuestionnaireTemplate:
+    """Edit a template. Once questionnaires were sent from it, its questions are fixed (answers refer to them): save a
+    new version instead."""
+    authorize(session, actor, "vendor.write")
+    t = get_or_404(session, QuestionnaireTemplate, template_id)
+    if questions is not None:
+        if template_in_use(session, t.id):
+            raise ValueError("Questionnaires were sent from this template, so its questions can't change. Save it as a new version.")
+        t.questions = clean_questions(questions)
+    if name is not None:
+        t.name = require_text(name, "Template name")[:200]
+    if version is not None:
+        t.version = require_text(version, "Version")[:20]
+    if description is not None:
+        t.description = description.strip()[:4000] or None
+    if active is not None:
+        t.active = active
+    session.flush()
+    return t
+
+
+def new_template_version(session: Session, actor, template_id: int, version: str, questions: list[dict] | None = None) -> QuestionnaireTemplate:
+    """A copy with a new version label (and optionally changed questions); the old version is retired from new sends."""
+    authorize(session, actor, "vendor.write")
+    old = get_or_404(session, QuestionnaireTemplate, template_id)
+    version = require_text(version, "Version")[:20]
+    if session.scalar(select(QuestionnaireTemplate.id).where(QuestionnaireTemplate.name == old.name, QuestionnaireTemplate.version == version)):
+        raise ValueError(f"Version {version} of {old.name} already exists.")
+    t = QuestionnaireTemplate(name=old.name, version=version, description=old.description, questions=clean_questions(questions if questions is not None else list(old.questions)), active=True)
+    session.add(t)
+    old.active = False
+    session.flush()
+    return t
+
+
+# ---- offboarding a vendor (A.5.19, A.5.20, A.5.22) ----------------------------------------------------------------
+
+OFFBOARDING_ITEMS = {
+    "access_removed": "Their accounts, VPN, API keys and integrations are removed",
+    "data_returned_or_deleted": "Our data is returned or deleted, confirmed in writing",
+    "assets_returned": "Equipment and documents we lent them are returned",
+    "dpa_closed": "The data processing agreement is closed (or not applicable)",
+    "subprocessors_updated": "Subprocessor lists and the Trust Center no longer name them",
+    "risks_reviewed": "Risks and assets that depended on them are reviewed",
+}
+
+
+def tick_vendor_offboarding(session: Session, actor, vendor_id: int, item: str, done: bool) -> Vendor:
+    from keystone.core.db import utcnow
+
+    authorize(session, actor, "vendor.write")
+    v = get_or_404(session, Vendor, vendor_id)
+    if v.status != "offboarding":
+        raise ValueError("Set the vendor to offboarding first.")
+    if item not in OFFBOARDING_ITEMS:
+        raise ValueError("Unknown checklist item.")
+    state = dict(v.offboarding or {})
+    if done:
+        state[item] = {"by": getattr(actor, "display_name", None) or actor.username, "at": utcnow().isoformat(timespec="seconds")}
+    else:
+        state.pop(item, None)
+    v.offboarding = state
+    session.flush()
+    return v
 
 
 def save_template(session: Session, actor, *, name: str, version: str, questions: list[dict], description: str | None = None, template_id: int | None = None) -> QuestionnaireTemplate:

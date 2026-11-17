@@ -25,6 +25,7 @@ from .models import DEVICE_CHECKS, OFFBOARDING_ITEMS, PERSON_STATUSES, DeviceAtt
 
 INVITE_DAYS = 7
 TRAINING_VALID_DAYS = 365
+DEFAULT_DUE_DAYS = 30
 DEVICE_VALID_DAYS = 180
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -248,7 +249,7 @@ def status_for_user(session: Session, user: auth.User, on: date | None = None) -
     devices = list(session.scalars(select(DeviceAttestation).where(DeviceAttestation.user_id == user.id)))
     return PersonStatus(
         policies_total=len(docs), policies_done=len(docs) - len(pending),
-        training_total=len(modules()), training_done=len(_current_completions(session, user.id, on)),
+        training_total=len(mine := modules_for(session, user)), training_done=len([k for k in _current_completions(session, user.id, on) if k in {m["key"] for m in mine}]),
         device_ok=None if not devices else all(device_compliant(d, on) for d in devices), devices=len(devices),
     )
 
@@ -276,8 +277,107 @@ def submit_quiz(session: Session, user: auth.User, key: str, answers: list[int])
 
 
 def my_training(session: Session, user: auth.User) -> list[dict]:
-    done = _current_completions(session, user.id, today())
-    return [{"key": m["key"], "title": m["title"], "minutes": m["minutes"], "summary": m["summary"], "version": m["version"], "completed_at": done[m["key"]].completed_at if m["key"] in done else None} for m in modules()]
+    on = today()
+    done = _current_completions(session, user.id, on)
+    person = session.scalar(select(Person).where(Person.user_id == user.id))
+    return [{"key": m["key"], "title": m["title"], "minutes": m["minutes"], "summary": m["summary"], "version": m["version"],
+             "completed_at": done[m["key"]].completed_at if m["key"] in done else None, "due": training_due(session, m["key"], person, user, done.get(m["key"]))}
+            for m in modules_for(session, user)]
+
+
+# ---- training assignment (A.6.3): who takes which module, by when -------------------------------------
+
+def assignments(session: Session) -> dict:
+    from .models import TrainingAssignment
+
+    return {a.module_key: a for a in session.scalars(select(TrainingAssignment))}
+
+
+def modules_for(session: Session, user: auth.User, assigned: dict | None = None) -> list[dict]:
+    from keystone.core import audience
+
+    assigned = assigned if assigned is not None else assignments(session)
+    person = None
+    out = []
+    for m in modules():
+        a = assigned.get(m["key"])
+        if a is not None and a.audience:
+            person = person if person is not None else audience.person_of(session, user.id)
+            if not audience.matches(a.audience, person):
+                continue
+        out.append(m)
+    return out
+
+
+def training_due(session: Session, key: str, person, user: auth.User, completion: TrainingCompletion | None, assigned: dict | None = None) -> date:
+    """When the module is due: a year after the last pass, or `due_days` after the person started (or after the
+    module was assigned, or the account created, whichever is later)."""
+    if completion is not None:
+        return completion.completed_at.date() + timedelta(days=TRAINING_VALID_DAYS)
+    a = (assigned if assigned is not None else assignments(session)).get(key)
+    starts = [d for d in ((person.start_date if person else None), (a.created_at.date() if a else None), user.created_at.date() if getattr(user, "created_at", None) else None) if d]
+    return max(starts or [today()]) + timedelta(days=a.due_days if a else DEFAULT_DUE_DAYS)
+
+
+def set_assignment(session: Session, actor, module_key: str, *, audience: dict | None, due_days: int):
+    from keystone.core import audience as aud
+
+    from .models import TrainingAssignment
+
+    authorize(session, actor, "people.write")
+    module(module_key)
+    if not 1 <= due_days <= 365:
+        raise ValueError("Give between 1 and 365 days.")
+    a = session.scalar(select(TrainingAssignment).where(TrainingAssignment.module_key == module_key)) or TrainingAssignment(module_key=module_key)
+    a.audience, a.due_days = aud.clean(audience), due_days
+    session.add(a)
+    session.flush()
+    return a
+
+
+def training_matrix(session: Session, actor) -> tuple[list[str], list[list]]:
+    """Every person with an account, against every module that applies to them: passed (until when), due or overdue."""
+    authorize(session, actor, "read")
+    on = today()
+    assigned = assignments(session)
+    mods = modules()
+    headers = ["Person", "Department", "Type", "Status"] + [m["title"] for m in mods]
+    rows = []
+    for p in list_people(session):
+        u = session.get(auth.User, p.user_id) if p.user_id else None
+        if u is None:
+            continue
+        mine = {m["key"] for m in modules_for(session, u, assigned)}
+        done = _current_completions(session, u.id, on)
+        cells = []
+        for m in mods:
+            if m["key"] not in mine:
+                cells.append("not assigned")
+            elif m["key"] in done:
+                cells.append(f"passed until {training_due(session, m['key'], p, u, done[m['key']], assigned).isoformat()}")
+            else:
+                due = training_due(session, m["key"], p, u, None, assigned)
+                cells.append(f"{'overdue since' if due < on else 'due'} {due.isoformat()}")
+        rows.append([p.full_name, p.department or "", p.employment_type, p.status] + cells)
+    return headers, rows
+
+
+def training_overdue(session: Session, on: date | None = None) -> dict[str, int]:
+    """How many people are overdue on each module (for reminders to people managers)."""
+    on = on or today()
+    assigned = assignments(session)
+    out: dict[str, int] = {}
+    for p in list_people(session):
+        if p.status not in ("active", "onboarding") or not p.user_id:
+            continue
+        u = session.get(auth.User, p.user_id)
+        if u is None or not u.active:
+            continue
+        done = _current_completions(session, u.id, on)
+        for m in modules_for(session, u, assigned):
+            if m["key"] not in done and training_due(session, m["key"], p, u, None, assigned) < on:
+                out[m["title"]] = out.get(m["title"], 0) + 1
+    return out
 
 
 def attest_device(session: Session, user: auth.User, *, device_name: str, os: str, checks: dict, filename: str | None = None, data: bytes | None = None) -> DeviceAttestation:

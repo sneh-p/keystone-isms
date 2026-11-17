@@ -97,11 +97,17 @@ def routed_items(session: Session, on: date | None = None) -> dict[int, list[dic
         to_owner(a.owner_id, item(f"Review asset {a.name}: check owner, classification and location", f"/assets?open={a.id}", a.review_date), "asset_review",
                  "asset review(s) due on assets without an owner", "/assets")
 
+    # Training (A.6.3): people overdue, one line per module for whoever manages people
+    from keystone.people import service as people_svc
+
+    for title, n in people_svc.training_overdue(session, on).items():
+        to_holders("people.write", item(f"{n} person(s) overdue on the training “{title}”", "/people?tab=training"))
+
     # Vendors
     vatt = tprm.vendor_attention(session, on)
     texts = {"review_overdue": "Review vendor {name}: the periodic review is due", "contract_ending": "Contract with {name} ends soon: renew or exit",
              "needs_assessment": "Assess vendor {name}: tier 1-2 without a current approved assessment", "no_dpa": "Get a data processing agreement signed with {name}",
-             "questionnaire_overdue": "Chase {name}: their questionnaire is overdue"}
+             "questionnaire_overdue": "Chase {name}: their questionnaire is overdue", "offboarding": "Finish offboarding {name}: access, data, DPA and subprocessor lists"}
     for key, items in vatt.items():
         for v in items:
             vendor = v if isinstance(v, Vendor) else session.get(Vendor, getattr(v, "vendor_id", None))

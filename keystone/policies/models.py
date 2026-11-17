@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from keystone.core.db import Audited, Base, OwnedMixin, TimestampMixin
@@ -32,6 +32,7 @@ class PolicyDocument(Audited, OwnedMixin, TimestampMixin, Base):
     review_interval_months: Mapped[int] = mapped_column(Integer, nullable=False, default=12)
     next_review_date: Mapped[date | None] = mapped_column(Date)
     requires_acknowledgement: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ack_audience: Mapped[dict | None] = mapped_column(JSON)  # keystone/core/audience.py: None means everyone
     current_version_id: Mapped[int | None] = mapped_column(ForeignKey("policy_versions.id", use_alter=True))
 
     versions: Mapped[list[PolicyVersion]] = relationship(back_populates="document", foreign_keys="PolicyVersion.document_id", cascade="all, delete-orphan", order_by="PolicyVersion.id")
