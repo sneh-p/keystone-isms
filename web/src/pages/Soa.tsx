@@ -61,6 +61,8 @@ export default function Soa() {
               { key: "app", header: "Applicable", cell: (r: any) => (r.applicable ? <Badge tone="good">Yes</Badge> : <Badge tone="outline">No</Badge>), sort: (r: any) => String(r.applicable) },
               { key: "just", header: "Justification", cell: (r: any) => <div className="max-w-md"><div className="line-clamp-2">{r.justification}</div><div className="text-xs text-muted-foreground">{BASIS[r.basis]}</div></div> },
               { key: "impl", header: "Implementation", cell: (r: any) => <StatusBadge status={r.implementation} />, sort: (r: any) => r.implementation },
+              { key: "ev", header: "Evidence", cell: (r: any) => (r.applicable ? <span className={r.evidence ? "tabular-nums" : "text-xs text-muted-foreground"}>{r.evidence || "None current"}</span> : "—"), sort: (r: any) => r.evidence },
+              { key: "test", header: "Last test", cell: (r: any) => (r.last_test ? <span className="flex flex-col gap-0.5"><StatusBadge status={r.last_test} label={r.last_test === "partially_effective" ? "Partly effective" : undefined} /><span className="text-xs text-muted-foreground">{fmtDate(r.last_tested_on)}</span></span> : <span className="text-xs text-muted-foreground">Not tested</span>), sort: (r: any) => r.last_tested_on ?? "" },
             ]}
           />
         </>

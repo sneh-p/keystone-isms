@@ -34,6 +34,21 @@ per record; owners by username or email; dates as YYYY-MM-DD; yes/no for flags),
 every row with the same rules as the forms and lists the problems by row number. Nothing is saved until every row is
 valid and you confirm; the import is all or nothing, up to 1,000 rows at a time.
 
+## Assets
+
+Open an asset to see everything linked to it:
+- risks, incidents and vendors
+- business processes that depend on it
+- configuration checks on it
+- devices your attack-surface tools report (with suggested matches)
+
+The asset page also has:
+- **Mark reviewed**, which sets the next review a year on. Owners are reminded two weeks before a review is due.
+- Acquisition and disposal dates.
+- Discussion.
+
+When someone is offboarded, their page lists the assets they own so they can be returned or reassigned.
+
 ## Finding, exporting and deleting
 
 - **Search**: press ⌘K (Ctrl+K) and type at least two characters. Below the pages, the palette lists matching
@@ -177,6 +192,12 @@ the knowledge base so the next questionnaire is faster.
 
 ## Risk
 
+- **Treatment plan** downloads the risk treatment plan (ISO 27001 6.1.3 e). It lists each open risk with its owner,
+  levels, treatment option and controls, one row per treatment action, plus any acceptance and the next review date.
+- **Linked records.** A risk shows the incidents where it materialised and the vendors involved, and a risk can be
+  sent to your ticketing system.
+
+
 - Add each risk with its threat, vulnerability and consequence. Rate **inherent** likelihood and
   impact (before controls) and **residual** (with controls). The matrix and the risk appetite
   are in `config/risk_matrix.yaml`.
@@ -190,6 +211,19 @@ the knowledge base so the next questionnaire is faster.
   decisions; they are not predictions.
 
 ## Controls, evidence and the Statement of Applicability
+
+- **Evidence for several controls.** One document can support several controls ("Controls" on the evidence). It
+  then counts for each of them.
+- **Accept or reject evidence.** Someone other than the person who added it decides. Rejected evidence shows the
+  reason and no longer counts as current.
+- **Control tests.** Auditors and ISMS managers record design or operating-effectiveness tests: the method, the
+  sample, the result and the evidence examined. The control owner can't test their own control. An ineffective result
+  can raise a nonconformity straight away.
+- **Your own mappings and controls.** Map a control to more requirements ("Map to a requirement"), or create your
+  own controls (KC-CUS-nn) for requirements you meet differently. Keystone's own mappings can't be removed.
+- **Statement of Applicability.** It shows each requirement's current evidence and latest test result, and the
+  exports include them.
+
 
 - **Controls**: set each control's status, owner and how it's implemented. "Not applicable"
   needs a reason. Record reviews to keep the review cycle current.

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/dialog";
 import { Field, Textarea, Input } from "@/components/ui/input";
-import { KeyValue, PageHeader, Section, Skeleton, Stat, Tooltip } from "@/components/ui/misc";
+import { KeyValue, PageHeader, Section, Skeleton, Stat } from "@/components/ui/misc";
 import { Markdown } from "@/components/Markdown";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status";
@@ -18,6 +18,7 @@ import { ViewAttachment } from "@/components/DocumentViewer";
 import { Comments } from "@/components/Comments";
 import { ControlNarrativeButton } from "@/components/AiAssist";
 import { SavedViews } from "@/components/SavedViews";
+import { ControlMappings, ControlTests, EvidenceActions } from "@/components/ControlAssurance";
 
 export const CONTROL_STATUS = [
   { value: "not_started", label: "Not started" },
@@ -125,6 +126,7 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   const { can } = useAuth();
   const { people, name } = usePeople();
   const { data } = useApi<any>(`/controls/${id}`);
+  const allControls = useApi<any[]>("/controls").data;
   const ready = useApi<any>(`/controls/${id}/readiness`);
   const [f, setF] = useState<any>(null);
   const [editing, setEditing] = useState(false);
@@ -193,22 +195,22 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
             )}
           </Section>
           <Section title="Satisfies">
-            <div className="space-y-3">
-              {Object.entries(data.requirements).map(([fw, reqs]: any) => (
-                <div key={fw}>
-                  <div className="mb-1 text-xs font-medium text-muted-foreground">{fw}</div>
-                  <div className="flex flex-wrap gap-1">{reqs.map((r: any) => <Tooltip key={r.ref} content={r.title}><span><Badge tone="primary" className="font-mono">{r.ref}</Badge></span></Tooltip>)}</div>
-                </div>
-              ))}
-            </div>
+            <ControlMappings controlId={id} mappings={data.mappings} />
+          </Section>
+          <Section title="Tests">
+            <ControlTests controlId={id} ownerId={data.owner_id} tests={data.tests} evidence={data.evidence} />
           </Section>
           <Section title={`Evidence (${data.evidence.length})`} action={can("evidence.write") && <Link to={`/evidence?control=${id}`} className="text-sm text-primary hover:underline">Add evidence</Link>}>
             {data.evidence.length === 0 ? <p className="text-sm text-muted-foreground">No evidence yet.</p> : (
               <ul className="divide-y rounded-md border">
                 {data.evidence.map((e: any) => (
-                  <li key={e.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                    <span className="min-w-0 truncate">{e.title}</span>
-                    <span className="flex items-center gap-2 text-xs text-muted-foreground">{e.valid_until && `until ${fmtDate(e.valid_until)}`}<StatusBadge status={e.state} />{e.attachment_id && <ViewAttachment id={e.attachment_id} filename={e.filename ?? ""} title={e.title} size="icon" />}</span>
+                  <li key={e.id} className="space-y-1 px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate">{e.title}{e.common_control_id !== id && <span className="ml-1 text-xs text-muted-foreground">(shared)</span>}</span>
+                      <span className="flex items-center gap-2 text-xs text-muted-foreground">{e.valid_until && `until ${fmtDate(e.valid_until)}`}<StatusBadge status={e.state} />{e.review_decision === "accepted" && <Badge tone="good">Accepted</Badge>}{e.attachment_id && <ViewAttachment id={e.attachment_id} filename={e.filename ?? ""} title={e.title} size="icon" />}</span>
+                    </div>
+                    {e.review_decision === "rejected" && e.review_note && <div className="text-xs text-critical">Rejected: {e.review_note}</div>}
+                    <EvidenceActions evidence={e} controls={allControls} />
                   </li>
                 ))}
               </ul>

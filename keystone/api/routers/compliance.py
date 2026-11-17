@@ -96,7 +96,9 @@ def controls(user=Depends(perm("read")), db: Session = Depends(get_db)):
     current: dict[int, int] = {}
     for e in db.scalars(select(Evidence).where(Evidence.superseded.is_(False))):
         if ctl.evidence_state(e) in ("current", "expiring"):
-            current[e.common_control_id] = current.get(e.common_control_id, 0) + 1
+            for cid in e.control_ids:
+                current[cid] = current.get(cid, 0) + 1
+    tested = ctl.last_tests(db)
     out = []
     for c in fw.controls(db):
         d = control_summary(c)
@@ -104,6 +106,8 @@ def controls(user=Depends(perm("read")), db: Session = Depends(get_db)):
         d["review_overdue"] = c.id in overdue
         d["evidence_current"] = current.get(c.id, 0)
         d["readiness"] = tsk.control_readiness(db, c).score if c.status != "not_applicable" else None
+        t = tested.get(c.id)
+        d["last_test"] = {"tested_on": t.tested_on, "result": t.result, "test_type": t.test_type} if t else None
         out.append(d)
     return out
 
@@ -114,6 +118,8 @@ def control(cid: int, user=Depends(perm("read")), db: Session = Depends(get_db))
     d = control_summary(c)
     d["requirements"] = {k: [{"ref": r.ref, "title": r.title} for r in v] for k, v in fw.requirements_for_control(c).items()}
     d["evidence"] = [evidence_out(e) for e in ctl.evidence_for(db, cid)]
+    d["mappings"] = [{"id": m.id, "framework": m.requirement.framework.code, "ref": m.requirement.ref, "title": m.requirement.title, "source": m.source} for m in c.mappings]
+    d["tests"] = [ser(t, TEST) for t in ctl.tests_for(db, cid)]
     d["risks"] = [{"id": r.id, "ref": r.ref, "title": r.title, "status": r.status} for r in db.query(Risk).join(risk_controls).filter(risk_controls.c.common_control_id == cid)]
     return d
 
@@ -155,8 +161,14 @@ def review_control(cid: int, user=Depends(perm("control.write")), db: Session = 
 
 # ---- evidence ------------------------------------------------------------------------
 
+TEST = ("id", "common_control_id", "test_type", "method", "tested_on", "tester_id", "sample", "result", "findings", "evidence_ids", "nonconformity_id", "created_at")
+
+
 def evidence_out(e) -> dict:
-    return ser(e, ("id", "common_control_id", "title", "kind", "description", "attachment_id", "url", "collected_on", "valid_until", "reviewed_by_id", "reviewed_at", "superseded", "created_by_id"), state=ctl.evidence_state(e), filename=e.attachment.filename if e.attachment else None)
+    return ser(e, ("id", "common_control_id", "title", "kind", "description", "attachment_id", "url", "collected_on", "valid_until", "reviewed_by_id", "reviewed_at", "superseded", "created_by_id",
+                   "review_decision", "review_note"),
+               state=ctl.evidence_state(e), filename=e.attachment.filename if e.attachment else None, control_ids=e.control_ids,
+               also_controls=[{"id": c.id, "code": c.code} for c in e.also_controls if c.id != e.common_control_id])
 
 
 @router.get("/evidence")
@@ -186,6 +198,77 @@ def review_evidence(eid: int, body: EvReview, user=Depends(perm("evidence.write"
     return evidence_out(ctl.review_evidence(db, user, eid, body.superseded))
 
 
+class EvControlsIn(In):
+    control_ids: list[int] = Field(max_length=50)
+
+
+@router.post("/evidence/{eid}/controls")
+def evidence_controls(eid: int, body: EvControlsIn, user=Depends(perm("evidence.write")), db: Session = Depends(get_db)):
+    return evidence_out(ctl.set_evidence_controls(db, user, eid, body.control_ids))
+
+
+class EvDecisionIn(In):
+    decision: str = Field(max_length=10)
+    note: str | None = Field(None, max_length=4000)
+
+
+@router.post("/evidence/{eid}/decision")
+def evidence_decision(eid: int, body: EvDecisionIn, user=Depends(perm("evidence.write")), db: Session = Depends(get_db)):
+    return evidence_out(ctl.decide_evidence(db, user, eid, body.decision, body.note))
+
+
+# ---- control tests, mappings and custom controls
+
+class ControlTestIn(In):
+    test_type: str = Field(max_length=10)
+    method: str = Field(max_length=20)
+    tested_on: date
+    result: str = Field(max_length=20)
+    sample: str | None = Field(None, max_length=4000)
+    findings: str | None = Field(None, max_length=8000)
+    evidence_ids: list[int] = Field(default_factory=list, max_length=20)
+    raise_nc: bool = False
+
+
+@router.post("/controls/{cid}/tests")
+def record_test(cid: int, body: ControlTestIn, user=Depends(perm("audit.findings")), db: Session = Depends(get_db)):
+    return ser(ctl.record_test(db, user, cid, **body.model_dump()), TEST)
+
+
+class MappingIn(In):
+    requirement_id: int
+
+
+@router.post("/controls/{cid}/mappings")
+def add_mapping(cid: int, body: MappingIn, user=Depends(perm("framework.write")), db: Session = Depends(get_db)):
+    get_or_404(db, CommonControl, cid)
+    m = fw.add_user_mapping(db, user, cid, body.requirement_id)
+    return {"id": m.id, "source": m.source}
+
+
+@router.delete("/control-mappings/{mid}")
+def remove_mapping(mid: int, user=Depends(perm("framework.write")), db: Session = Depends(get_db)):
+    from keystone.frameworks.models import ControlMapping
+
+    m = get_or_404(db, ControlMapping, mid)
+    if m.source != "user":
+        raise ValueError("Keystone's own mappings come with the content packs; mark the control not applicable instead.")
+    fw.remove_mapping(db, user, mid)
+    return {"ok": True}
+
+
+class NewControlIn(In):
+    title: str = Field(min_length=1, max_length=300)
+    domain: str = Field("Custom", max_length=60)
+    description: str | None = Field(None, max_length=8000)
+    owner_id: int | None = None
+
+
+@router.post("/controls")
+def create_control(body: NewControlIn, user=Depends(perm("framework.write")), db: Session = Depends(get_db)):
+    return control_summary(ctl.create_control(db, user, **body.model_dump()))
+
+
 @router.get("/attachments/{aid}")
 def download(aid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
     a = attachment_for_download(db, user, aid)  # checked against the record the file belongs to
@@ -208,7 +291,8 @@ def soa(code: str, user=Depends(perm("read")), db: Session = Depends(get_db)):
     rows = ctl.soa_rows(db, f.id)
     return {
         "framework": ser(f, ("id", "code", "name", "version")),
-        "rows": [{"requirement_id": r.requirement.id, "ref": r.requirement.ref, "title": r.requirement.title, "applicable": r.applicable, "justification": r.justification, "basis": r.justification_source, "implementation": r.implementation, "controls": r.controls, "risks": r.risks} for r in rows],
+        "rows": [{"requirement_id": r.requirement.id, "ref": r.requirement.ref, "title": r.requirement.title, "applicable": r.applicable, "justification": r.justification, "basis": r.justification_source, "implementation": r.implementation, "controls": r.controls, "risks": r.risks,
+                  "evidence": r.evidence, "last_test": r.last_test, "last_tested_on": r.last_tested_on} for r in rows],
         "approvals": [ser(a, ("id", "version", "approved_by_id", "approved_at", "note")) for a in ctl.soa_approvals(db, f.id)],
         "changed_since_approval": ctl.soa_changes_since_approval(db, f.id),
     }

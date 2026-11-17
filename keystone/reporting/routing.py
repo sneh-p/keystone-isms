@@ -90,6 +90,13 @@ def routed_items(session: Session, on: date | None = None) -> dict[int, list[dic
     for i in iatt["containment_overdue"]:
         to_owner(i.owner_id, item(f"Containment overdue for {i.ref} {i.title}", f"/incidents?open={i.id}"), "containment", "incident(s) with overdue containment and no owner", "/incidents")
 
+    # Assets: reviews due within two weeks (A.5.9)
+    from keystone.assets import service as asset_svc
+
+    for a in asset_svc.review_due(session, on):
+        to_owner(a.owner_id, item(f"Review asset {a.name}: check owner, classification and location", f"/assets?open={a.id}", a.review_date), "asset_review",
+                 "asset review(s) due on assets without an owner", "/assets")
+
     # Vendors
     vatt = tprm.vendor_attention(session, on)
     texts = {"review_overdue": "Review vendor {name}: the periodic review is due", "contract_ending": "Contract with {name} ends soon: renew or exit",

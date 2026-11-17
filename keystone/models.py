@@ -42,3 +42,4 @@ from keystone.outbound.models import Delivery, Destination
 from keystone.apitokens.models import ApiToken
 from keystone.reporting.models import ReportSchedule
 from keystone.configcheck.models import ConfigAgentSettings, ConfigBaseline, ConfigCustomCheck, ConfigFinding, ConfigRule, ConfigSnapshot, ConfigTarget
+from keystone.controls.models import ControlTest, evidence_controls

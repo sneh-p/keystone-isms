@@ -273,3 +273,26 @@ def add_from_library(session: Session, actor, key: str, owner_id: int | None = N
     return save_risk(session, actor, title=sc["title"], category=sc["category"], threat=sc["threat"], vulnerability=sc["vulnerability"],
                      consequence=sc["consequence"], inherent_likelihood=sc["likelihood"], inherent_impact=sc["impact"], owner_id=owner_id,
                      control_ids=[c.id for c in controls])
+
+
+def treatment_plan(session: Session, actor) -> tuple[list[str], list[list]]:
+    """The risk treatment plan (ISO 27001 6.1.3 e, 8.3): every open risk with its owner, levels, chosen option, controls,
+    treatment actions and any acceptance. One row per action, so the plan reads as a work list."""
+    from keystone.core.auth import User
+
+    authorize(session, actor, "read")
+    names: dict[int | None, str] = {u.id: u.display_name for u in session.scalars(select(User))}
+    headers = ["Risk", "Title", "Owner", "Inherent level", "Treatment", "Rationale", "Controls", "Action", "Action owner", "Due", "Action status",
+               "Residual level", "Accepted until", "Next review"]
+    rows: list[list] = []
+    for r in list_risks(session):
+        acc = active_acceptance(r)
+        base = [r.ref, r.title, names.get(r.owner_id, ""), inherent_level(r) or "", (r.treatment_option or "").replace("_", " "), r.treatment_rationale or "",
+                ", ".join(c.code for c in r.controls)]
+        tail = [residual_level(r) or "", acc.expires_on if acc else None, r.review_date]
+        actions = [a for a in r.actions if a.status != "cancelled"]
+        if not actions:
+            rows.append(base + ["", "", None, ""] + tail)
+        for a in actions:
+            rows.append(base + [a.title, names.get(a.owner_id, ""), a.due_date, a.status.replace("_", " ")] + tail)
+    return headers, rows

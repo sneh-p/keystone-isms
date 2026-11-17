@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from datetime import date, datetime
+
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from keystone.core.db import Audited, Base, OwnedMixin, TimestampMixin
@@ -29,6 +31,11 @@ class Asset(Audited, OwnedMixin, TimestampMixin, Base):
     contains_personal_data: Mapped[bool] = mapped_column(nullable=False, default=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     tags: Mapped[str | None] = mapped_column(String(300))
+    # A.5.9: the inventory is reviewed; A.5.11/A.7.14: when it was acquired and disposed of.
+    review_date: Mapped[date | None] = mapped_column(Date)
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    acquired_on: Mapped[date | None] = mapped_column(Date)
+    disposed_on: Mapped[date | None] = mapped_column(Date)
 
     @property
     def criticality(self) -> int:

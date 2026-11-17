@@ -10,10 +10,11 @@ from keystone.risk.models import Risk
 
 from ..deps import get_db, perm
 from ..serialize import ser
-from .common import In
+from .common import In, xlsx_response
 
 router = APIRouter(tags=["risk"])
-ASSET = ("id", "name", "asset_type", "description", "owner_id", "custodian", "location", "classification", "confidentiality", "integrity", "availability", "contains_personal_data", "status", "tags")
+ASSET = ("id", "name", "asset_type", "description", "owner_id", "custodian", "location", "classification", "confidentiality", "integrity", "availability", "contains_personal_data", "status", "tags",
+         "review_date", "last_reviewed_at", "acquired_on", "disposed_on")
 
 
 class AssetIn(In):
@@ -30,6 +31,9 @@ class AssetIn(In):
     contains_personal_data: bool | None = None
     status: str | None = None
     tags: str | None = None
+    review_date: date | None = None
+    acquired_on: date | None = None
+    disposed_on: date | None = None
 
 
 @router.get("/assets")
@@ -41,6 +45,32 @@ def list_assets(include_retired: bool = False, user=Depends(perm("read")), db: S
 def create_asset(body: AssetIn, user=Depends(perm("asset.write")), db: Session = Depends(get_db)):
     a = assets.save_asset(db, user, **body.model_dump(exclude_unset=True))
     return ser(a, ASSET, criticality=a.criticality)
+
+
+@router.get("/assets/{aid}")
+def get_asset(aid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
+    from keystone.assets.models import Asset
+    from keystone.core.services import get_or_404
+
+    a = get_or_404(db, Asset, aid)
+    return ser(a, ASSET, criticality=a.criticality, links=assets.links(db, a.id))
+
+
+@router.post("/assets/{aid}/review")
+def review_asset(aid: int, user=Depends(perm("asset.write")), db: Session = Depends(get_db)):
+    a = assets.mark_reviewed(db, user, aid)
+    return ser(a, ASSET, criticality=a.criticality)
+
+
+class DeviceLinkIn(In):
+    device_id: int
+    linked: bool = True
+
+
+@router.post("/assets/{aid}/devices")
+def link_device(aid: int, body: DeviceLinkIn, user=Depends(perm("asset.write")), db: Session = Depends(get_db)):
+    assets.link_device(db, user, aid, body.device_id, body.linked)
+    return {"ok": True}
 
 
 @router.patch("/assets/{aid}")
@@ -60,6 +90,15 @@ def risk_out(r: Risk, detail: bool = False) -> dict:
             asset_ids=[a.id for a in r.assets], control_ids=[c.id for c in r.controls], controls=[{"id": c.id, "code": c.code, "title": c.title} for c in r.controls],
             accepted_until=acc.expires_on if acc else None)
     if detail:
+        from sqlalchemy.orm import object_session
+
+        from keystone.incidents.models import Incident
+        from keystone.tprm.models import Vendor, vendor_risks
+
+        db = object_session(r)
+        if db is not None:
+            d["incidents"] = [{"id": i.id, "ref": i.ref, "title": i.title, "status": i.status} for i in db.query(Incident).filter(Incident.risk_id == r.id)]
+            d["vendors"] = [{"id": v.id, "name": v.name} for v in db.query(Vendor).join(vendor_risks, vendor_risks.c.vendor_id == Vendor.id).filter(vendor_risks.c.risk_id == r.id)]
         d["actions"] = [ser(a, ("id", "title", "description", "common_control_id", "owner_id", "due_date", "status", "completed_at")) for a in r.actions]
         d["acceptances"] = [ser(a, ("id", "level_at_acceptance", "justification", "accepted_by_id", "accepted_at", "expires_on", "revoked_at")) for a in r.acceptances]
         d["assets"] = [{"id": a.id, "name": a.name} for a in r.assets]
@@ -82,6 +121,16 @@ def list_risks(include_closed: bool = False, user=Depends(perm("read")), db: Ses
         "attention": {k: [r.id for r in v] for k, v in att.items()},
         "heat_map": {"inherent": risk.heat_map(rs, "inherent"), "residual": risk.heat_map(rs, "residual"), "current": risk.heat_map(rs, "current")},
     }
+
+
+@router.get("/risks/treatment-plan.xlsx")
+def treatment_plan(user=Depends(perm("read")), db: Session = Depends(get_db)):
+    from keystone.core.audit import log_event
+    from keystone.reporting.exports import xlsx
+
+    headers, rows = risk.treatment_plan(db, user)
+    log_event(db, user, "export", "Risk", None, "Risk treatment plan exported")
+    return xlsx_response(xlsx({"Treatment plan": (headers, rows)}, title="Risk treatment plan"), "risk-treatment-plan.xlsx")
 
 
 @router.get("/risks/{rid}")

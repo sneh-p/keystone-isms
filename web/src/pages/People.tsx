@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { Check, Link2, LogOut, Mail, Plus, Users as UsersIcon } from "lucide-react";
 import { CopyButton } from "@/components/CopyButton";
 import { absoluteLink, api } from "@/lib/api";
@@ -136,6 +136,7 @@ function PersonDrawer({ person: p, items, onClose }: { person: any; items: Recor
                     </label>
                   );
                 })}
+                <OwnedAssets personId={p.id} />
                 <Button className="mt-2" disabled={Object.keys(items).some((k) => !p.offboarding?.[k])} loading={complete.isPending} onClick={() => complete.mutate(undefined)}>Complete offboarding</Button>
               </div>
             )}
@@ -143,5 +144,17 @@ function PersonDrawer({ person: p, items, onClose }: { person: any; items: Recor
         )}
       </div>
     </Sheet>
+  );
+}
+
+/** Assets the leaver owns: return them, or hand them to a new owner, before offboarding completes (A.5.11). */
+function OwnedAssets({ personId }: { personId: number }) {
+  const { data } = useApi<any[]>(`/people/${personId}/assets`);
+  if (!data?.length) return null;
+  return (
+    <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
+      <div className="font-medium">They own {data.length} asset(s). Return them or give them a new owner:</div>
+      <ul className="mt-1 list-disc pl-5">{data.map((a) => <li key={a.id}><Link className="text-primary hover:underline" to={`/assets?open=${a.id}`}>{a.name}</Link> <span className="text-xs text-muted-foreground">({titleCase(a.asset_type)}, {a.classification})</span></li>)}</ul>
+    </div>
   );
 }

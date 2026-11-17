@@ -56,7 +56,7 @@ def xlsx(sheets: dict[str, tuple[Sequence[str], Iterable[Sequence[Any]]]], title
     return buf.getvalue()
 
 
-SOA_HEADERS = ["Ref", "Requirement", "Applicable", "Justification", "Implementation status", "Keystone controls", "Related risks"]
+SOA_HEADERS = ["Ref", "Requirement", "Applicable", "Justification", "Implementation status", "Keystone controls", "Related risks", "Current evidence", "Last test"]
 
 
 def soa_table(rows, include_licensed_text: bool = False) -> tuple[list[str], list[list]]:
@@ -65,7 +65,8 @@ def soa_table(rows, include_licensed_text: bool = False) -> tuple[list[str], lis
         headers.insert(2, "Official text (licensed)")
     out = []
     for r in rows:
-        line = [r.requirement.ref, r.requirement.title, "Yes" if r.applicable else "No", r.justification, r.implementation.replace("_", " "), r.controls, r.risks]
+        test = f"{r.last_test.replace('_', ' ')} ({r.last_tested_on.isoformat()})" if r.last_test and r.last_tested_on else ""
+        line = [r.requirement.ref, r.requirement.title, "Yes" if r.applicable else "No", r.justification, r.implementation.replace("_", " "), r.controls, r.risks, r.evidence, test]
         if include_licensed_text:
             line.insert(2, r.requirement.licensed_text or "")
         out.append(line)

@@ -38,6 +38,7 @@ class AsmDevice(Base):
     # property -> {"value", "source", "at"}: the latest value any tool reported, and which tool said so
     properties: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     retired: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    asset_id: Mapped[int | None] = mapped_column(Integer)  # the Asset register entry this device belongs to (plain add_column)
 
 
 class AsmSourceRecord(Base):

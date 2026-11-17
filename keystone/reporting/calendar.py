@@ -47,6 +47,10 @@ def events(session: Session, actor, start: date, end: date) -> list[dict]:
         add(c.next_review_date, "control_review", f"Review control {c.code} {c.title}", f"/controls?open={c.id}", c.owner_id)
     for d in session.scalars(select(PolicyDocument).where(PolicyDocument.next_review_date.between(start, end), PolicyDocument.status == "approved")):
         add(d.next_review_date, "policy_review", f"Review policy {d.code} {d.title}", f"/policies?open={d.id}", d.owner_id)
+    from keystone.assets.models import Asset
+
+    for asset in session.scalars(select(Asset).where(Asset.review_date.between(start, end), Asset.status == "active")):
+        add(asset.review_date, "asset_review", f"Review asset {asset.name}", f"/assets?open={asset.id}", asset.owner_id)
     for r in session.scalars(select(Risk).where(Risk.review_date.between(start, end), Risk.status != "closed")):
         add(r.review_date, "risk_review", f"Review risk {r.ref} {r.title}", f"/risks?open={r.id}", r.owner_id)
     for v in session.scalars(select(Vendor).where(Vendor.status == "active")):

@@ -1,13 +1,14 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { BookOpen, Calculator, CheckCircle2, Gauge, Pencil, Plus, ShieldAlert } from "lucide-react";
-import { api } from "@/lib/api";
+import { BookOpen, Calculator, CheckCircle2, Download, Gauge, Pencil, Plus, ShieldAlert } from "lucide-react";
+import { api, downloadUrl } from "@/lib/api";
 import { useAction, useApi, usePeople, useUnsavedGuard } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { fmtDate, fmtMoney, titleCase } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { TicketButton, useTickets } from "@/components/TicketButton";
 import { Dialog, Sheet } from "@/components/ui/dialog";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { KeyValue, PageHeader, Section, Skeleton, Stat } from "@/components/ui/misc";
@@ -43,7 +44,7 @@ export default function Risks() {
   return (
     <div className="animate-fade-in">
       <PageHeader icon={Gauge} title="Risk register" description={`Risk appetite: residual risk up to ${matrix.data.appetite_max_level}. Matrix and appetite are calibration starting points in config/risk_matrix.yaml.`}
-        actions={can("risk.write") && <><ImportButton register="risks" noun="risks" invalidate={["/risks", "/dashboard"]} /><RiskLibrary onAdded={(id) => setParams({ open: String(id) })} /><RiskSuggestButton /><Button onClick={() => setParams({ open: "new" })}><Plus /> New risk</Button></>} />
+        actions={<><a href={downloadUrl("/risks/treatment-plan.xlsx")}><Button variant="outline"><Download /> Treatment plan</Button></a>{can("risk.write") && <><ImportButton register="risks" noun="risks" invalidate={["/risks", "/dashboard"]} /><RiskLibrary onAdded={(id) => setParams({ open: String(id) })} /><RiskSuggestButton /><Button onClick={() => setParams({ open: "new" })}><Plus /> New risk</Button></>}</>} />
       <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label="Open risks" value={data.risks.filter((r: any) => r.status !== "closed").length} />
         <Stat label="Above appetite, untreated" value={att.above_appetite_untreated.length} tone={att.above_appetite_untreated.length ? "critical" : undefined} />
@@ -167,6 +168,7 @@ function LI({ label, lk, im, matrix, onL, onI, disabled }: any) {
 
 function RiskView({ risk, matrix }: { risk: any; matrix: any }) {
   const { name } = usePeople();
+  const tickets = useTickets("risk", [risk.id]);
   const assets = useApi<any[]>("/assets");
   const controls = useApi<any[]>("/controls");
   const li = (l: number | null, i: number | null) => (l && i ? <span className="flex flex-wrap items-center gap-2"><LevelBadge level={matrix.grid[i - 1][l - 1]} /> likelihood {l} · {matrix.likelihood[l]}, impact {i} · {matrix.impact[i]}</span> : "Not assessed");
@@ -184,10 +186,15 @@ function RiskView({ risk, matrix }: { risk: any; matrix: any }) {
       <KeyValue items={[["Description", text(risk.description)], ["Threat", text(risk.threat)], ["Vulnerability", text(risk.vulnerability)], ["Consequence", text(risk.consequence)], ["Treatment rationale", text(risk.treatment_rationale)]]} />
       <div className="space-y-2 text-sm">
         <div className="font-medium">Affected assets</div>
-        <div className="flex flex-wrap gap-1.5">{risk.asset_ids.length ? risk.asset_ids.map((a: number) => <Badge key={a} tone="outline">{assets.data?.find((x) => x.id === a)?.name ?? `Asset ${a}`}</Badge>) : <span className="text-muted-foreground">None linked</span>}</div>
+        <div className="flex flex-wrap gap-1.5">{risk.asset_ids.length ? risk.asset_ids.map((a: number) => <Link key={a} to={`/assets?open=${a}`}><Badge tone="outline">{assets.data?.find((x) => x.id === a)?.name ?? `Asset ${a}`}</Badge></Link>) : <span className="text-muted-foreground">None linked</span>}</div>
         <div className="pt-2 font-medium">Treating controls</div>
         <div className="flex flex-wrap gap-1.5">{risk.control_ids.length ? risk.control_ids.map((c: number) => { const x = controls.data?.find((y) => y.id === c); return <Link key={c} to={`/controls?open=${c}`}><Badge tone="primary" className="font-mono">{x ? x.code : `Control ${c}`}</Badge></Link>; }) : <span className="text-muted-foreground">None linked</span>}</div>
+        <div className="pt-2 font-medium">Incidents where it materialised</div>
+        <div className="flex flex-wrap gap-1.5">{risk.incidents?.length ? risk.incidents.map((i: any) => <Link key={i.id} to={`/incidents?open=${i.id}`}><Badge tone="warning">{i.ref} {i.title}</Badge></Link>) : <span className="text-muted-foreground">None</span>}</div>
+        <div className="pt-2 font-medium">Vendors involved</div>
+        <div className="flex flex-wrap gap-1.5">{risk.vendors?.length ? risk.vendors.map((v: any) => <Link key={v.id} to={`/vendors?open=${v.id}`}><Badge tone="outline">{v.name}</Badge></Link>) : <span className="text-muted-foreground">None</span>}</div>
       </div>
+      <TicketButton kind="risk" id={risk.id} tickets={tickets[risk.id]} />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { previewKind, ViewAttachment } from "@/components/DocumentViewer";
+import { EvidenceActions } from "@/components/ControlAssurance";
 
 const EVIDENCE_PAGE = 1000; // matches the API default page size (SC-ERR-004)
 
@@ -45,24 +46,25 @@ export default function Evidence() {
         <Stat label="Current" value={count("current")} tone="good" />
         <Stat label="Expiring in 30 days" value={count("expiring")} tone={count("expiring") ? "warning" : undefined} />
         <Stat label="Expired" value={count("expired")} tone={count("expired") ? "critical" : undefined} />
-        <Stat label="Superseded" value={count("superseded")} />
+        <Stat label="Rejected or superseded" value={count("rejected") + count("superseded")} tone={count("rejected") ? "critical" : undefined} />
       </div>
       <DataTable
         rows={data}
         rowKey={(e: any) => e.id}
         search={(e: any) => `${e.title} ${ctlName.get(e.common_control_id) ?? ""}`}
         columns={[
-          { key: "title", header: "Evidence", cell: (e: any) => <div><div className="font-medium">{e.title}</div><div className="text-xs text-muted-foreground">{ctlName.get(e.common_control_id)}</div></div>, sort: (e: any) => e.title },
+          { key: "title", header: "Evidence", cell: (e: any) => <div><div className="font-medium">{e.title}</div><div className="text-xs text-muted-foreground">{[e.common_control_id, ...e.also_controls.map((c: any) => c.id)].map((id: number) => ctlName.get(id)).filter(Boolean).join(" · ")}</div>{e.review_decision === "rejected" && <div className="text-xs text-critical">Rejected: {e.review_note}</div>}</div>, sort: (e: any) => e.title },
           { key: "kind", header: "Kind", cell: (e: any) => e.kind },
           { key: "collected", header: "Collected", cell: (e: any) => fmtDate(e.collected_on), sort: (e: any) => e.collected_on },
           { key: "valid", header: "Valid until", cell: (e: any) => fmtDate(e.valid_until), sort: (e: any) => e.valid_until ?? "" },
-          { key: "state", header: "State", cell: (e: any) => <StatusBadge status={e.state} />, sort: (e: any) => e.state },
+          { key: "state", header: "State", cell: (e: any) => <span className="flex flex-wrap gap-1"><StatusBadge status={e.state} />{e.review_decision === "accepted" && <StatusBadge status="approved" label="Accepted" />}</span>, sort: (e: any) => e.state },
           { key: "act", header: "", className: "w-40", cell: (e: any) => (
             <div className="flex justify-end gap-1">
               {e.attachment_id && previewKind(e.filename) && <ViewAttachment id={e.attachment_id} filename={e.filename} title={e.title} size="icon" />}
               {e.attachment_id && <a href={downloadUrl(`/attachments/${e.attachment_id}`)} onClick={(x) => x.stopPropagation()}><Button size="icon" variant="ghost" aria-label="Download"><Download /></Button></a>}
               {e.url && <a href={e.url} target="_blank" rel="noreferrer noopener" className="self-center text-xs text-primary hover:underline">Open link</a>}
-              {can("evidence.write") && e.state !== "superseded" && <Button size="sm" variant="ghost" onClick={() => review.mutate({ id: e.id, superseded: false })}>Reviewed</Button>}
+              {can("evidence.write") && e.state !== "superseded" && e.state !== "rejected" && <Button size="sm" variant="ghost" onClick={() => review.mutate({ id: e.id, superseded: true })}>Superseded</Button>}
+              <EvidenceActions evidence={e} />
             </div>
           ) },
         ]}

@@ -177,3 +177,14 @@ def accept(body: AcceptIn, request: Request, response: Response, token: str | No
     t, ws = sessions.create(db, user.id, request.client.host if request.client else None, request.headers.get("user-agent"))
     _set_cookie(request, response, t)
     return _me(user, ws)
+
+
+@router.get("/people/{pid}/assets")
+def person_assets(pid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
+    """Assets the person owns (through their Keystone account): to return or hand over when they leave (A.5.11)."""
+    from keystone.assets.service import assets_of_user
+    from keystone.core.services import get_or_404
+    from keystone.people.models import Person
+
+    p = get_or_404(db, Person, pid)
+    return [{"id": a.id, "name": a.name, "asset_type": a.asset_type, "classification": a.classification} for a in (assets_of_user(db, p.user_id) if p.user_id else [])]
