@@ -4,3 +4,54 @@
 personal_data_notification_hours: 72
 # Target time to contain, by severity (hours).
 containment_target_hours: {critical: 4, high: 24, medium: 72, low: 168}
+# Response checklists by category (ISO/IEC 27035 response phase). Keystone-written starting points: adjust them to
+# your environment. Each step is ticked on the incident with who and when.
+playbooks:
+  phishing:
+    - "Collect the message with full headers as evidence"
+    - "Find every recipient and remove the message from mailboxes"
+    - "Block the sender, domains and URLs at the mail and web gateway"
+    - "Check who clicked or entered credentials; reset those passwords and revoke sessions"
+    - "Tell staff what to look out for"
+  malware:
+    - "Isolate the affected devices from the network"
+    - "Collect the alert, file hash and sample (or its location) as evidence"
+    - "Search other devices for the same indicators"
+    - "Remove the malware or rebuild the device from a known-good image"
+    - "Find how it got in and close that route"
+  ransomware:
+    - "Isolate affected systems; disable shared drives and VPN for affected accounts"
+    - "Preserve evidence: ransom note, encrypted samples, logs"
+    - "Bring in legal, insurance and the incident response provider; decide on law enforcement contact"
+    - "Confirm backups are clean and complete before restoring"
+    - "Reset credentials, starting with privileged accounts"
+    - "Restore by business priority (see the BIA) and monitor for re-infection"
+  account_compromise:
+    - "Disable the account or reset its password and revoke all sessions and tokens"
+    - "Check mailbox rules, forwarding, MFA methods and app consents added by the attacker"
+    - "Review sign-in logs for the attacker's other activity"
+    - "Re-enable with MFA and tell the user what happened"
+  data_breach:
+    - "Contain: stop the leak and secure the data"
+    - "Establish what data, whose, how much, and since when"
+    - "Assess the risk to the people affected (Privacy → Breach log)"
+    - "Decide on regulator and individual notifications within the deadline"
+    - "Record every decision and its reason"
+  lost_or_stolen_device:
+    - "Lock or wipe the device remotely"
+    - "Check it was encrypted (Attack surface or Configuration) and record the result"
+    - "Revoke the device's certificates, tokens and sessions"
+    - "Report theft to the police if needed and record the reference"
+  unauthorised_access:
+    - "Remove the access and preserve the logs showing it"
+    - "Establish what was viewed, changed or taken"
+    - "Fix the cause (permission, account, exposed service)"
+  denial_of_service:
+    - "Engage the provider or DDoS protection and record the case reference"
+    - "Collect traffic and service logs"
+    - "Communicate service status to customers"
+  vendor_incident:
+    - "Get the vendor's written account: what happened, what data, what they've done"
+    - "Assess the impact on your data and services"
+    - "Decide whether your own notifications are needed"
+    - "Review the vendor's risk rating and contract terms"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { AlertTriangle, Bell, Plus, Siren } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
@@ -16,6 +16,8 @@ import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { clean, EnumSelect, OwnerSelect, TriSelect } from "@/components/forms";
 import { Comments } from "@/components/Comments";
+import { IncidentEvidence, IncidentResponse } from "@/components/IncidentResponse";
+import { TicketButton, useTickets } from "@/components/TicketButton";
 
 const CATS = ["phishing", "malware", "ransomware", "account_compromise", "data_breach", "unauthorised_access", "denial_of_service", "lost_or_stolen_device", "misconfiguration", "vendor_incident", "physical", "policy_violation", "other"];
 const SEV = ["low", "medium", "high", "critical"];
@@ -80,15 +82,23 @@ function IncidentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   const [move, setMove] = useState<string | null>(null);
   const [res, setRes] = useState<string | null>(null);
   const [f, setF] = useState<any>(null);
-  useEffect(() => { if (data) setF({ severity: data.severity, owner_id: data.owner_id, personal_data_involved: data.personal_data_involved, notification_required: data.notification_required, vendor_id: data.vendor_id, root_cause: data.root_cause ?? "", lessons_learned: data.lessons_learned ?? "", asset_ids: data.asset_ids.map(String) }); }, [data]);
+  const risks = useApi<any>("/risks");
+  const tickets = useTickets("incident", [id]);
+  useEffect(() => { if (data) setF({ severity: data.severity, owner_id: data.owner_id, personal_data_involved: data.personal_data_involved, notification_required: data.notification_required, vendor_id: data.vendor_id, risk_id: data.risk_id, root_cause: data.root_cause ?? "", lessons_learned: data.lessons_learned ?? "", asset_ids: data.asset_ids.map(String) }); }, [data]);
   const inv = ["/incidents", "/dashboard"];
   const addNote = useAction(() => api(`/incidents/${id}/notes`, { body: { entry: note } }), { success: "Entry added.", invalidate: inv, onSuccess: () => setNote("") });
   const doMove = useAction(() => api(`/incidents/${id}/move`, { body: { status: move, resolution: res } }), { success: "Status updated.", invalidate: inv, onSuccess: () => setMove(null) });
   const notify = useAction(() => api(`/incidents/${id}/notify`, { method: "POST" }), { success: "Notification recorded.", invalidate: inv });
   const save = useAction((b: any) => api(`/incidents/${id}`, { method: "PATCH", body: b }), { success: "Saved.", invalidate: inv });
+  const raiseNc = useAction(() => api<any>(`/incidents/${id}/nonconformity`, { method: "POST" }), { success: (r: any) => `Nonconformity ${r.ref} raised.`, invalidate: [...inv, "/nonconformities"] });
   const ed = can("incident.write");
   return (
-    <Sheet open onOpenChange={(o) => !o && onClose()} title={data?.title ?? "Loading…"} subtitle={data && <span className="flex items-center gap-2"><StatusBadge status={data.status} /><Badge tone={SEV_TONE[data.severity]}>{data.severity}</Badge>detected {fmtDate(data.detected_at, true)}</span>}>
+    <Sheet open onOpenChange={(o) => !o && onClose()} title={data?.title ?? "Loading…"} subtitle={data && <span className="flex items-center gap-2"><StatusBadge status={data.status} /><Badge tone={SEV_TONE[data.severity]}>{data.severity}</Badge>detected {fmtDate(data.detected_at, true)}</span>}
+      actions={data && <>
+        <TicketButton kind="incident" id={id} tickets={tickets[id]} />
+        {data.nonconformity ? <Link to={`/nonconformities?open=${data.nonconformity.id}`}><Button size="sm" variant="outline">{data.nonconformity.ref}</Button></Link>
+          : can("nc.write") && <Button size="sm" variant="outline" loading={raiseNc.isPending} onClick={() => raiseNc.mutate(undefined)}>Raise nonconformity</Button>}
+      </>}>
       {!data || !f ? <Skeleton className="h-64" /> : (
         <div className="space-y-6">
           {data.notification_deadline && !data.regulator_notified_at && (
@@ -104,6 +114,8 @@ function IncidentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
               <Button variant="outline" disabled={!move} loading={doMove.isPending} onClick={() => doMove.mutate(undefined)}>Move</Button>
             </div>
           )}
+          <IncidentResponse incident={data} />
+          <IncidentEvidence incident={data} />
           <Section title="Timeline">
             <ol className="relative space-y-4 border-l pl-5">
               {data.events.map((e: any) => (
@@ -124,6 +136,7 @@ function IncidentDrawer({ id, onClose }: { id: number; onClose: () => void }) {
               <Field label="Regulator notification required?"><TriSelect value={f.notification_required} onChange={(v) => setF({ ...f, notification_required: v })} disabled={!ed} /></Field>
               <Field label="Vendor involved"><Select value={f.vendor_id ? String(f.vendor_id) : null} onChange={(v) => setF({ ...f, vendor_id: v ? Number(v) : null })} allowEmpty options={(vendors.data?.vendors ?? []).map((v: any) => ({ value: String(v.id), label: v.name }))} disabled={!ed} /></Field>
               <Field label="Affected assets"><MultiSelect value={f.asset_ids} onChange={(v) => setF({ ...f, asset_ids: v })} options={(assets.data ?? []).map((a) => ({ value: String(a.id), label: a.name }))} /></Field>
+              <Field label="Risk that materialised" hint="Linking a risk brings its review forward."><Select ariaLabel="Risk" value={f.risk_id ? String(f.risk_id) : null} onChange={(v) => setF({ ...f, risk_id: v ? Number(v) : null })} allowEmpty options={(risks.data?.risks ?? []).map((r: any) => ({ value: String(r.id), label: `${r.ref} ${r.title}` }))} disabled={!ed} /></Field>
             </div>
             <Field className="mt-4" label="Root cause" hint="Required before closing (ISO 27001 A.5.27)."><Textarea value={f.root_cause} onChange={(e) => setF({ ...f, root_cause: e.target.value })} disabled={!ed} /></Field>
             <Field className="mt-4" label="Lessons learned"><Textarea value={f.lessons_learned} onChange={(e) => setF({ ...f, lessons_learned: e.target.value })} disabled={!ed} /></Field>

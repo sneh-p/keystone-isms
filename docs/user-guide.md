@@ -335,6 +335,17 @@ puts the text in a draft version; it still goes through review and approval.
 
 ## Incidents
 
+- **Playbook.** Each category has a response checklist (in `config/incidents.yaml`; adjust it to your environment).
+  Tick steps as they're done; the incident records who ticked each one and when.
+- **Response actions.** Give actions an owner and a due date. An incident can't close as resolved while actions
+  are still open.
+- **Evidence** (ISO 27001 A.5.28). Keystone hashes each file (SHA-256) when it's added and checks the hash again on
+  every download. The chain of custody records each download. Only incident handlers can download evidence, and an
+  incident with evidence can't be deleted.
+- **Linked records.** Link the risk that materialised, which brings that risk's review forward. Raise a
+  nonconformity from the incident's lessons, or send the incident to your ticketing system.
+
+
 Report what happened as soon as you know. Work it through triage, containment, eradication and
 recovery, adding timeline entries as you go (entries can't be edited later). If personal data
 is involved, Keystone shows the regulator-notification deadline (72 hours by default). An
@@ -342,6 +353,15 @@ incident can't be closed without a root cause and lessons learned, or while a re
 notification is outstanding. False positives can be closed from triage.
 
 ## Nonconformities, audits and management review
+
+- **Audit programme** (Audits → Programme). For each applicable control it shows when it was last audited in the
+  three-year cycle and when it's next planned. Filter to the controls that have neither.
+- **Findings** can be edited or deleted while the audit is in progress or reporting. A finding that raised a
+  nonconformity keeps it.
+- **Nonconformities** record how the root cause was found: 5 whys, fishbone, fault tree or other. Keystone warns
+  when similar nonconformities appeared in the last three years (same control or requirement, or a similar title),
+  so you can check whether earlier corrective actions worked.
+
 
 **Working with auditors.** Give an external auditor an account with the Auditor role and an
 expiry date. In an audit, the auditor adds **evidence requests**; people who manage evidence

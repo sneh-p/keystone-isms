@@ -101,6 +101,10 @@ def _incident(session: Session, i) -> list[str]:
         out.append("it has a personal data breach assessment")
     if session.scalar(select(Nonconformity.id).where(Nonconformity.incident_id == i.id)):
         out.append("a nonconformity was raised from it")
+    from keystone.incidents.models import IncidentEvidence
+
+    if session.scalar(select(IncidentEvidence.id).where(IncidentEvidence.incident_id == i.id)):
+        out.append("evidence was collected for it (its chain of custody must be kept)")
     return out
 
 

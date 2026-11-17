@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { CheckCircle2, ClipboardCheck, Download, Plus, RefreshCw, Search, Stamp, Wrench } from "lucide-react";
 import { api, downloadUrl } from "@/lib/api";
 import { ViewAttachment } from "@/components/DocumentViewer";
@@ -16,6 +16,7 @@ import { MultiSelect } from "@/components/ui/multiselect";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
+import { Tabs } from "@/components/ui/tabs";
 import { clean, DateInput, EnumSelect, OwnerSelect } from "@/components/forms";
 import { Comments } from "@/components/Comments";
 import { TicketButton, useTickets } from "@/components/TicketButton";
@@ -70,7 +71,7 @@ export function Nonconformities() {
 function NcDrawer({ nc, onClose }: { nc: any; onClose: () => void }) {
   const { can, me } = useAuth();
   const { name } = usePeople();
-  const [an, setAn] = useState({ containment: nc?.containment ?? "", root_cause: nc?.root_cause ?? "", owner_id: nc?.owner_id ?? null });
+  const [an, setAn] = useState({ containment: nc?.containment ?? "", root_cause: nc?.root_cause ?? "", root_cause_method: nc?.root_cause_method ?? null, owner_id: nc?.owner_id ?? null });
   const [ca, setCa] = useState<any>({ description: "", owner_id: null, due_date: null });
   const [done, setDone] = useState<Record<number, string>>({});
   const [ver, setVer] = useState<Record<number, string>>({});
@@ -94,9 +95,17 @@ function NcDrawer({ nc, onClose }: { nc: any; onClose: () => void }) {
         </ol>
         {nc.status !== "closed" && <TicketButton kind="nonconformity" id={nc.id} tickets={tickets[nc.id]} />}
         {nc.description && <p className="whitespace-pre-wrap text-sm">{nc.description}</p>}
+        {nc.similar?.length > 0 && (
+          <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+            <div className="font-medium">This may have happened before</div>
+            <p className="text-xs text-muted-foreground">Earlier nonconformities on the same control or requirement, or with a similar title. If it keeps recurring, check whether the earlier corrective actions worked (ISO 27001 10.2).</p>
+            <ul className="mt-1 list-disc pl-5">{nc.similar.map((o: any) => <li key={o.id}><Link className="text-primary hover:underline" to={`/nonconformities?open=${o.id}`}>{o.ref} {o.title}</Link> <span className="text-xs text-muted-foreground">({titleCase(o.status)})</span></li>)}</ul>
+          </div>
+        )}
         <Section title="Analysis">
           <div className="space-y-3">
             <Field label="Immediate containment / correction"><Textarea value={an.containment} onChange={(e) => setAn({ ...an, containment: e.target.value })} disabled={!ed} /></Field>
+            <Field label="How the cause was found"><EnumSelect value={an.root_cause_method} onChange={(v) => setAn({ ...an, root_cause_method: v })} values={["five_whys", "fishbone", "fault_tree", "other"]} labels={{ five_whys: "5 whys", fishbone: "Fishbone (cause and effect)", fault_tree: "Fault tree", other: "Other" }} allowEmpty disabled={!ed} /></Field>
             <Field label="Root cause"><Textarea value={an.root_cause} onChange={(e) => setAn({ ...an, root_cause: e.target.value })} disabled={!ed} /></Field>
             <Field label="Owner"><OwnerSelect value={an.owner_id} onChange={(v) => setAn({ ...an, owner_id: v })} disabled={!ed} /></Field>
             {ed && <div className="flex gap-2"><Button variant="outline" loading={save.isPending} onClick={() => save.mutate(undefined)}>Save analysis</Button>{nc.status === "open" && <Button loading={plan.isPending} onClick={() => plan.mutate(undefined)}>Move to action planned</Button>}</div>}
@@ -136,7 +145,6 @@ const FT: Record<string, [string, any]> = { major_nc: ["Major NC", "critical"], 
 
 export function Audits() {
   const { can } = useAuth();
-  const { name } = usePeople();
   const [params, setParams] = useSearchParams();
   const { data } = useApi<any>("/audits");
   if (!data) return <Skeleton className="h-96" />;
@@ -152,14 +160,45 @@ export function Audits() {
         </CardBody></Card>
         <Card><CardHeader title="Not yet audited" description="Plan these into the programme." /><CardBody tabIndex={0} aria-label="Controls not yet audited" className="flex max-h-40 flex-wrap gap-1 overflow-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">{data.coverage.not_audited.map((c: string) => <Badge key={c} tone="outline">{c}</Badge>)}</CardBody></Card>
       </div>
-      <DataTable rows={data.audits} rowKey={(a: any) => a.id} onRowClick={(a: any) => setParams({ open: String(a.id) })} search={(a: any) => a.title} columns={[
+      <Tabs tabs={[
+        { value: "audits", label: "Audits", content: <AuditList audits={data.audits} onOpen={(id) => setParams({ open: String(id) })} /> },
+        { value: "programme", label: "Programme", content: <AuditProgramme /> },
+      ]} />
+      {params.get("open") && <AuditDrawer id={params.get("open")!} audits={data.audits} onClose={() => setParams({})} onCreated={(id) => setParams({ open: String(id) })} />}
+    </div>
+  );
+}
+
+function AuditList({ audits, onOpen }: { audits: any[]; onOpen: (id: number) => void }) {
+  const { name } = usePeople();
+  return (
+      <DataTable rows={audits} rowKey={(a: any) => a.id} onRowClick={(a: any) => onOpen(a.id)} search={(a: any) => a.title} columns={[
         { key: "t", header: "Audit", cell: (a: any) => <div><div className="font-medium">{a.title}</div><div className="text-xs text-muted-foreground">{titleCase(a.audit_type)} · lead {name(a.lead_auditor_id)}</div></div> },
         { key: "p", header: "Planned", cell: (a: any) => `${fmtDate(a.planned_start)}${a.planned_end ? ` – ${fmtDate(a.planned_end)}` : ""}`, sort: (a: any) => a.planned_start ?? "" },
         { key: "s", header: "Status", cell: (a: any) => <StatusBadge status={a.status} /> },
         { key: "c", header: "Controls", cell: (a: any) => a.controls.length, className: "text-right" },
         { key: "f", header: "Findings", cell: (a: any) => <div className="flex flex-wrap gap-1">{a.findings.map((f: any) => <Badge key={f.id} tone={FT[f.finding_type][1]}>{FT[f.finding_type][0]}</Badge>)}</div> },
       ]} />
-      {params.get("open") && <AuditDrawer id={params.get("open")!} audits={data.audits} onClose={() => setParams({})} onCreated={(id) => setParams({ open: String(id) })} />}
+  );
+}
+
+/** The three-year audit programme (ISO 27001 9.2.2): when each control was last audited and when it is next planned. */
+function AuditProgramme() {
+  const { data } = useApi<any>("/audit-programme");
+  const [gapsOnly, setGapsOnly] = useState(false);
+  if (!data) return <Skeleton className="h-64" />;
+  const rows = gapsOnly ? data.controls.filter((c: any) => c.gap) : data.controls;
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">Every applicable control should be audited at least once in {data.years} years. {data.covered} of {data.controls.length} were audited in that time ({data.pct}%); {data.planned_only} more are planned, and {data.gaps} have neither.</p>
+      <DataTable rows={rows} rowKey={(c: any) => c.id} search={(c: any) => `${c.code} ${c.title} ${c.domain}`}
+        toolbar={<label className="flex items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={gapsOnly} onChange={(e) => setGapsOnly(e.target.checked)} /> Only controls neither audited nor planned</label>}
+        columns={[
+          { key: "c", header: "Control", cell: (c: any) => <span><span className="font-mono text-xs">{c.code}</span> {c.title}</span>, sort: (c: any) => c.code },
+          { key: "d", header: "Domain", cell: (c: any) => c.domain, sort: (c: any) => c.domain },
+          { key: "l", header: "Last audited", cell: (c: any) => (c.last_audit ? <span>{fmtDate(c.last_audited)}<span className="block text-xs text-muted-foreground">{c.last_audit.title}</span></span> : <span className="text-muted-foreground">Not in {data.years} years</span>), sort: (c: any) => c.last_audited ?? "" },
+          { key: "n", header: "Next planned", cell: (c: any) => (c.next_audit ? <span>{fmtDate(c.next_planned)}<span className="block text-xs text-muted-foreground">{c.next_audit.title}</span></span> : c.gap ? <Badge tone="warning">Plan it</Badge> : "—"), sort: (c: any) => c.next_planned ?? "" },
+        ]} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from keystone.core.db import Audited, Base, OwnedMixin, TimestampMixin
 
+ROOT_CAUSE_METHODS = ("five_whys", "fishbone", "fault_tree", "other")
 NC_SOURCES = ("internal_audit", "external_audit", "incident", "management_review", "self_identified", "complaint", "monitoring")
 NC_SEVERITIES = ("major", "minor", "observation")
 NC_STATUSES = ("open", "action_planned", "verification", "closed")
@@ -31,6 +32,7 @@ class Nonconformity(Audited, OwnedMixin, TimestampMixin, Base):
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     containment: Mapped[str | None] = mapped_column(Text)
     root_cause: Mapped[str | None] = mapped_column(Text)
+    root_cause_method: Mapped[str | None] = mapped_column(String(20))  # five_whys | fishbone | fault_tree | other
     due_date: Mapped[date | None] = mapped_column(Date)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime)
     closed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))

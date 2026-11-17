@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from keystone.core.db import utcnow
 from keystone.core.services import apply_fields, authorize, get_or_404, require_text, today
 
-from .models import NC_SEVERITIES, NC_SOURCES, CorrectiveAction, Nonconformity
+from .models import NC_SEVERITIES, NC_SOURCES, ROOT_CAUSE_METHODS, CorrectiveAction, Nonconformity
 
-NC_FIELDS = {"title", "description", "source", "severity", "requirement_id", "common_control_id", "incident_id", "owner_id", "containment", "root_cause", "due_date"}
+NC_FIELDS = {"title", "description", "source", "severity", "requirement_id", "common_control_id", "incident_id", "owner_id", "containment", "root_cause", "root_cause_method", "due_date"}
 
 
 def raise_nc(session: Session, actor, **fields) -> Nonconformity:
@@ -28,6 +28,8 @@ def raise_nc(session: Session, actor, **fields) -> Nonconformity:
 
 def _validate(nc: Nonconformity) -> None:
     require_text(nc.title, "Title")
+    if nc.root_cause_method and nc.root_cause_method not in ROOT_CAUSE_METHODS:
+        raise ValueError(f"root_cause_method must be one of {ROOT_CAUSE_METHODS}")
     if nc.source not in NC_SOURCES:
         raise ValueError(f"source must be one of {NC_SOURCES}")
     if nc.severity not in NC_SEVERITIES:
@@ -129,3 +131,25 @@ def nc_attention(session: Session, on: date | None = None) -> dict[str, list]:
         "actions_overdue": [a for n in ncs for a in n.actions if a.status == "open" and a.due_date and a.due_date < on],
         "awaiting_verification": [a for n in ncs for a in n.actions if a.status == "done"],
     }
+
+
+RECURRENCE_YEARS = 3
+SIMILAR_TITLE_SCORE = 80
+
+
+def similar(session: Session, nc: Nonconformity) -> list[Nonconformity]:
+    """Earlier nonconformities on the same control or requirement, or with a very similar title, from the last three
+    years: a sign that an earlier corrective action didn't stop it happening again (ISO 27001 10.2 b)."""
+    from datetime import timedelta
+
+    from rapidfuzz import fuzz
+
+    from keystone.core.db import utcnow
+
+    since = utcnow() - timedelta(days=365 * RECURRENCE_YEARS)
+    out = []
+    for other in session.scalars(select(Nonconformity).where(Nonconformity.id != nc.id, Nonconformity.created_at >= since, Nonconformity.created_at <= nc.created_at)):
+        same_target = (nc.common_control_id and other.common_control_id == nc.common_control_id) or (nc.requirement_id and other.requirement_id == nc.requirement_id)
+        if same_target or fuzz.token_set_ratio(nc.title.lower(), other.title.lower()) >= SIMILAR_TITLE_SCORE:
+            out.append(other)
+    return sorted(out, key=lambda x: x.created_at, reverse=True)[:5]

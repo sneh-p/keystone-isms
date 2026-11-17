@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 from pydantic import Field
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from keystone.audits import review as mr
@@ -26,8 +26,26 @@ INC = ("id", "title", "description", "category", "severity", "status", "detected
 def inc_out(i: Incident, detail=False) -> dict:
     d = ser(i, INC, notification_deadline=inc.notification_deadline(i), allowed_moves=list(inc.TRANSITIONS[i.status]), asset_ids=[a.id for a in i.assets])
     if detail:
+        from sqlalchemy import select
+        from sqlalchemy.orm import object_session
+
         d["events"] = [ser(e, ("id", "occurred_at", "entry", "author", "kind")) for e in i.events]
+        db = object_session(i)
+        if db is not None:
+            d["actions"] = [ser(a, ("id", "title", "owner_id", "due_date", "status", "done_at")) for a in inc.actions(db, i.id)]
+            d["playbook"] = inc.playbook(i)
+            d["evidence"] = [ser(e, ("id", "sha256", "description", "source", "collected_at", "collected_by", "custody"), filename=_filename(db, e.attachment_id))
+                             for e in inc.evidence_items(db, i.id)]
+            nc = db.scalar(select(Nonconformity).where(Nonconformity.incident_id == i.id))
+            d["nonconformity"] = {"id": nc.id, "ref": nc.ref, "status": nc.status} if nc else None
     return d
+
+
+def _filename(db: Session, attachment_id: int) -> str:
+    from keystone.core.attachments import Attachment
+
+    a = db.get(Attachment, attachment_id)
+    return a.filename if a else ""
 
 
 @router.get("/incidents")
@@ -102,13 +120,74 @@ def notify(iid: int, user=Depends(perm("incident.write")), db: Session = Depends
     return inc_out(inc.record_notification(db, user, iid), True)
 
 
+class IncidentActionIn(In):
+    title: str = Field(min_length=1, max_length=300)
+    owner_id: int | None = None
+    due_date: date | None = None
+
+
+@router.post("/incidents/{iid}/actions")
+def add_incident_action(iid: int, body: IncidentActionIn, user=Depends(perm("incident.write")), db: Session = Depends(get_db)):
+    inc.add_action(db, user, iid, body.title, body.owner_id, body.due_date)
+    return inc_out(get_or_404(db, Incident, iid), True)
+
+
+class ActionDoneIn(In):
+    done: bool = True
+
+
+@router.post("/incident-actions/{aid}/done")
+def incident_action_done(aid: int, body: ActionDoneIn, user=Depends(perm("incident.write")), db: Session = Depends(get_db)):
+    a = inc.complete_action(db, user, aid, body.done)
+    return inc_out(get_or_404(db, Incident, a.incident_id), True)
+
+
+class PlaybookIn(In):
+    index: int = Field(ge=0, le=100)
+    done: bool
+
+
+@router.post("/incidents/{iid}/playbook")
+def incident_playbook(iid: int, body: PlaybookIn, user=Depends(perm("incident.write")), db: Session = Depends(get_db)):
+    return inc_out(inc.tick_playbook(db, user, iid, body.index, body.done), True)
+
+
+@router.post("/incidents/{iid}/evidence")
+async def incident_evidence(iid: int, file: UploadFile = File(...), description: str = Form(..., min_length=1, max_length=4000), source: str | None = Form(None, max_length=300),
+                            user=Depends(perm("incident.write")), db: Session = Depends(get_db)):
+    from keystone.core.settings import get_settings
+
+    data = await file.read(get_settings().max_upload_mb * 1024 * 1024 + 1)  # bounded; save_attachment checks size and type
+    inc.add_evidence(db, user, iid, filename=file.filename or "evidence", data=data, description=description, source=source)
+    return inc_out(get_or_404(db, Incident, iid), True)
+
+
+@router.get("/incident-evidence/{eid}/download")
+def incident_evidence_download(eid: int, user=Depends(perm("incident.write")), db: Session = Depends(get_db)):
+    from fastapi.responses import Response
+
+    att, data = inc.evidence_download(db, user, eid)
+    safe = att.filename.replace('"', "")
+    return Response(data, media_type=att.content_type, headers={"Content-Disposition": f'attachment; filename="{safe}"', "X-Content-Type-Options": "nosniff"})
+
+
+@router.post("/incidents/{iid}/nonconformity")
+def incident_nonconformity(iid: int, user=Depends(perm("nc.write")), db: Session = Depends(get_db)):
+    nc = inc.raise_nonconformity(db, user, iid)
+    return {"id": nc.id, "ref": nc.ref}
+
+
 # ---- nonconformities ------------------------------------------------------------------------
-NC = ("id", "title", "description", "source", "severity", "status", "requirement_id", "common_control_id", "incident_id", "owner_id", "containment", "root_cause", "due_date", "closed_at", "closed_by_id", "created_by_id")
+NC = ("id", "title", "description", "source", "severity", "status", "requirement_id", "common_control_id", "incident_id", "owner_id", "containment", "root_cause", "root_cause_method", "due_date", "closed_at", "closed_by_id", "created_by_id")
 CA = ("id", "description", "owner_id", "due_date", "status", "completed_at", "completion_notes", "verified_by_id", "verified_at", "effectiveness_notes")
 
 
 def nc_out(n: Nonconformity) -> dict:
-    return ser(n, NC, actions=[ser(a, CA) for a in n.actions])
+    from sqlalchemy.orm import object_session
+
+    db = object_session(n)
+    similar = [{"id": o.id, "ref": o.ref, "title": o.title, "status": o.status} for o in imp.similar(db, n)] if db is not None else []
+    return ser(n, NC, actions=[ser(a, CA) for a in n.actions], similar=similar)
 
 
 @router.get("/nonconformities")
@@ -128,6 +207,7 @@ class NcIn(In):
     owner_id: int | None = None
     containment: str | None = None
     root_cause: str | None = None
+    root_cause_method: str | None = Field(None, max_length=20)
     due_date: date | None = None
 
 
@@ -197,6 +277,23 @@ def aud_out(a: Audit) -> dict:
 @router.get("/audits")
 def audits(user=Depends(perm("read")), db: Session = Depends(get_db)):
     return {"audits": [aud_out(a) for a in aud.list_audits(db)], "coverage": aud.control_coverage(db)}
+
+
+@router.get("/audit-programme")
+def audit_programme(user=Depends(perm("read")), db: Session = Depends(get_db)):
+    return aud.programme(db)
+
+
+class FindingPatch(In):
+    title: str | None = Field(None, min_length=1, max_length=300)
+    description: str | None = Field(None, max_length=20_000)
+    evidence: str | None = Field(None, max_length=20_000)
+
+
+@router.patch("/audit-findings/{fid}")
+def update_finding(fid: int, body: FindingPatch, user=Depends(perm("audit.findings")), db: Session = Depends(get_db)):
+    f = aud.update_finding(db, user, fid, **body.model_dump(exclude_unset=True))
+    return {"id": f.id, "title": f.title}
 
 
 class AuditIn(In):

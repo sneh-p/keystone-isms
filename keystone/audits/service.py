@@ -84,6 +84,59 @@ def add_finding(session: Session, actor, audit_id: int, *, finding_type: str, ti
     return f
 
 
+FINDING_EDITABLE = ("title", "description", "evidence")
+
+
+def update_finding(session: Session, actor, finding_id: int, **fields) -> AuditFinding:
+    """Correct a finding's wording while its audit is open. Its type stays: a nonconformity raised from it would no
+    longer match."""
+    from .models import AuditFinding
+
+    authorize(session, actor, "audit.findings")
+    f = get_or_404(session, AuditFinding, finding_id)
+    a = get_or_404(session, Audit, f.audit_id)
+    if a.status not in ("in_progress", "reporting"):
+        raise ValueError("Findings can be changed while the audit is in progress or reporting.")
+    if set(fields) - set(FINDING_EDITABLE):
+        raise ValueError("Only the title, description and evidence can change.")
+    if "title" in fields:
+        fields["title"] = require_text(fields["title"], "Finding title")
+    for k, v in fields.items():
+        setattr(f, k, v)
+    session.flush()
+    return f
+
+
+PROGRAMME_YEARS = 3
+
+
+def programme(session: Session, on: date | None = None) -> dict:
+    """The audit programme (ISO 27001 9.2.2): for each applicable control, when it was last audited and when it is next
+    planned, over a three-year cycle. Controls never audited in the cycle and with nothing planned stand out."""
+    on = on or today()
+    since = on - timedelta(days=365 * PROGRAMME_YEARS)
+    audits = [a for a in list_audits(session) if a.audit_type in ("internal", "external", "certification", "surveillance")]
+    last: dict[int, Audit] = {}
+    nxt: dict[int, Audit] = {}
+    for a in audits:
+        start = a.planned_start or on
+        for c in a.controls:
+            if a.status != "planned" and start >= since and (c.id not in last or start > (last[c.id].planned_start or on)):
+                last[c.id] = a
+            if a.status == "planned" and start >= on and (c.id not in nxt or start < (nxt[c.id].planned_start or on)):
+                nxt[c.id] = a
+    rows = []
+    for c in sorted((c for c in session.scalars(select(CommonControl)) if c.status != "not_applicable"), key=lambda c: c.code):
+        la, na = last.get(c.id), nxt.get(c.id)
+        rows.append({"id": c.id, "code": c.code, "title": c.title, "domain": c.domain,
+                     "last_audited": la.planned_start if la else None, "last_audit": {"id": la.id, "title": la.title} if la else None,
+                     "next_planned": na.planned_start if na else None, "next_audit": {"id": na.id, "title": na.title} if na else None,
+                     "gap": la is None and na is None})
+    covered = sum(1 for r in rows if r["last_audited"])
+    return {"years": PROGRAMME_YEARS, "controls": rows, "covered": covered, "planned_only": sum(1 for r in rows if not r["last_audited"] and r["next_planned"]),
+            "gaps": sum(1 for r in rows if r["gap"]), "pct": round(100 * covered / len(rows), 1) if rows else 0.0}
+
+
 def list_audits(session: Session) -> list[Audit]:
     return list(session.scalars(select(Audit).order_by(Audit.planned_start.desc().nulls_last(), Audit.id.desc())))
 

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import JSON, Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from keystone.core.db import Audited, Base, OwnedMixin, TimestampMixin
@@ -45,6 +45,7 @@ class Incident(Audited, OwnedMixin, TimestampMixin, Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     assets = relationship("Asset", secondary=incident_assets, lazy="selectin")
+    playbook_done: Mapped[dict | None] = mapped_column(JSON)  # {step index: {"by", "at"}} for the category's playbook
     events: Mapped[list[IncidentEvent]] = relationship(back_populates="incident", cascade="all, delete-orphan", order_by="IncidentEvent.occurred_at")
 
 
@@ -62,3 +63,36 @@ class IncidentEvent(Audited, TimestampMixin, Base):
     kind: Mapped[str] = mapped_column(String(20), nullable=False, default="note")  # note | status | system
 
     incident: Mapped[Incident] = relationship(back_populates="events")
+
+
+class IncidentAction(Audited, OwnedMixin, TimestampMixin, Base):
+    """A response action with an owner and a due date (contain, eradicate, recover, notify)."""
+
+    __tablename__ = "incident_actions"
+    REF_PREFIX = "INA"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    incident_id: Mapped[int] = mapped_column(ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    due_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, default="open")  # open | done
+    done_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class IncidentEvidence(Audited, OwnedMixin, TimestampMixin, Base):
+    """Evidence collected during an incident (ISO 27001 A.5.28): the file, its SHA-256 at collection, where it came
+    from, and a chain of custody recording every download."""
+
+    __tablename__ = "incident_evidence"
+    REF_PREFIX = "INE"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    incident_id: Mapped[int] = mapped_column(ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True)
+    attachment_id: Mapped[int] = mapped_column(ForeignKey("attachments.id"), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str | None] = mapped_column(String(300))  # where and how it was obtained
+    collected_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    collected_by: Mapped[str] = mapped_column(String(150), nullable=False)
+    custody: Mapped[list] = mapped_column(JSON, nullable=False, default=list)  # [{"at", "by", "action"}]
