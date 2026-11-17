@@ -104,7 +104,7 @@ Then read the [user guide](docs/user-guide.md), which walks through every screen
 Needs **git**, **Python 3.12 or later** and **Node.js 22**.
 
 ```bash
-git clone https://github.com/<your-org>/keystone-isms.git && cd keystone-isms
+git clone https://github.com/sneh-p/keystone-isms.git && cd keystone-isms
 python3 -m venv .venv
 .venv/bin/pip install --require-hashes -r requirements.lock && .venv/bin/pip install --no-deps -e .
 (cd web && npm ci && npm run build)
@@ -180,7 +180,7 @@ sudo install -d -o keystone -g keystone -m 700 /srv/keystone
 **4. Get the code and build it.** The code lives in `/opt/keystone-isms`, owned by you; the service only reads it.
 
 ```bash
-sudo git clone https://github.com/<your-org>/keystone-isms.git /opt/keystone-isms
+sudo git clone https://github.com/sneh-p/keystone-isms.git /opt/keystone-isms
 sudo chown -R "$USER": /opt/keystone-isms
 cd /opt/keystone-isms
 python3 -m venv .venv
