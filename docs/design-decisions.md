@@ -235,6 +235,36 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   approver before they are exported.
 - **Accounting.** Every call, including failures and refusals, is stored with user, feature,
   model and token counts and written to the audit log.
+- **Token efficiency (reviewed 2026-11-17).** The prompts are Keystone's own; nothing is taken from
+  Comp AI, which is AGPL-3.0. Changes made, none of which lowers answer quality:
+  - Each request has three parts in a fixed order. First the instructions, then the stable
+    reference material marked as the cache breakpoint, then only the per-request text in the
+    user turn. For risk suggestions, the control catalogue, assets and suppliers (a few thousand
+    tokens) moved out of the user turn into the cached part. Asking again with a different focus
+    now reads them from cache at a tenth of the input price. Questionnaire batches run one after
+    another against the same cached sources, so batches 2 onwards read them from cache.
+  - Policy revisions come back as exact find/replace edits instead of the whole document, so
+    adding one section to a long policy costs a few hundred output tokens, not several thousand.
+    Each `find` must occur exactly once in the current text; otherwise the whole proposal is
+    rejected and nothing is applied. A first draft, or a rewrite of most of the document,
+    still returns the full text.
+  - Output shapes are tighter: questionnaire answers are one to three sentences with no restated
+    question, control narratives stay under 300 words, and risk fields are one sentence each.
+  - Cache writes and cache reads are recorded separately (`ai_usage.cache_write_tokens`,
+    `cache_read_tokens`). Settings → AI shows the share of input served from cache. The monthly
+    budget counts all four token kinds.
+  - `tests/test_ai_sdk.py` runs the real SDK against a mocked transport, so the exact wire format
+    is tested offline: cache_control, output_config with effort and JSON schema, the fallback
+    beta, streaming, usage and errors.
+- **Token efficiency: not changed, proposals only.** These trade quality for cost and should be
+  measured against an eval on real questionnaires and policies before anyone changes them:
+  - A lower effort level per feature, for example `low` for questionnaire answers, which are
+    extraction from given sources.
+  - A smaller model for questionnaire answers, for example `claude-sonnet-5-5` or
+    `claude-haiku-5-5`.
+  - The Batch API for large questionnaires, at half the price but with results arriving up to
+    hours later.
+  Today one model and one effort level apply to every feature (Settings → AI).
 
 ## Secure coding standard
 

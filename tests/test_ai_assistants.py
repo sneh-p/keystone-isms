@@ -88,3 +88,15 @@ def test_assistants_do_nothing_when_ai_is_off(content, session, users):
         control_assistant.propose(session, users["control_owner"], control_by_code(session, "KC-TEC-05").id)
     with pytest.raises(ai.AiUnavailable):
         risk_assistant.suggest(session, users["risk_owner"])
+
+
+def test_policy_edits_apply_only_where_unambiguous():
+    from keystone.ai.policy_assistant import Edit, apply_edits
+
+    text = "# Policy\n\nReview access every quarter.\nReview logs every quarter.\n"
+    assert apply_edits(text, [Edit(find="Review access every quarter.", replace="Review access every month.")]) == "# Policy\n\nReview access every month.\nReview logs every quarter."
+    for edits in ([Edit(find="every quarter", replace="monthly")], [Edit(find="absent", replace="x")]):  # twice, or not at all
+        with pytest.raises(ValueError, match="did not match"):
+            apply_edits(text, edits)
+    # Edits apply in order, so a later edit may target text an earlier one wrote.
+    assert apply_edits("a b", [Edit(find="a", replace="c d"), Edit(find="c d b", replace="done")]) == "done"

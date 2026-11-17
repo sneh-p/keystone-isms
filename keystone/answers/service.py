@@ -350,14 +350,17 @@ policies and its approved knowledge-base answers. Never rely on general knowledg
 practices that the sources do not state.
 
 For each question:
-- If the sources answer it, write a concise, factual answer in the first person plural \
-("We ..."), suitable for sending to a customer. Start with Yes or No when the question is a \
-yes/no question.
+- If the sources answer it, write a factual answer in the first person plural ("We ..."), \
+suitable for sending to a customer: one to three sentences, answering only what was asked. \
+Start with Yes or No when the question is a yes/no question. Do not restate the question or \
+add marketing language.
 - Support the answer with one to three citations. Each citation gives the source id and a \
 quote copied exactly, character for character, from that source (one sentence or a short \
 passage, at most 300 characters).
 - If the sources do not answer it, or only partly, set answerable to false, leave the answer \
-empty or limited to what the sources support, and say in note what is missing.
+empty or limited to what the sources support, and say in note what is missing. Otherwise \
+leave note empty.
+- Answer every question given, once, using its item_id.
 - confidence: high when a source states it directly, medium when it follows clearly from the \
 sources, low when it is only partly supported.
 

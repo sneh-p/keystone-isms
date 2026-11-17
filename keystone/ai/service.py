@@ -132,7 +132,8 @@ def _month_start() -> datetime:
 
 
 def tokens_this_month(session: Session) -> int:
-    used = session.scalar(select(func.coalesce(func.sum(AiUsage.input_tokens + AiUsage.cache_read_tokens + AiUsage.output_tokens), 0)).where(AiUsage.at >= _month_start()))
+    used = session.scalar(select(func.coalesce(func.sum(AiUsage.input_tokens + AiUsage.cache_write_tokens + AiUsage.cache_read_tokens + AiUsage.output_tokens), 0))
+                          .where(AiUsage.at >= _month_start()))
     return int(used or 0)
 
 
@@ -155,22 +156,26 @@ def check_quota(session: Session, actor) -> None:
 
 def usage(session: Session, limit: int = 100) -> dict:
     rows = list(session.scalars(select(AiUsage).order_by(AiUsage.at.desc()).limit(limit)))
-    totals = session.execute(select(func.count(AiUsage.id), func.coalesce(func.sum(AiUsage.input_tokens), 0), func.coalesce(func.sum(AiUsage.output_tokens), 0))).one()
-    return {"rows": rows, "calls": totals[0], "input_tokens": int(totals[1]), "output_tokens": int(totals[2])}
+    t = session.execute(select(func.count(AiUsage.id), *(func.coalesce(func.sum(c), 0) for c in (
+        AiUsage.input_tokens, AiUsage.cache_write_tokens, AiUsage.cache_read_tokens, AiUsage.output_tokens)))).one()
+    return {"rows": rows, "calls": t[0], "input_tokens": int(t[1]), "cache_write_tokens": int(t[2]), "cache_read_tokens": int(t[3]), "output_tokens": int(t[4])}
 
 
 def _record(session: Session, actor, feature: str, model: str, ok: bool, message=None, error: str | None = None) -> None:
     u = getattr(message, "usage", None)
     row = AiUsage(
         user_id=getattr(actor, "id", None), feature=feature, model=getattr(message, "model", None) or model, ok=ok,
-        input_tokens=int(getattr(u, "input_tokens", 0) or 0) + int(getattr(u, "cache_creation_input_tokens", 0) or 0),
+        # input_tokens is the uncached part; cache writes and reads are recorded separately so the settings page can
+        # show whether caching works. Older rows counted cache writes in input_tokens (cache_write_tokens 0 there).
+        input_tokens=int(getattr(u, "input_tokens", 0) or 0),
         output_tokens=int(getattr(u, "output_tokens", 0) or 0),
         cache_read_tokens=int(getattr(u, "cache_read_input_tokens", 0) or 0),
+        cache_write_tokens=int(getattr(u, "cache_creation_input_tokens", 0) or 0),
         error=(error or None) and error[:500],
     )
     session.add(row)
     session.flush()
-    log_event(session, actor, "ai_call", "AiUsage", row.id, f"{feature} via {row.model}: {'ok' if ok else 'failed'}, {row.input_tokens + row.cache_read_tokens} in / {row.output_tokens} out tokens", {"feature": feature, "ok": ok})
+    log_event(session, actor, "ai_call", "AiUsage", row.id, f"{feature} via {row.model}: {'ok' if ok else 'failed'}, {row.input_tokens + row.cache_write_tokens + row.cache_read_tokens} in ({row.cache_read_tokens} from cache) / {row.output_tokens} out tokens", {"feature": feature, "ok": ok})
 
 
 def _final_text(message) -> str:

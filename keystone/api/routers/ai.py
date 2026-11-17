@@ -22,8 +22,8 @@ def status(user=Depends(perm("read")), db: Session = Depends(get_db)):
 def get_settings(user=Depends(perm("ai.manage")), db: Session = Depends(get_db)):
     names = people_names(db)
     u = ai.usage(db)
-    return {**ai.status(db), "usage": {"calls": u["calls"], "input_tokens": u["input_tokens"], "output_tokens": u["output_tokens"],
-            "rows": [ser(r, ("id", "at", "user_id", "feature", "model", "ok", "input_tokens", "output_tokens", "cache_read_tokens", "error"), user=names.get(r.user_id, "system")) for r in u["rows"]]}}
+    return {**ai.status(db), "usage": {**{k: u[k] for k in ("calls", "input_tokens", "cache_write_tokens", "cache_read_tokens", "output_tokens")},
+            "rows": [ser(r, ("id", "at", "user_id", "feature", "model", "ok", "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens", "error"), user=names.get(r.user_id, "system")) for r in u["rows"]]}}
 
 
 class AiSettingsIn(In):

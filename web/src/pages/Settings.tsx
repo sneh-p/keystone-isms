@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertOctagon, Building2, CheckCircle2, Download, HardDriveDownload, HeartPulse, KeyRound, Plus, ShieldAlert, Sparkles, Stamp, Trash2, UserCog, Activity, Mail } from "lucide-react";
+import { usageSummary } from "@/lib/ai-usage";
 import { api, downloadUrl } from "@/lib/api";
 import { useAction, useApi, usePeople } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -333,18 +334,21 @@ export function AiSettings() {
           <CardBody className="space-y-3 text-sm text-muted-foreground">
             <p><span className="font-medium text-foreground">Policy assistant:</span> the document's text, its linked controls, your instruction and the organisation profile (name, industry, description, scope).</p>
             <p><span className="font-medium text-foreground">Customer questionnaires:</span> the questions, the text of approved policies and approved knowledge-base answers. Draft policies are never sent.</p>
+            <p><span className="font-medium text-foreground">Control narratives:</span> the control, the titles of the requirements and approved policies it maps to, its current implementation notes and the organisation profile.</p>
+            <p><span className="font-medium text-foreground">Risk suggestions:</span> the organisation profile, asset names and ratings, supplier names and services, and the control catalogue. Existing risks are never sent; duplicates are filtered out in Keystone.</p>
             <p>People, users, risks, incidents, evidence files and credentials are never sent. Answers cite their sources, and quotes that can't be found in a source are discarded. A person approves every answer before export.</p>
           </CardBody>
         </Card>
       </div>
       <Card className="mt-5">
-        <CardHeader title="Usage" description={`${data.usage.calls} call(s) · ${data.usage.input_tokens.toLocaleString()} input and ${data.usage.output_tokens.toLocaleString()} output tokens in total`} />
+        <CardHeader title="Usage" description={usageSummary(data.usage)} />
         <DataTable rows={data.usage.rows} rowKey={(r: any) => r.id} empty="No AI calls yet." columns={[
           { key: "w", header: "When", cell: (r: any) => fmtDate(r.at, true) },
           { key: "u", header: "Who", cell: (r: any) => r.user },
           { key: "f", header: "Feature", cell: (r: any) => FEATURE_LABEL[r.feature] ?? r.feature },
           { key: "m", header: "Model", cell: (r: any) => <span className="font-mono text-xs">{r.model}</span> },
-          { key: "t", header: "Tokens in / out", cell: (r: any) => <span className="tabular-nums">{(r.input_tokens + r.cache_read_tokens).toLocaleString()} / {r.output_tokens.toLocaleString()}</span> },
+          { key: "t", header: "Tokens in / out", cell: (r: any) => <span className="tabular-nums">{(r.input_tokens + r.cache_write_tokens + r.cache_read_tokens).toLocaleString()} / {r.output_tokens.toLocaleString()}</span> },
+          { key: "c", header: "From cache", cell: (r: any) => <span className="tabular-nums">{r.cache_read_tokens.toLocaleString()}</span> },
           { key: "r", header: "Result", cell: (r: any) => r.ok ? <Badge tone="good">OK</Badge> : <Badge tone="critical">{r.error ?? "Failed"}</Badge> },
         ]} />
       </Card>
