@@ -23,13 +23,18 @@ def _state(until: date | None, on: date) -> str:
 
 
 def all_exceptions(session: Session, actor, on: date | None = None) -> list[dict]:
+    authorize(session, actor, "read")
+    return compute(session, on)
+
+
+def compute(session: Session, on: date | None = None) -> list[dict]:
+    """Every exception, without a permission check: for all_exceptions() and the daily security indicators."""
     from keystone.asm.models import AsmFinding, Baseline
-    from keystone.configcheck.models import ConfigFinding, ConfigRule, ConfigTarget
     from keystone.configcheck.catalogue import setting
+    from keystone.configcheck.models import ConfigFinding, ConfigRule, ConfigTarget
     from keystone.registers.models import RegisterEntry
     from keystone.risk.models import Risk, RiskAcceptance
 
-    authorize(session, actor, "read")
     on = on or today()
     users = {u.id: u.display_name for u in session.scalars(select(User))}
 

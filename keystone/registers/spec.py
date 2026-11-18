@@ -31,9 +31,15 @@ class Move:
     frm: tuple[str, ...]
     perm: str
     sod: bool = False  # not by whoever raised the record
+    sod_last: bool = False  # not by whoever made the previous step (a retest isn't done by whoever fixed it)
     needs: tuple[str, ...] = ()  # fields that must be filled in first
     note: bool = False  # a note is required (why it was rejected, what was found)
     sets: str | None = None  # a date field set to today
+    key: str = ""  # identifies the step when two steps lead to the same status; defaults to `to`
+
+    @property
+    def id(self) -> str:
+        return self.key or self.to
 
 
 @dataclass(frozen=True)
@@ -55,6 +61,8 @@ class Register:
     due_label: str = "Review"
     max_due_days: int | None = None  # due date at most this far ahead (an exception for at most a year)
     due_every: tuple[str, str] | None = None  # (last-done date field, months field): next due worked out from them
+    due_by: tuple[str, tuple[tuple[str, int], ...]] | None = None  # (choice field, ((choice, days), ...)): due this long after it was raised
+    due_resets: bool = True  # recording a new last-done date clears a hand-set due date (False: it's a real date, e.g. a certificate expiry)
     comments: bool = True  # need-to-know registers keep comments off
     iso: str = ""
     help: str = ""  # anchor in the user guide
@@ -221,6 +229,148 @@ _add(Register(
         F("last_done_on", "Last done", "date", listed=True),
         F("next_due_on", "Next due", "date", hint="Worked out from the last check and how often, unless you set it."),
         F("findings", "Findings", "long"),
+    )))
+
+
+SEVERITY = (("critical", "Critical"), ("high", "High"), ("medium", "Medium"), ("low", "Low"), ("info", "Information"))
+
+_add(Register(
+    key="pentests", title="Penetration tests", singular="test", prefix="PEN",
+    description="Penetration tests, red-team exercises, vulnerability assessments and bug bounty reports, with their findings tracked to a verified fix (ISO 27001 A.8.8, A.8.29, A.5.35).",
+    read="read", write="risk.write", iso="A.8.8, A.8.29, A.5.35", help="penetration-tests",
+    statuses=(("planned", "Planned", "neutral"), ("in_progress", "In progress", "primary"), ("reported", "Reported", "warning"), ("closed", "Closed", "good")),
+    moves=(Move("in_progress", "Start", ("planned",), "risk.write", sets="started_on"),
+           Move("reported", "Report received", ("in_progress",), "risk.write", sets="finished_on"),
+           Move("closed", "Close", ("reported",), "risk.write", note=True)),
+    closed=("closed",), title_label="Test", due="retest_on", due_label="Retest",
+    fields=(
+        F("kind", "Kind", "choice", True, (("pentest", "Penetration test"), ("red_team", "Red team"), ("vuln_assessment", "Vulnerability assessment"),
+                                           ("bug_bounty", "Bug bounty report"), ("other", "Other")), listed=True),
+        F("provider", "Done by", "text", True, listed=True, max=200),
+        F("scope", "Scope", "long", True),
+        F("assets", "Systems in scope", "assets"),
+        F("started_on", "Started", "date"),
+        F("finished_on", "Report received", "date", listed=True),
+        F("report_location", "Where the report is kept", "text", hint="Reports hold attack detail: keep them access-controlled.", max=300),
+        F("retest_on", "Retest by", "date"),
+    )))
+
+_add(Register(
+    key="findings", title="Test findings", singular="finding", prefix="FND",
+    description="Findings from penetration tests and other security tests. A fix is verified by someone other than whoever fixed it.",
+    read="read", write="risk.write", iso="A.8.8, A.5.35", help="penetration-tests",
+    statuses=(("open", "Open", "critical"), ("fixed", "Fixed, to retest", "warning"), ("verified", "Verified", "good"), ("accepted", "Risk accepted", "neutral")),
+    moves=(Move("fixed", "Mark fixed", ("open",), "task.write", note=True),
+           Move("verified", "Retest passed", ("fixed",), "audit.findings", sod_last=True),
+           Move("open", "Retest failed", ("fixed",), "audit.findings", sod_last=True, note=True, key="reopen"),
+           Move("accepted", "Accept the risk", ("open",), "risk.accept", note=True, needs=("risk_note",))),
+    closed=("verified", "accepted"), title_label="Finding", due="fix_by", due_label="Fix by",
+    due_by=("severity", (("critical", 15), ("high", 30), ("medium", 90), ("low", 180), ("info", 365))),
+    fields=(
+        F("test", "From test", "entry", True, ref="pentests", listed=True),
+        F("severity", "Severity", "choice", True, SEVERITY, listed=True),
+        F("assets", "Affected systems", "assets"),
+        F("description", "What was found", "long", True),
+        F("recommendation", "Recommended fix", "long"),
+        F("fix_by", "Fix by", "date", hint="Empty: worked out from the severity (critical 15 days, high 30, medium 90, low 180)."),
+        F("risk_note", "Why the risk is accepted", "long", hint="Needed to accept the risk instead of fixing."),
+    )))
+
+_add(Register(
+    key="applications", title="Applications", singular="application", prefix="APP",
+    description="The software you build or run for customers, with its data, criticality and security activities (ISO 27001 A.8.25 to A.8.29).",
+    read="read", write="control.write", iso="A.8.25, A.8.26, A.8.27, A.8.28, A.8.29", help="application-security",
+    statuses=(("active", "In use", "good"), ("development", "In development", "primary"), ("retired", "Retired", "neutral")),
+    moves=(Move("active", "In use", ("development", "retired"), "control.write"), Move("retired", "Retire", ("active", "development"), "control.write")),
+    closed=("retired",), title_label="Application", due="review_on",
+    fields=(
+        F("criticality", "Criticality", "choice", True, (("critical", "Critical"), ("high", "High"), ("medium", "Medium"), ("low", "Low")), listed=True),
+        F("data", "Most sensitive data", "choice", True, (("public", "Public"), ("internal", "Internal"), ("confidential", "Confidential"), ("restricted", "Restricted")), listed=True),
+        F("personal_data", "Personal data", "bool"),
+        F("description", "What it does", "long"),
+        F("repository", "Source code", "text", hint="Repository name or location", max=300),
+        F("hosting", "Where it runs", "text", max=300),
+        F("practices", "Security activities", "long", hint="Code review, dependency and secret scanning, static analysis, tests."),
+        F("assets", "Related assets", "assets"),
+        F("review_on", "Next review", "date"),
+    )))
+
+_add(Register(
+    key="threat-models", title="Threat models", singular="threat model", prefix="TMD",
+    description="What could go wrong with an application or system, and what is done about it (ISO 27001 A.8.27). Someone other than the author approves it.",
+    read="read", write="control.write", iso="A.8.27, A.5.8", help="application-security",
+    statuses=(("draft", "Draft", "primary"), ("approved", "Approved", "good"), ("retired", "Retired", "neutral")),
+    moves=(Move("approved", "Approve", ("draft",), "task.approve", sod=True, needs=("mitigations",)),
+           Move("draft", "Revise", ("approved",), "control.write", key="revise"),
+           Move("retired", "Retire", ("draft", "approved"), "control.write")),
+    closed=("retired",), title_label="Threat model", due="review_on",
+    fields=(
+        F("application", "Application", "entry", True, ref="applications", listed=True),
+        F("method", "Method", "choice", True, (("stride", "STRIDE"), ("linddun", "LINDDUN (privacy)"), ("pasta", "PASTA"), ("attack_trees", "Attack trees"), ("other", "Other")), listed=True),
+        F("scope", "Scope and data flows", "long", True),
+        F("threats", "Threats", "long", True),
+        F("mitigations", "Mitigations", "long", hint="Needed before approval."),
+        F("residual", "Residual risk", "choice", choices=(("low", "Low"), ("medium", "Medium"), ("high", "High"))),
+        F("review_on", "Next review", "date", listed=True),
+    )))
+
+_add(Register(
+    key="release-signoffs", title="Release sign-offs", singular="sign-off", prefix="REL",
+    description="Security sign-off before a release goes live: what changed, what was tested, and what is still open (ISO 27001 A.8.29). Someone other than the requester signs off.",
+    read="read", write="control.write", iso="A.8.29, A.8.32", help="application-security",
+    statuses=(("requested", "Requested", "primary"), ("approved", "Signed off", "good"), ("rejected", "Not signed off", "critical")),
+    moves=(Move("approved", "Sign off", ("requested",), "task.approve", sod=True, needs=("tests",)),
+           Move("rejected", "Don't sign off", ("requested",), "task.approve", sod=True, note=True)),
+    closed=("approved", "rejected"), title_label="Release", due="release_on", due_label="Release date",
+    fields=(
+        F("application", "Application", "entry", True, ref="applications", listed=True),
+        F("version", "Version", "text", True, listed=True, max=60),
+        F("changes", "What changed", "long", True),
+        F("tests", "Security testing done", "long", hint="Dependency and secret scanning, static analysis, tests, pentest. Needed to sign off."),
+        F("open_findings", "Known open findings", "long"),
+        F("release_on", "Release date", "date"),
+    )))
+
+_add(Register(
+    key="crypto", title="Certificates and keys", singular="certificate or key", prefix="KEY",
+    description="Certificates, keys and secrets you depend on, with their owner, expiry and rotation (ISO 27001 A.8.24). Public certificates seen by the internet-facing checks are added by themselves.",
+    read="read", write="asset.write", iso="A.8.24", help="certificates-and-keys",
+    statuses=(("active", "In use", "good"), ("retired", "Retired", "neutral")),
+    moves=(Move("active", "Record rotation", ("active",), "asset.write", sets="last_rotated_on", key="rotated"),
+           Move("retired", "Retire", ("active",), "asset.write")),
+    closed=("retired",), title_label="Certificate or key", due="expires_on", due_label="Renew by", due_every=("last_rotated_on", "rotate_every_months"), due_resets=False,
+    fields=(
+        F("kind", "Kind", "choice", True, (("tls_certificate", "TLS certificate"), ("code_signing", "Code signing certificate"), ("encryption_key", "Encryption key"),
+                                           ("signing_key", "Signing key"), ("ssh_key", "SSH key"), ("api_secret", "API key or secret"), ("other", "Other")), listed=True),
+        F("location", "Where it is used", "text", True, listed=True, max=300),
+        F("storage", "Where it is kept", "text", hint="e.g. the key vault or HSM; never the key itself", max=300),
+        F("algorithm", "Algorithm and size", "text", max=100),
+        F("expires_on", "Expires", "date"),
+        F("rotate_every_months", "Rotate every (months)", "int", min=1, max=120),
+        F("last_rotated_on", "Last rotated", "date"),
+        F("source", "Added by", "text", max=100),
+    )))
+
+_add(Register(
+    key="backups", title="Backup jobs", singular="backup job", prefix="BAK",
+    description="What is backed up, how often, and when a restore was last tested (ISO 27001 A.8.13). Restore tests are due on a schedule.",
+    read="read", write="continuity.write", iso="A.8.13, A.5.30", help="backup-assurance",
+    statuses=(("ok", "Working", "good"), ("failing", "Failing", "critical"), ("retired", "Retired", "neutral")),
+    moves=(Move("ok", "Record a successful backup", ("ok", "failing"), "continuity.write", sets="last_success_on", key="success"),
+           Move("failing", "Record a failure", ("ok", "failing"), "continuity.write", note=True, key="failure"),
+           Move("ok", "Record a restore test", ("ok",), "continuity.write", sets="last_restore_test_on", note=True, key="restore_test"),
+           Move("retired", "Retire", ("ok", "failing"), "continuity.write")),
+    closed=("retired",), title_label="Backup job", due="restore_test_due", due_label="Restore test due", due_every=("last_restore_test_on", "restore_test_every_months"),
+    fields=(
+        F("assets", "Systems backed up", "assets"),
+        F("tool", "Backup tool", "text", True, listed=True, max=200),
+        F("frequency", "How often", "choice", True, (("hourly", "Hourly"), ("daily", "Daily"), ("weekly", "Weekly"), ("monthly", "Monthly")), listed=True),
+        F("retention", "Kept for", "text", max=200),
+        F("offsite", "Copy kept off-site or immutable", "bool"),
+        F("last_success_on", "Last successful backup", "date", listed=True),
+        F("last_restore_test_on", "Last restore test", "date"),
+        F("restore_test_every_months", "Restore test every (months)", "int", True, min=1, max=24),
+        F("restore_test_due", "Restore test due", "date", hint="Worked out from the last test unless you set it."),
     )))
 
 

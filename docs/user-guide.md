@@ -23,16 +23,18 @@ All screenshots show the fictional demo organisation, Alpine Ski House. You can 
    [Statement of Applicability](#statement-of-applicability) · [Privacy](#privacy) ·
    [Legal and contract obligations](#legal-and-contract-obligations) · [Exceptions](#exceptions)
 6. [Risk](#6-risk): [Risk register](#risk-register) · [Assets](#assets) · [Attack surface](#attack-surface) ·
-   [Configuration](#configuration) · [Changes](#changes)
+   [Configuration](#configuration) · [Changes](#changes) · [Penetration tests](#penetration-tests) ·
+   [Application security](#application-security) · [Certificates and keys](#certificates-and-keys)
 7. [Third parties](#7-third-parties): [Vendors](#vendors) · [Vendor questionnaires](#vendor-questionnaires) ·
    [Vendor assessments](#vendor-assessments) · [Entra exposure](#entra-exposure)
 8. [Trust and people](#8-trust-and-people): [People and training](#people-and-training) ·
    [Security training](#security-training) · [People security](#people-security) · [Access reviews](#access-reviews) ·
    [Leaver access check](#leaver-access-check) · [Trust Center](#trust-center) ·
    [Customer questionnaires](#customer-questionnaires) · [Integrations](#integrations)
-9. [Operations](#9-operations): [Security reports](#security-reports) · [Incidents](#incidents) · [Business continuity](#business-continuity) ·
+9. [Operations](#9-operations): [Security reports](#security-reports) · [Alert inbox](#alert-inbox) · [Incidents](#incidents) · [Business continuity](#business-continuity) ·
    [Nonconformities](#nonconformities) · [Audits](#audits) · [Management review](#management-review) ·
-   [Workload](#workload) · [Reports](#reports) · [Physical security](#physical-security)
+   [Workload](#workload) · [Reports](#reports) · [Backup assurance](#backup-assurance) ·
+   [Indicators and maturity](#indicators-and-maturity) · [Physical security](#physical-security)
 10. [Settings](#10-settings)
 11. [The employee portal](#11-the-employee-portal)
 12. [Phones, tablets and dark mode](#12-phones-tablets-and-dark-mode)
@@ -585,6 +587,44 @@ file's SHA-256, never the file, because exports contain password hashes and keys
    buttons.
 4. **Mark implemented** records the date; **Close** needs the outcome, including any problems.
 
+### Penetration tests
+
+![Test findings](user-guide/findings.png)
+
+**Risk → Penetration tests** records penetration tests, red-team exercises, vulnerability assessments and bug bounty
+reports (**Tests**), and what they found (**Findings**) (ISO 27001 A.8.8, A.5.35).
+
+- A test moves from *planned* to *in progress* to *reported*; keep the report itself somewhere access-controlled and
+  note where.
+- Each finding has a severity, the affected systems, what was found and the recommended fix. Its **fix-by** date
+  follows the severity unless you set one: critical 15 days, high 30, medium 90, low 180.
+- **Mark fixed** (with what was done), then someone else retests: **Retest passed** or **Retest failed** (back to
+  open, with a note). Retests need the audit permission, and whoever marked a finding fixed can't retest it.
+- **Accept the risk** instead of fixing needs risk-acceptance rights and a reason.
+
+### Application security
+
+![Applications](user-guide/applications.png)
+
+**Risk → Application security** covers the software you build or run for customers (ISO 27001 A.8.25 to A.8.29):
+
+- **Applications**: criticality, the most sensitive data, personal data, where the code and the service live, and the
+  security activities (code review, dependency and secret scanning, testing).
+- **Threat models**: for each application, the method (STRIDE, LINDDUN, PASTA, attack trees), scope, threats and
+  mitigations. Someone other than the author approves it; **Revise** reopens an approved one.
+- **Release sign-offs**: before a release goes live, what changed, what security testing was done and what is still
+  open. Someone other than the requester signs it off or doesn't.
+
+### Certificates and keys
+
+![Certificates and keys](user-guide/crypto.png)
+
+**Risk → Certificates and keys** lists the certificates, keys and secrets you depend on (ISO 27001 A.8.24): where each
+is used and kept (never the key itself), the algorithm, when it expires and how often it's rotated. The renew-by date
+is the expiry, or for keys without one, the last rotation plus the rotation period. **Record rotation** sets the last
+rotation to today. Public certificates the internet-facing checks find are added and kept up to date by themselves
+(*Added by: Internet-facing check*).
+
 ---
 
 ## 7. Third parties
@@ -823,6 +863,21 @@ Open a report and either:
 
 The reporter sees the outcome and your reply in their portal, but not the incident itself.
 
+### Alert inbox
+
+![Alert inbox](user-guide/alerts.png)
+
+**Operations → Alert inbox** collects alerts from your security tools: EDR, SIEM, email security, cloud and backup.
+
+- **Sources** (people who manage integrations): **Add a source** for each tool and copy its token; it's shown once.
+  The tool posts alerts to `/api/inbound/alerts` with the token; the dialog shows an example. A source can be turned
+  off, or given a **New token** (the old one stops working at once).
+- **Inbox** (incident handlers): repeats of the same alert are counted, not listed again. Alerts are linked to the
+  asset with the same host name and its owner, who is notified of high and critical ones (or the incident handlers
+  when nobody owns it). They can also go to Slack, Teams or a webhook (Settings → Chat and webhooks).
+- Open an alert to **Open an incident** (with its details), **Acknowledge** it, or **Close** it as benign, a false
+  positive, resolved or a duplicate, with a note.
+
 ### Incidents
 
 ![Incidents](user-guide/incidents.png)
@@ -857,6 +912,15 @@ Three tabs (ISO 27001 A.5.29 and A.5.30):
 - **Tests**: **Plan a test** (tabletop, walkthrough, simulation, backup restore or full interruption), then **Record
   result** with the recovery time and data loss achieved for each process. Keystone compares them with the RTO and
   RPO, won't record a pass if an objective was missed, files evidence, and can raise a nonconformity in one step.
+
+### Backup assurance
+
+![Backup jobs](user-guide/backups.png)
+
+**Operations → Business continuity → Backup jobs** lists what is backed up, with which tool, how often, how long it's
+kept and whether a copy is off-site or immutable (ISO 27001 A.8.13). **Record a successful backup** or **Record a
+failure** keeps the status current; **Record a restore test** (with what was restored and how long it took) sets the
+next restore test due date from the interval you chose. Overdue restore tests show in red and on the calendar.
 
 ### Nonconformities
 
@@ -922,6 +986,25 @@ The last row shows what nobody owns yet. Use it to spot overload and gaps before
   Keystone users. Outside addresses can't be added.
 
 Exports are recorded in the audit log. Treat them as confidential.
+
+### Indicators and maturity
+
+![Indicators](user-guide/indicators.png)
+
+**Operations → Measurement** shows how security is doing over time (ISO 27001 9.1).
+
+- **Indicators**: figures with an amber (watch) and a red (act now) threshold. Keystone measures many every day: MFA
+  coverage, vulnerabilities past their fix-by date, known-exploited vulnerabilities, leavers with access, expired
+  exceptions, overdue training, failing backups, certificates due, open alerts and more. **Add recommended
+  indicators** starts with a sensible set; for anything Keystone doesn't measure (a phishing simulation click rate,
+  say), **New indicator** with *Entered by hand* and **Record value**. The owner (or the ISMS managers) is notified
+  when an indicator turns red.
+
+![Maturity](user-guide/maturity.png)
+
+- **Maturity**: score each NIST CSF 2.0 category from 0 (not done) to 4 (adaptive), now and as a target, once or twice
+  a year. The chart compares current and target per function. **Make final** keeps the assessment as a record;
+  **Start the next one from this** copies it into a new draft.
 
 ### Physical security
 

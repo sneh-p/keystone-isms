@@ -45,6 +45,7 @@ EVENTS = {
     "policy.approved": "Policy version approved",
     "access_review.completed": "Access review completed",
     "config.failed": "Critical or high configuration baseline failure",
+    "alert.received": "High or critical alert in the security alert inbox",
 }
 POLICIES = {
     "slack": HostPolicy(hosts=frozenset({"hooks.slack.com"})),

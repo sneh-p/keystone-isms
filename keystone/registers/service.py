@@ -37,7 +37,7 @@ def spec_out(r: Register, actor) -> dict:
             "can_write": has_permission(actor, r.write),
             "fields": [{"key": f.key, "label": f.label, "type": f.type, "required": f.required, "listed": f.listed, "hint": f.hint, "min": f.min, "max": f.max,
                         "ref": f.ref, "choices": [{"value": v, "label": label} for v, label in f.choices]} for f in r.fields],
-            "moves": [{"to": m.to, "label": m.label, "from": list(m.frm), "sod": m.sod, "needs": list(m.needs), "note": m.note,
+            "moves": [{"key": m.id, "to": m.to, "label": m.label, "from": list(m.frm), "sod": m.sod, "needs": list(m.needs), "note": m.note,
                        "allowed": has_permission(actor, m.perm)} for m in r.moves]}
 
 
@@ -142,6 +142,10 @@ def _derive(r: Register, e: RegisterEntry) -> None:
     if r.due_every and data.get(r.due_every[0]) and data.get(r.due_every[1]) and not data.get(r.due or ""):
         # next due worked out from the last check unless set by hand; kept in the record so it shows
         e.due_on = _months_after(date.fromisoformat(data[r.due_every[0]]), int(data[r.due_every[1]]))
+    elif r.due_by and not data.get(r.due or "") and data.get(r.due_by[0]) in dict(r.due_by[1]):
+        # e.g. a finding's fix-by date from its severity, counted from when it was raised
+        raised = e.created_at.date() if e.created_at else today()
+        e.due_on = raised + timedelta(days=dict(r.due_by[1])[data[r.due_by[0]]])
     else:
         e.due_on = date.fromisoformat(data[r.due]) if r.due and data.get(r.due) else None
 
@@ -195,12 +199,14 @@ def move(session: Session, actor, entry_id: int, to: str, note: str | None = Non
     e = get_or_404(session, RegisterEntry, entry_id)
     r = spec(e.register)
     authorize(session, actor, r.read)
-    m = next((m for m in r.moves if m.to == to and e.status in m.frm), None)
+    m = next((m for m in r.moves if m.id == to and e.status in m.frm), None) or next((m for m in r.moves if m.to == to and e.status in m.frm), None)
     if m is None:
         raise ValueError(f"Can't go from {dict((k, label) for k, label, _ in r.statuses).get(e.status, e.status)} to that.")
     authorize(session, actor, m.perm)
     if m.sod and e.created_by_id is not None and e.created_by_id == actor.id:
         raise ValueError(f"Segregation of duties: someone other than whoever raised this {r.singular} decides it.")
+    if m.sod_last and e.decisions and e.decisions[-1].get("by") == actor.username:
+        raise ValueError(f"Segregation of duties: someone other than whoever made the last step does this ({m.label.lower()}).")
     data = e.data or {}
     missing = [f.label for f in r.fields if f.key in m.needs and data.get(f.key) in (None, "", [])]
     if missing:
@@ -210,11 +216,11 @@ def move(session: Session, actor, entry_id: int, to: str, note: str | None = Non
         raise ValueError("Add a note saying why.")
     if m.sets:
         e.data = {**data, m.sets: today().isoformat()}
-        if r.due and r.due_every and m.sets == r.due_every[0]:
+        if r.due and r.due_every and r.due_resets and m.sets == r.due_every[0]:
             e.data = {**e.data, r.due: None}  # a new check: the next due date is worked out again
         _derive(r, e)
-    e.decisions = [*(e.decisions or []), {"at": utcnow().isoformat(timespec="seconds"), "by": actor.username, "from": e.status, "to": to, "note": note}]
-    e.status = to
+    e.decisions = [*(e.decisions or []), {"at": utcnow().isoformat(timespec="seconds"), "by": actor.username, "from": e.status, "to": m.to, "step": m.label, "note": note}]
+    e.status = m.to
     _check_required(r, e)
     session.flush()
     return e
@@ -240,3 +246,38 @@ def due_soon(session: Session, on: date | None = None, days: int = 14) -> list[t
         if r and e.status not in r.closed:
             out.append((r, e))
     return out
+
+
+def sync_public_certificates(session: Session) -> int:
+    """Keep the certificates register up to date with the TLS certificates the internet-facing checks see: one entry
+    per host, its expiry refreshed on each scan. Entries people added or edited by hand are left alone."""
+    from keystone.asm.models import ExternalHost
+
+    source = "Internet-facing check"
+    existing = {(e.data or {}).get("location"): e for e in session.scalars(select(RegisterEntry).where(RegisterEntry.register == "crypto"))
+                if (e.data or {}).get("source") == source}
+    r = spec("crypto")
+    changed = 0
+    for h in session.scalars(select(ExternalHost).where(ExternalHost.current.is_(True))):
+        expires = (h.facts or {}).get("cert_expires")
+        if not expires:
+            continue
+        try:
+            exp = date.fromisoformat(str(expires)[:10]).isoformat()
+        except ValueError:
+            continue
+        e = existing.get(h.host)
+        if e is None:
+            from sqlalchemy import func
+
+            last = session.scalar(select(func.max(RegisterEntry.seq)).where(RegisterEntry.register == "crypto")) or 0
+            e = RegisterEntry(register="crypto", seq=last + 1, status=r.initial, title=f"TLS certificate for {h.host}"[:300],
+                              data={"kind": "tls_certificate", "location": h.host, "expires_on": exp, "source": source})
+            session.add(e)
+            changed += 1
+        elif (e.data or {}).get("expires_on") != exp:
+            e.data = {**(e.data or {}), "expires_on": exp}
+            changed += 1
+        _derive(r, e)
+    session.flush()
+    return changed

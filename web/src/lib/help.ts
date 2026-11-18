@@ -166,6 +166,16 @@ export const PAGE_HELP: Record<string, string> = {
   "/registers/visitors": "physical-security",
   "/access-check": "leaver-access-check",
   "/security-reports": "security-reports",
+  "/alerts": "alert-inbox",
+  "/registers/pentests": "penetration-tests",
+  "/registers/findings": "penetration-tests",
+  "/registers/applications": "application-security",
+  "/registers/threat-models": "application-security",
+  "/registers/release-signoffs": "application-security",
+  "/registers/crypto": "certificates-and-keys",
+  "/registers/backups": "backup-assurance",
+  "/indicators": "indicators-and-maturity",
+  "/maturity": "indicators-and-maturity",
 };
 
 export function helpAnchorFor(pathname: string): string {

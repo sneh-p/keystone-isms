@@ -17,7 +17,7 @@ import { DateInput } from "@/components/forms";
 import { Comments } from "@/components/Comments";
 
 type FieldSpec = { key: string; label: string; type: string; required: boolean; listed: boolean; hint?: string; min?: number; max?: number; ref?: string; choices: { value: string; label: string }[] };
-type MoveSpec = { to: string; label: string; from: string[]; sod: boolean; needs: string[]; note: boolean; allowed: boolean };
+type MoveSpec = { key: string; to: string; label: string; from: string[]; sod: boolean; needs: string[]; note: boolean; allowed: boolean };
 type Spec = {
   key: string; title: string; singular: string; description: string; iso: string; title_label: string; owner: boolean; due: string | null; due_label: string;
   comments: boolean; statuses: { key: string; label: string; tone: string }[]; closed: string[]; initial: string; can_write: boolean; fields: FieldSpec[]; moves: MoveSpec[];
@@ -101,7 +101,7 @@ function EntryPanel({ spec, entry, onClose, onEdit, label }: { spec: Spec; entry
   const [moving, setMoving] = useState<MoveSpec | null>(null);
   const [note, setNote] = useState("");
   const inv = [`/registers`, "/calendar", "/exceptions", "/dashboard"];
-  const move = useAction(() => api(`/registers/${spec.key}/${entry.id}/move`, { body: { to: moving!.to, note: note || null } }),
+  const move = useAction(() => api(`/registers/${spec.key}/${entry.id}/move`, { body: { to: moving!.key, note: note || null } }),
     { success: "Saved.", invalidate: inv, onSuccess: () => { setMoving(null); setNote(""); } });
   const remove = useAction(() => api(`/registers/${spec.key}/${entry.id}`, { method: "DELETE" }), { success: "Deleted.", invalidate: inv, onSuccess: onClose });
   const { me } = useAuth();
@@ -132,7 +132,7 @@ function EntryPanel({ spec, entry, onClose, onEdit, label }: { spec: Spec; entry
             <ol className="space-y-2 text-sm">
               {entry.decisions.map((d, i) => (
                 <li key={i} className="rounded-md border px-3 py-2">
-                  <span className="font-medium">{spec.statuses.find((s) => s.key === d.to)?.label ?? d.to}</span>
+                  <span className="font-medium">{d.step ?? spec.statuses.find((s) => s.key === d.to)?.label ?? d.to}</span>
                   <span className="text-muted-foreground"> · {d.by} · {fmtDate(d.at)}</span>
                   {d.note && <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{d.note}</p>}
                 </li>

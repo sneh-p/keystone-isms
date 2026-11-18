@@ -31,10 +31,15 @@ def _enabled(props: dict) -> bool:
 
 def findings(session: Session, actor, on: date | None = None) -> dict:
     """Leavers who still have access, and accounts with no person in People."""
+    authorize(session, actor, "access_review.manage")
+    return compute(session, on)
+
+
+def compute(session: Session, on: date | None = None) -> dict:
+    """The check itself, without a permission check: for findings() and for the daily security indicators."""
     from keystone.asm.models import AsmIdentity
     from keystone.people.models import Person
 
-    authorize(session, actor, "access_review.manage")
     on = on or today()
     people = list(session.scalars(select(Person)))
     by_email = {p.email.lower(): p for p in people if p.email}

@@ -165,6 +165,9 @@ SHOTS: list[Shot] = [
     Shot("configuration-custom-new", "/configuration?tab=custom", button("New custom check")),
     Shot("configuration-agents", "/configuration?tab=agents", mask_keys),
     Shot("change", "/registers/changes", row("Open the Wi-Fi guest network")),
+    Shot("findings", "/registers/findings"),
+    Shot("applications", "/registers/applications"),
+    Shot("crypto", "/registers/crypto"),
     # third parties
     Shot("vendors", "/vendors"),
     Shot("vendor-detail", "/vendors", row("Fabrikam Backup")),
@@ -184,6 +187,7 @@ SHOTS: list[Shot] = [
     Shot("integrations", "/integrations"),
     # operations
     Shot("security-reports", "/security-reports"),
+    Shot("alerts", "/alerts"),
     Shot("incidents", "/incidents"),
     Shot("incident-detail", "/incidents", row("Guest list emailed")),
     Shot("continuity", "/continuity"),
@@ -193,6 +197,9 @@ SHOTS: list[Shot] = [
     Shot("management-review", "/reviews"),
     Shot("workload", "/workload"),
     Shot("reports", "/reports"),
+    Shot("backups", "/registers/backups"),
+    Shot("indicators", "/indicators"),
+    Shot("maturity", "/maturity"),
     Shot("physical-security", "/registers/sites"),
     # settings
     Shot("account", "/settings/account"),

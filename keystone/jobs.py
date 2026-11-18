@@ -27,10 +27,12 @@ def run_due_integrations() -> None:
 @register("metric-snapshot", minutes=360)
 def snapshot_metrics() -> None:
     """Record today's headline numbers for dashboard trends (idempotent per day)."""
+    from keystone.indicators.service import measure_all
     from keystone.reporting import dashboard
 
     with db.session_scope() as s:
         dashboard.take_snapshot(s)
+        measure_all(s)
 
 
 @register("notifications", minutes=60)
@@ -58,8 +60,11 @@ def scan_external() -> None:
     """Re-check ownership of each verified domain, then discover and check its hosts (passive; see asm/external.py)."""
     from keystone.asm import external
 
+    from keystone.registers.service import sync_public_certificates
+
     with db.session_scope() as s:
         out = external.scan_all(s)
+        sync_public_certificates(s)
     if out["failed"]:
         raise RuntimeError(f"{out['failed']} domain(s) lost their verification record")
 

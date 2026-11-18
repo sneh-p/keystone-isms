@@ -50,3 +50,6 @@ from keystone.collab.models import TourState
 from keystone.registers.models import RegisterEntry
 from keystone.access_reviews.reconcile import AccessCheckExemption
 from keystone.incidents.models import SecurityReport
+from keystone.alerts.models import Alert, AlertSource
+from keystone.indicators.models import Indicator, IndicatorValue
+from keystone.maturity.models import MaturityAssessment

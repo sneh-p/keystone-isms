@@ -176,6 +176,7 @@ def seed(session: Session, admin) -> dict:
     _seed_attack_surface(session, admin)
     _seed_configuration(session, admin)
     _seed_security(session, admin, people)
+    _seed_operations(session, admin, people)
     seed_external(session)
     seed_privacy_continuity(session, people)
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
@@ -391,6 +392,76 @@ def _seed_security(session: Session, admin, people: dict) -> None:
         reports.close(session, mia, old.id, outcome="not_a_threat", reply="Thanks Nina: the door was closed and the alarm checked. We've reminded the cleaning team.")
         reports.submit(session, nina_user, kind="phishing", description="An email says my booking-system password expires today and asks me to sign in through a link.",
                        sender="it-support@alpineski-house.example", subject="Password expires today")
+
+
+def _seed_operations(session: Session, admin, people: dict) -> None:
+    """Fictional alerts, pentest findings, application security, certificates, backups, indicators and a maturity
+    assessment, so the security operations screens have something to show."""
+    from keystone.alerts import service as alerts
+    from keystone.indicators import service as kri
+    from keystone.maturity import service as mat
+    from keystone.registers import service as reg
+
+    mia, lena, raj, omar = people["mia.isms"], people["lena.ctl"], people["raj.risk"], people["omar.audit"]
+    on = date.today()
+    src, _token = alerts.create_source(session, admin, "Contoso EDR (fictional)", "edr")  # the token isn't kept: the demo sends nothing
+    mail, _token2 = alerts.create_source(session, admin, "Email security (fictional)", "email")
+    alerts.receive(session, src, title="Credential dumping tool blocked", severity="high", category="malware", host="ASH-LT-002", external_id="edr-4411",
+                   description="LSASS access by an unsigned binary; blocked and quarantined.", link="https://edr.contoso.example/alerts/4411")
+    alerts.receive(session, src, title="Outdated agent version", severity="low", category="misconfiguration", host="ASH-KIOSK-01", external_id="edr-4398")
+    alerts.receive(session, mail, title="Phishing campaign blocked: invoice lure", severity="medium", category="phishing", account="frontdesk@alpineskihouse.example")
+    for _ in range(3):
+        alerts.receive(session, mail, title="Phishing campaign blocked: invoice lure", severity="medium", category="phishing", account="frontdesk@alpineskihouse.example")
+
+    def raised_by(e, user):
+        e.created_by_id = user.id
+        session.flush()
+        return e
+
+    pen = reg.save(session, admin, "pentests", title="External penetration test 2026", owner_id=mia.id, kind="pentest", provider="Fabrikam Security (fictional)",
+                   scope="Booking platform, public website and VPN.", report_location="ISMS SharePoint, restricted folder", retest_on=(on + timedelta(days=30)).isoformat())
+    reg.move(session, mia, pen.id, "in_progress")
+    reg.move(session, mia, pen.id, "reported")
+    f1 = raised_by(reg.save(session, admin, "findings", title="Stored XSS in booking notes", owner_id=lena.id, test=pen.id, severity="high",
+                            description="Guest notes are shown unescaped to front desk staff.", recommendation="Encode output; add a content security policy."), mia)
+    reg.move(session, lena, f1.id, "fixed", note="Output encoded and CSP added in release 4.2.")
+    reg.move(session, omar, f1.id, "verified")
+    reg.save(session, admin, "findings", title="TLS 1.0 still enabled on the VPN", owner_id=lena.id, test=pen.id, severity="medium",
+             description="The VPN gateway accepts TLS 1.0.", recommendation="Allow TLS 1.2 and later only.")
+    reg.save(session, admin, "findings", title="Verbose server banner", owner_id=lena.id, test=pen.id, severity="low", description="The web server shows its version.")
+
+    app = reg.save(session, admin, "applications", title="Booking platform", owner_id=lena.id, criticality="critical", data="restricted", personal_data=True,
+                   description="Online booking for hotels, lifts and rentals.", repository="alpine/booking (fictional)", hosting="Cloud (EU)",
+                   practices="Code review on every change, dependency and secret scanning, yearly pentest.")
+    tm = raised_by(reg.save(session, admin, "threat-models", title="Booking platform: STRIDE", owner_id=lena.id, application=app.id, method="stride",
+                            scope="Web app, booking API, payment redirect.", threats="Account takeover; card-data exposure; booking tampering; denial of service at peak season.",
+                            mitigations="MFA for staff, payment page hosted by the processor, rate limits, CDN.", residual="medium",
+                            review_on=(on + timedelta(days=300)).isoformat()), lena)
+    reg.move(session, mia, tm.id, "approved")
+    raised_by(reg.save(session, admin, "release-signoffs", title="Booking platform 4.3", application=app.id, version="4.3", changes="Gift vouchers; new login page.",
+                       tests="Dependency and secret scanning clean; SAST: 2 low; login page retested.", release_on=(on + timedelta(days=5)).isoformat()), lena)
+
+    reg.save(session, admin, "crypto", title="Booking platform signing key", owner_id=lena.id, kind="signing_key", location="Booking API (tokens)",
+             storage="Cloud key vault", algorithm="ECDSA P-256", rotate_every_months=12, last_rotated_on=(on - timedelta(days=340)).isoformat())
+    reg.save(session, admin, "crypto", title="Code signing certificate", owner_id=lena.id, kind="code_signing", location="Kiosk app builds",
+             storage="Hardware token in the safe", expires_on=(on + timedelta(days=21)).isoformat())
+
+    reg.save(session, admin, "backups", title="Booking database", owner_id=lena.id, tool="Cloud snapshots", frequency="hourly", retention="35 days", offsite=True,
+             last_success_on=on.isoformat(), last_restore_test_on=(on - timedelta(days=40)).isoformat(), restore_test_every_months=6)
+    files = reg.save(session, admin, "backups", title="Hotel file servers", owner_id=raj.id, tool="Veeam (fictional)", frequency="daily", retention="90 days", offsite=False,
+                     last_success_on=(on - timedelta(days=3)).isoformat(), last_restore_test_on=(on - timedelta(days=220)).isoformat(), restore_test_every_months=6)
+    reg.move(session, raj, files.id, "failure", note="Repository full since Saturday.")
+
+    kri.add_recommended(session, admin)
+    a = mat.save(session, admin, title="2026 self-assessment", assessed_on=on - timedelta(days=20))
+    scores = {}
+    for f in mat.categories():
+        base = {"GV": 2, "ID": 2, "PR": 3, "DE": 1, "RS": 2, "RC": 1}.get(f["ref"], 2)
+        for n, c in enumerate(f["categories"]):
+            cur = max(0, min(4, base + (-1, 0, 1, 0)[n % 4]))  # a fixed spread: the same demo every time
+            scores[c["ref"]] = {"current": cur, "target": min(4, max(cur, 3))}
+    mat.save(session, admin, a.id, scores=scores)
+    mat.finalise(session, admin, a.id)
 
 
 def _seed_trend_history(session: Session, weeks: int = 11) -> None:

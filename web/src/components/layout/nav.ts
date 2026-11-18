@@ -1,5 +1,5 @@
 import {
-  Activity, AlertOctagon, BadgeAlert, Building, FileWarning, GitPullRequestArrow, IdCard, Scale, UserX, CalendarDays, Crosshair, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Fingerprint, Handshake, HeartPulse, KeyRound, LifeBuoy,
+  Activity, AlertOctagon, AppWindow, BadgeAlert, BellRing, Bug, Building, FileWarning, GitPullRequestArrow, IdCard, KeySquare, LineChart, Scale, UserX, CalendarDays, Crosshair, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Fingerprint, Handshake, HeartPulse, KeyRound, LifeBuoy,
   LayoutDashboard, ListChecks, Mail, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, ServerCog, Settings, ShieldCheck, Siren, Sparkles, UserCheck, UserCog, Users, Wrench,
 } from "lucide-react";
 
@@ -31,6 +31,23 @@ export const AREAS: { name: string; tabs: AreaTab[] }[] = [
     { label: "Sites and secure areas", to: "/registers/sites" },
     { label: "Physical security checks", to: "/registers/physical-checks" },
     { label: "Visitor log", to: "/registers/visitors", perm: "asset.write" },
+  ] },
+  { name: "Penetration tests", tabs: [
+    { label: "Tests", to: "/registers/pentests" },
+    { label: "Findings", to: "/registers/findings" },
+  ] },
+  { name: "Application security", tabs: [
+    { label: "Applications", to: "/registers/applications" },
+    { label: "Threat models", to: "/registers/threat-models" },
+    { label: "Release sign-offs", to: "/registers/release-signoffs" },
+  ] },
+  { name: "Business continuity", tabs: [
+    { label: "Business continuity", to: "/continuity" },
+    { label: "Backup jobs", to: "/registers/backups" },
+  ] },
+  { name: "Measurement", tabs: [
+    { label: "Indicators", to: "/indicators" },
+    { label: "Maturity", to: "/maturity" },
   ] },
   { name: "Settings", tabs: [
     { label: "Organisation", to: "/settings/organisation" },
@@ -73,6 +90,9 @@ export const NAV: NavSection[] = [
       { label: "Attack surface", to: "/attack-surface", icon: Crosshair },
       { label: "Configuration", to: "/configuration", icon: ServerCog },
       { label: "Changes", to: "/registers/changes", icon: GitPullRequestArrow },
+      { label: "Penetration tests", to: "/registers/pentests", icon: Bug, also: areaPaths("Penetration tests") },
+      { label: "Application security", to: "/registers/applications", icon: AppWindow, also: areaPaths("Application security") },
+      { label: "Certificates and keys", to: "/registers/crypto", icon: KeySquare },
     ],
   },
   {
@@ -98,12 +118,14 @@ export const NAV: NavSection[] = [
     label: "Operations",
     items: [
       { label: "Security reports", to: "/security-reports", icon: BadgeAlert, perm: "incident.write" },
+      { label: "Alert inbox", to: "/alerts", icon: BellRing, perm: "incident.write" },
       { label: "Incidents", to: "/incidents", icon: Siren },
-      { label: "Business continuity", to: "/continuity", icon: LifeBuoy },
+      { label: "Business continuity", to: "/continuity", icon: LifeBuoy, also: areaPaths("Business continuity") },
       { label: "Physical security", to: "/registers/sites", icon: Building, also: areaPaths("Physical security") },
       { label: "Improvement", to: "/nonconformities", icon: Wrench, also: areaPaths("Improvement") },
       { label: "Workload", to: "/workload", icon: UsersRound },
       { label: "Reports", to: "/reports", icon: Activity },
+      { label: "Measurement", to: "/indicators", icon: LineChart, also: areaPaths("Measurement") },
     ],
   },
   { items: [{ label: "Settings", to: "/settings/organisation", icon: Settings, also: areaPaths("Settings") }] },

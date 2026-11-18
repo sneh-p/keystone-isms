@@ -24,7 +24,10 @@ STAFF_ROUTES = ["/", "/frameworks", "/controls", "/soa", "/evidence", "/risks", 
                 "/help", "/help#risk-register",
                 # round 8: security expansion, batch 1
                 "/registers/obligations", "/registers/changes", "/registers/policy-exceptions", "/registers/screening", "/registers/confidentiality",
-                "/registers/sites", "/registers/visitors", "/registers/physical-checks", "/exceptions", "/security-reports", "/access-check"]
+                "/registers/sites", "/registers/visitors", "/registers/physical-checks", "/exceptions", "/security-reports", "/access-check",
+                # batch 2
+                "/alerts", "/alerts?tab=sources", "/registers/pentests", "/registers/findings", "/registers/applications", "/registers/threat-models",
+                "/registers/release-signoffs", "/registers/crypto", "/registers/backups", "/indicators", "/maturity"]
 
 
 def test_every_screen_renders(demo_server, open_page):

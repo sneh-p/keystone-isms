@@ -58,6 +58,9 @@ const RegisterPage = lazy(() => import("@/pages/Registers"));
 const SecurityReports = lazy(() => import("@/pages/Security").then((m) => ({ default: m.SecurityReports })));
 const AccessCheck = lazy(() => import("@/pages/Security").then((m) => ({ default: m.AccessCheck })));
 const Exceptions = lazy(() => import("@/pages/Security").then((m) => ({ default: m.Exceptions })));
+const AlertInbox = lazy(() => import("@/pages/Measure").then((m) => ({ default: m.AlertInbox })));
+const Indicators = lazy(() => import("@/pages/Measure").then((m) => ({ default: m.Indicators })));
+const Maturity = lazy(() => import("@/pages/Measure").then((m) => ({ default: m.Maturity })));
 const PortalHelp = lazy(() => import("@/pages/Help").then((m) => ({ default: m.PortalHelp })));
 
 /** Authenticated application routes. `nav` marks routes that appear in the sidebar. */
@@ -109,9 +112,13 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/security-reports", element: <SecurityReports />, nav: true },
   { path: "/access-check", element: <AccessCheck />, nav: true },
   { path: "/exceptions", element: <Exceptions />, nav: true },
+  { path: "/alerts", element: <AlertInbox />, nav: true },
+  { path: "/indicators", element: <Indicators />, nav: true },
+  { path: "/maturity", element: <Maturity />, nav: true },
 ];
 // Registers share one page; their sidebar entries and tabs exist in this build.
-["obligations", "changes", "policy-exceptions", "screening", "confidentiality", "sites", "visitors", "physical-checks"].forEach((k) => BUILT.add(`/registers/${k}`));
+["obligations", "changes", "policy-exceptions", "screening", "confidentiality", "sites", "visitors", "physical-checks",
+  "pentests", "findings", "applications", "threat-models", "release-signoffs", "crypto", "backups"].forEach((k) => BUILT.add(`/registers/${k}`));
 APP_ROUTES.filter((r) => r.nav).forEach((r) => BUILT.add(r.path));
 
 const Loading = () => (

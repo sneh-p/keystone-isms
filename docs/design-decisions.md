@@ -369,3 +369,23 @@ recovery times (tabletop exercises have none).
 - **The exceptions register is a view**, not a copy: it reads risk acceptances, attack surface and configuration
   exceptions and policy exceptions where they live, so it can't drift from them.
 
+## Security expansion, batch 2 (round 8)
+
+- **Alert inbox: a new way in, approved with the request.** `POST /api/inbound/alerts` takes alerts from your tools.
+  Each source has its own token (`kalt_…`, shown once, stored as a SHA-256 hash, rotatable, can be turned off);
+  requests are rate-limited per address and per source and capped at 64 KB, and the body is a strict Pydantic model
+  (allowlisted severity and category, links https only). Nothing is ever sent back to the tools. Repeats (same id,
+  or same title, host and account within a day) are counted rather than stored again.
+- **Alerts are linked by host name** to an asset (or a device the attack surface tools link to one) and its owner,
+  who is notified of high and critical alerts; incident handlers are notified too. Handling needs incident.write;
+  sources need integration.manage.
+- **Pentest findings** get a fix-by date from their severity, and a retest can't be done by whoever marked the
+  finding fixed (a register step that checks the previous step's author). Retests need the audit permission.
+- **Application security** (applications, threat models, release sign-offs), **certificates and keys** and **backup
+  jobs** are declared registers. A key's rotation never erases a certificate's expiry; public certificates from the
+  internet-facing checks are added and refreshed by the daily scan.
+- **Indicators** are measured every day alongside the dashboard figures; equal amber and red thresholds are allowed
+  (one is already too many). An indicator turning red notifies its owner, or the ISMS managers.
+- **Maturity** uses Keystone's own NIST CSF 2.0 content for the categories, so it works whether or not the
+  framework is turned on; final assessments can't change, and the next one starts as a copy.
+
