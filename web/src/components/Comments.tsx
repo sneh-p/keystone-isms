@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/input";
 import { Section } from "@/components/ui/misc";
 
 export type Kind = "risk" | "control" | "task" | "incident" | "policy" | "vendor" | "nonconformity" | "audit" | "asset" | "config_target"
-  | "processing_activity" | "dpia" | "data_subject_request" | "business_process" | "continuity_plan" | "objective";
+  | "processing_activity" | "dpia" | "data_subject_request" | "business_process" | "continuity_plan" | "objective" | "register_entry";
 
 /** Comment text as plain text, with @mentions emphasised (never rendered as HTML). */
 function Body({ text }: { text: string }) {

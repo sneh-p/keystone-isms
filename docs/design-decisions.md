@@ -347,3 +347,25 @@ recovery times (tabletop exercises have none).
   by content, size limit, content-addressed storage), and only people with the people-management permission can
   download them (`DOWNLOAD_PERMISSION["ExternalTraining"]`). The upload was approved as part of the feature request.
 
+## Security expansion, batch 1 (round 8)
+
+- **Declared registers.** Obligations, changes, policy exceptions, background checks, confidentiality agreements,
+  sites, visitors and physical checks are declared in `keystone/registers/spec.py` (fields, permissions, workflow) and
+  share one table, one API and one page. The server validates every value against the declaration: unknown fields
+  are refused, text is bounded, choices are allowlisted, links must point at records that exist (SC-VAL-001/002).
+  Each register has its own read and write permission, checked in the service; routes only require a signed-in staff
+  user (SC-AUTHZ-001). Numbering is per register (CHG-0001).
+- **Workflow steps** name their permission; approvals (changes, policy exceptions) refuse whoever raised the record
+  (segregation of duties) and the page shows them a note instead of the buttons. Closed records can't be edited, and
+  a record can be deleted only while nothing was decided on it.
+- **Need-to-know registers** (background checks, confidentiality agreements, the visitor log) are readable only with
+  the people-management or asset-management permission, take no comments and stay off the shared calendar.
+- **No new permissions.** The registers reuse existing ones: org.write for obligations, task.write and task.approve
+  for changes, risk.accept for policy exceptions, people.write and asset.write for people and physical security.
+- **Reports from the portal** need only the portal permission (every role); reporters see their own reports and the
+  reply, never the incident. Triage needs incident.write. "Clicked or entered a password" is flagged first.
+- **The leaver access check is read-only**: it lists leavers with active accounts and accounts with nobody behind
+  them; deactivating stays a deliberate step in Users or the source system. Marking an account "expected" records why.
+- **The exceptions register is a view**, not a copy: it reads risk acceptances, attack surface and configuration
+  exceptions and policy exceptions where they live, so it can't drift from them.
+

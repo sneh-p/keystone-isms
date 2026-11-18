@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SignatureInput, signatureOk } from "@/components/Signature";
 import { Link, useNavigate, useParams } from "react-router";
-import { BookOpen, Check, CheckCircle2, ChevronLeft, Compass, Laptop, LifeBuoy, LogOut, ScrollText, ShieldCheck } from "lucide-react";
+import { BookOpen, Check, CheckCircle2, ChevronLeft, Compass, Laptop, LifeBuoy, LogOut, Megaphone, ScrollText, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { api, downloadUrl, fragmentParam, setCsrf, upload } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input } from "@/components/ui/input";
+import { Field, Input, Textarea } from "@/components/ui/input";
 import { Progress, Skeleton } from "@/components/ui/misc";
 import { Select } from "@/components/ui/select";
 import { Markdown } from "@/components/Markdown";
@@ -81,6 +81,8 @@ export default function Portal() {
         <Progress label="Your progress" className="mt-2" value={(100 * done) / total} tone={s.complete ? "good" : "primary"} />
         {s.complete && <p className="mt-3 flex items-center gap-2 text-sm text-[#0a7a0a] dark:text-good"><CheckCircle2 className="size-4" /> You're all set. Thank you!</p>}
       </CardBody></Card>
+
+      <ReportCard />
 
       <Card className="mt-6" data-tour="portal-policies">
         <CardHeader title={<span className="flex items-center gap-2"><ScrollText className="size-4" /> Policies to accept</span>} description={`${s.policies_done} of ${s.policies_total} accepted`} />
@@ -227,5 +229,48 @@ export function AcceptInvite() {
         )}
       </CardBody></Card>
     </div>
+  );
+}
+
+
+/** Report something suspicious (ISO 27001 A.6.8): goes straight to the security team, and their reply comes back here. */
+function ReportCard() {
+  const { data } = useApi<any>("/portal/reports");
+  const [f, setF] = useState<{ kind: string | null; description: string; sender: string; subject: string; where: string; clicked: boolean } | null>(null);
+  const send = useAction(() => api("/portal/reports", { body: { kind: f!.kind, description: f!.description, sender: f!.sender || null, subject: f!.subject || null, where: f!.where || null, clicked: f!.clicked } }),
+    { success: "Thank you. The security team has your report.", invalidate: ["/portal"], onSuccess: () => setF(null) });
+  if (!data) return null;
+  const open = () => setF({ kind: null, description: "", sender: "", subject: "", where: "", clicked: false });
+  return (
+    <Card className="mt-6" data-tour="portal-report">
+      <CardHeader title={<span className="flex items-center gap-2"><Megaphone className="size-4" /> Report something suspicious</span>}
+        description="A strange email, a lost laptop, someone you don't recognise: tell the security team. Reporting quickly matters more than being sure."
+        action={<Button size="sm" onClick={open}>Report something</Button>} />
+      {data.reports.length > 0 && (
+        <CardBody className="space-y-2">
+          {data.reports.slice(0, 5).map((r: any) => (
+            <div key={r.id} className="rounded-md border px-3 py-2 text-sm">
+              <span className="flex flex-wrap items-center justify-between gap-2"><span>{data.kinds[r.kind]} <span className="text-muted-foreground">· {fmtDate(r.created_at)}</span></span>
+                <Badge tone={r.status === "new" ? "primary" : "neutral"}>{r.status === "new" ? "With the security team" : data.outcomes[r.outcome]}</Badge></span>
+              {r.reply && <p className="mt-1 text-muted-foreground">{r.reply}</p>}
+            </div>
+          ))}
+        </CardBody>
+      )}
+      <Dialog open={!!f} onOpenChange={(o) => !o && setF(null)} title="Report something suspicious"
+        footer={<Button disabled={!f?.kind || !f?.description.trim()} loading={send.isPending} onClick={() => send.mutate(undefined)}>Send report</Button>}>
+        {f && <div className="space-y-4">
+          <Field label="What happened?" required><Select ariaLabel="What happened" value={f.kind} onChange={(v) => setF((x) => x && { ...x, kind: v })} options={Object.entries(data.kinds).map(([value, label]) => ({ value, label: label as string }))} placeholder="Choose…" /></Field>
+          <Field label="Tell us more" required hint="What you saw and when. Don't forward the suspicious email to colleagues."><Textarea value={f.description} maxLength={8000} onChange={(e) => setF((x) => x && { ...x, description: e.target.value })} /></Field>
+          {f.kind === "phishing" && <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Who it came from"><Input value={f.sender} maxLength={320} onChange={(e) => setF((x) => x && { ...x, sender: e.target.value })} placeholder="Sender address or number" /></Field>
+            <Field label="Subject"><Input value={f.subject} maxLength={300} onChange={(e) => setF((x) => x && { ...x, subject: e.target.value })} /></Field>
+          </div>}
+          <Field label="Where" hint="Which device, office or system, if it helps."><Input value={f.where} maxLength={300} onChange={(e) => setF((x) => x && { ...x, where: e.target.value })} /></Field>
+          <label className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm"><input type="checkbox" className="mt-0.5" checked={f.clicked} onChange={(e) => setF((x) => x && { ...x, clicked: e.target.checked })} />
+            <span>I clicked a link, opened an attachment or typed my password. <span className="text-muted-foreground">Tick this if so: nobody will blame you, and it helps us act fast.</span></span></label>
+        </div>}
+      </Dialog>
+    </Card>
   );
 }

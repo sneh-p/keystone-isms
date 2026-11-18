@@ -20,17 +20,19 @@ All screenshots show the fictional demo organisation, Alpine Ski House. You can 
 4. [Overview](#4-overview)
 5. [Compliance](#5-compliance): [Frameworks](#frameworks) · [Controls](#controls) · [Tasks](#tasks) ·
    [Calendar](#calendar) · [Policies](#policies) · [Evidence](#evidence) ·
-   [Statement of Applicability](#statement-of-applicability) · [Privacy](#privacy)
+   [Statement of Applicability](#statement-of-applicability) · [Privacy](#privacy) ·
+   [Legal and contract obligations](#legal-and-contract-obligations) · [Exceptions](#exceptions)
 6. [Risk](#6-risk): [Risk register](#risk-register) · [Assets](#assets) · [Attack surface](#attack-surface) ·
-   [Configuration](#configuration)
+   [Configuration](#configuration) · [Changes](#changes)
 7. [Third parties](#7-third-parties): [Vendors](#vendors) · [Vendor questionnaires](#vendor-questionnaires) ·
    [Vendor assessments](#vendor-assessments) · [Entra exposure](#entra-exposure)
 8. [Trust and people](#8-trust-and-people): [People and training](#people-and-training) ·
-   [Security training](#security-training) · [Access reviews](#access-reviews) · [Trust Center](#trust-center) ·
+   [Security training](#security-training) · [People security](#people-security) · [Access reviews](#access-reviews) ·
+   [Leaver access check](#leaver-access-check) · [Trust Center](#trust-center) ·
    [Customer questionnaires](#customer-questionnaires) · [Integrations](#integrations)
-9. [Operations](#9-operations): [Incidents](#incidents) · [Business continuity](#business-continuity) ·
+9. [Operations](#9-operations): [Security reports](#security-reports) · [Incidents](#incidents) · [Business continuity](#business-continuity) ·
    [Nonconformities](#nonconformities) · [Audits](#audits) · [Management review](#management-review) ·
-   [Workload](#workload) · [Reports](#reports)
+   [Workload](#workload) · [Reports](#reports) · [Physical security](#physical-security)
 10. [Settings](#10-settings)
 11. [The employee portal](#11-the-employee-portal)
 12. [Phones, tablets and dark mode](#12-phones-tablets-and-dark-mode)
@@ -398,6 +400,31 @@ Four registers for data protection (GDPR):
 - **Breach log**: every incident involving personal data, with its 72-hour deadline and an assessment of the data,
   people affected, consequences, measures and risk to people, including why it was or wasn't notified.
 
+### Legal and contract obligations
+
+![Legal and contract obligations](user-guide/obligations.png)
+
+**Compliance → Obligations** lists the laws, regulations, industry standards and contract commitments that bear on
+security and privacy (ISO 27001 A.5.31): for example GDPR Article 32, PCI DSS for card payments, or the security
+schedule of a customer contract. For each one, record what it requires, how you meet it, the controls that meet it
+and an owner; the next review date goes on the calendar. **No longer applies** retires one with a note.
+
+### Exceptions
+
+![Exceptions](user-guide/exceptions.png)
+
+**Compliance → Exceptions** lists every exception in force, wherever it was granted: risk acceptances, attack surface
+and configuration exceptions, and policy exceptions. Each shows the reason, who approved it and when it ends; ones
+that ended or end within 30 days are at the top.
+
+**Policy exceptions** (the second tab) are approved departures from a policy:
+
+1. **New policy exception**: the policy and section, who or what it covers, why it's needed, and an end date at most
+   a year ahead.
+2. Add the **compensating controls** that reduce the risk meanwhile.
+3. Someone with risk-acceptance rights who didn't raise it **approves** or **rejects** it (with a reason). **End now**
+   ends it early.
+
 ---
 
 ## 6. Risk
@@ -544,6 +571,20 @@ file's SHA-256, never the file, because exports contain password hashes and keys
 
 **Compliance report** downloads every result as a spreadsheet; it's also on each host's and baseline's page.
 
+### Changes
+
+![A change waiting for approval](user-guide/change.png)
+
+**Risk → Changes** records changes to systems and infrastructure with a security review before they're approved
+(ISO 27001 A.8.32).
+
+1. **New change**: what changes and why, the type (standard, normal or emergency), the risk and the systems affected.
+2. Before approval, fill in the **security review** (effect on access, exposure, data and logging) and **how to roll
+   back**.
+3. Someone other than the requester **approves** or **rejects** it. Whoever raised it sees a note instead of the
+   buttons.
+4. **Mark implemented** records the date; **Close** needs the outcome, including any problems.
+
 ---
 
 ## 7. Third parties
@@ -675,6 +716,19 @@ the built-in module off. Passes of the built-in module count for the copy until 
   people can open them.
 - Remove a record entered by mistake with its bin icon; the audit log keeps what it said.
 
+### People security
+
+**Trust and people → People security** holds two need-to-know registers, visible only to people who manage people
+(ISO 27001 A.6.1, A.6.2, A.6.6):
+
+- **Background checks**: each check for a person (identity, right to work, references, qualifications, criminal
+  record, credit), who did it, and the result: **clear** or **concerns** (with a note, kept to what's needed). Set a
+  next check date for roles that need periodic screening.
+- **Confidentiality agreements**: the confidentiality clause, NDA, contractor or acceptable-use agreement each person
+  signed, when, where it's kept, and when it needs renewing.
+
+These records have no discussion and don't appear on the shared calendar.
+
 ### Access reviews
 
 ![Access reviews](user-guide/access-reviews.png)
@@ -687,6 +741,22 @@ Access reviews (ISO 27001 A.5.18) confirm who has access to what.
 2. Each reviewer decides **Keep**, **Revoke** or **Change** for the accounts they review (*Only items I review* filters
    to yours), saying what should change where needed.
 3. **Complete campaign** files the result as evidence. **Export** downloads the decisions for auditors.
+
+### Leaver access check
+
+![Leaver access check](user-guide/access-check.png)
+
+**Trust and people → Leaver access check** compares People with every account Keystone can see (Keystone's own
+accounts and the identity sources connected under Integrations), and lists:
+
+- **Leavers with access** (high): someone who is offboarding, offboarded or past their end date, whose account is
+  still active.
+- **Guest accounts** with nobody behind them.
+- **Accounts with no person** in People: a service or shared account, or someone missing from People.
+
+Nothing is changed here: **Open** goes to the account, and you deactivate it in Users or in the source system. For a
+service or shared account, **Expected** records why it has no person and stops listing it; **Check again** undoes
+that. Needs the access-review permission (administrators and ISMS managers).
 
 ### Trust Center
 
@@ -737,6 +807,21 @@ Integrations connect Keystone to your tools, read-only.
 ---
 
 ## 9. Operations
+
+### Security reports
+
+![Security reports](user-guide/security-reports.png)
+
+Employees report suspicious emails, lost devices, open doors and anything else from **Report something suspicious** in
+their portal (ISO 27001 A.6.8). Incident handlers are notified, and **Operations → Security reports** lists every
+report. A report where someone clicked a link or entered a password is marked **Clicked**: act on those first.
+
+Open a report and either:
+
+- **Open an incident**: choose the severity; Keystone opens an incident with the report's details and links them, or
+- **Close with a reply**: phishing blocked, not a threat, or a duplicate, with a message to the reporter.
+
+The reporter sees the outcome and your reply in their portal, but not the incident itself.
 
 ### Incidents
 
@@ -838,6 +923,20 @@ The last row shows what nobody owns yet. Use it to spot overload and gaps before
 
 Exports are recorded in the audit log. Treat them as confidential.
 
+### Physical security
+
+![Sites and secure areas](user-guide/physical-security.png)
+
+**Operations → Physical security** covers ISO 27001 A.7:
+
+- **Sites and secure areas**: offices, server rooms, data centres and stores, with their security zone (public,
+  internal, secure, restricted), physical controls and the assets kept there.
+- **Physical security checks**: regular checks of CCTV, alarms, access control, fire protection, power and cooling,
+  and of who holds badges and keys. Give each one how often it's due; **Record as OK** or **Record issues** sets the
+  last check to today and works out when the next one is due.
+- **Visitor log** (people who manage assets only): visitors to secure areas, their host, when they arrived and
+  **Signed out**.
+
 ---
 
 ## 10. Settings
@@ -870,6 +969,8 @@ role.
 
 Employees (and anyone, from **My employee portal** in the account menu) see what's left for them to do:
 
+- **Report something suspicious**: a strange email, a lost device, someone you don't recognise. Tick the box if you
+  clicked a link or typed your password; nobody will blame you. The security team's reply appears under it.
 - **Your progress** across everything below.
 - **Policies to accept**: **Read and accept** opens the policy; sign by typing your full name and confirm. A new
   major version asks you again.

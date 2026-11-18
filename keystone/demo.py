@@ -175,6 +175,7 @@ def seed(session: Session, admin) -> dict:
     _seed_trend_history(session)
     _seed_attack_surface(session, admin)
     _seed_configuration(session, admin)
+    _seed_security(session, admin, people)
     seed_external(session)
     seed_privacy_continuity(session, people)
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
@@ -328,6 +329,68 @@ def _seed_configuration(session: Session, admin) -> None:
         cfg.report(session, t, facts={**_passing_facts(platform), "ssh_server_installed": platform == "linux", **overrides}, hostname=name,
                    os_name=os_name, os_version=os_version, agent_version="1.1.0", ip="198.51.100.20")
     cfg.upload_firewall(session, admin, platform="fortigate", filename="ASH-FW-HQ_backup.conf", data=_DEMO_FORTIGATE.encode())
+
+
+def _seed_security(session: Session, admin, people: dict) -> None:
+    """Fictional registers (obligations, changes, exceptions, sites and checks, people security) and two reports from
+    the employee portal, so the security screens have something to show."""
+    from sqlalchemy import select
+
+    from keystone.core.auth import User
+    from keystone.incidents import reports
+    from keystone.people.models import Person
+    from keystone.registers import service as reg
+
+    mia, lena, raj = people["mia.isms"], people["lena.ctl"], people["raj.risk"]
+    on = date.today()
+    reg.save(session, admin, "obligations", title="GDPR Article 32: security of processing", owner_id=mia.id, kind="law", source="GDPR Art. 32", jurisdiction="EU",
+             requirement="Appropriate technical and organisational measures for personal data, including the ability to restore it in time.",
+             how_met="Access control, encryption, backups tested twice a year.", review_on=(on + timedelta(days=120)).isoformat())
+    reg.save(session, admin, "obligations", title="PCI DSS for card payments at the shops", owner_id=raj.id, kind="standard", source="PCI DSS 4.0.1 (SAQ B-IP)",
+             jurisdiction="Card brands via the acquirer", requirement="Card terminals segmented and maintained; annual self-assessment.", review_on=(on + timedelta(days=40)).isoformat())
+    reg.save(session, admin, "obligations", title="Contoso Travel contract: security schedule", owner_id=mia.id, kind="contract", source="Agency agreement, schedule 4",
+             jurisdiction="Contoso Travel", requirement="Notify security incidents affecting their bookings within 24 hours.", review_on=(on + timedelta(days=200)).isoformat())
+
+    def raised_by(e, user):
+        e.created_by_id = user.id
+        session.flush()
+        return e
+
+    up = raised_by(reg.save(session, admin, "changes", title="Upgrade the booking database to PostgreSQL 17", owner_id=lena.id, change_type="normal", risk_level="medium",
+                            description="Major version upgrade for continued security support.", security_review="No change to exposure; access unchanged; backups verified first.",
+                            rollback="Restore last night's snapshot (tested).", planned_on=(on - timedelta(days=6)).isoformat()), lena)
+    reg.move(session, mia, up.id, "approved")
+    reg.move(session, lena, up.id, "implemented")
+    raised_by(reg.save(session, admin, "changes", title="Open the Wi-Fi guest network in the new ski school hut", owner_id=lena.id, change_type="normal", risk_level="high",
+                       description="Guest Wi-Fi for the hut, on its own network.", planned_on=(on + timedelta(days=10)).isoformat()), lena)
+    raised_by(reg.save(session, admin, "policy-exceptions", title="Front desk kiosks stay signed in", owner_id=lena.id, policy="POL-003 Access Control Policy, section 4.2",
+                       scope="Two reception kiosks", justification="The booking kiosk software can't re-authenticate during check-in.",
+                       compensating="Kiosks on their own network, locked-down profile, no email.", expires_on=(on + timedelta(days=90)).isoformat()), lena)
+
+    office = reg.save(session, admin, "sites", title="Head office, Zermatt", owner_id=raj.id, kind="office", zone="internal", address="Bahnhofstrasse 1 (fictional)",
+                      controls_text="Badge entry, reception during office hours, alarm out of hours.", review_on=(on + timedelta(days=150)).isoformat())
+    room = reg.save(session, admin, "sites", title="Server room, head office", owner_id=lena.id, kind="server_room", zone="restricted",
+                    controls_text="Badge plus PIN, CCTV, temperature alarm. Visitors escorted and logged.", review_on=(on + timedelta(days=90)).isoformat())
+    reg.save(session, admin, "physical-checks", title="CCTV recording and coverage", owner_id=raj.id, equipment="cctv", site=office.id, every_months=3,
+             last_done_on=(on - timedelta(days=70)).isoformat())
+    reg.save(session, admin, "physical-checks", title="Who holds server room badges", owner_id=lena.id, equipment="badge_review", site=room.id, every_months=6,
+             last_done_on=(on - timedelta(days=200)).isoformat())
+    reg.save(session, admin, "visitors", title="Jordan Field", organisation="Fabrikam Backup (fictional)", site=room.id, host=lena.id, purpose="Replace a backup appliance",
+             arrived_on=on.isoformat(), badge_returned=False)
+
+    nina = session.scalar(select(Person).where(Person.email == "nina.weber@alpineskihouse.example"))
+    if nina is not None:
+        chk = reg.save(session, admin, "screening", title="Right to work", person=nina.id, check_type="right_to_work", provider="HR")
+        reg.move(session, admin, chk.id, "clear")
+        reg.save(session, admin, "screening", title="References", person=nina.id, check_type="references", provider="HR")
+        reg.save(session, admin, "confidentiality", title="Employment contract, confidentiality clause", person=nina.id, agreement="employment_contract",
+                 signed_on=(on - timedelta(days=12)).isoformat(), location="HR system")
+    nina_user = session.scalar(select(User).where(User.username == "nina.weber@alpineskihouse.example"))
+    if nina_user is not None:
+        old = reports.submit(session, nina_user, kind="physical", description="The server room door was propped open with a chair at lunchtime.", where="Head office, first floor")
+        reports.close(session, mia, old.id, outcome="not_a_threat", reply="Thanks Nina: the door was closed and the alarm checked. We've reminded the cleaning team.")
+        reports.submit(session, nina_user, kind="phishing", description="An email says my booking-system password expires today and asks me to sign in through a link.",
+                       sender="it-support@alpineski-house.example", subject="Password expires today")
 
 
 def _seed_trend_history(session: Session, weeks: int = 11) -> None:

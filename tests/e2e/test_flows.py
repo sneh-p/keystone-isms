@@ -21,7 +21,10 @@ STAFF_ROUTES = ["/", "/frameworks", "/controls", "/soa", "/evidence", "/risks", 
                 # round 4
                 "/configuration?tab=custom", "/people?tab=training",
                 # round 6: in-app help
-                "/help", "/help#risk-register"]
+                "/help", "/help#risk-register",
+                # round 8: security expansion, batch 1
+                "/registers/obligations", "/registers/changes", "/registers/policy-exceptions", "/registers/screening", "/registers/confidentiality",
+                "/registers/sites", "/registers/visitors", "/registers/physical-checks", "/exceptions", "/security-reports", "/access-check"]
 
 
 def test_every_screen_renders(demo_server, open_page):
@@ -241,6 +244,26 @@ def test_own_training_module_reaches_the_portal(demo_server, open_page):
     e.get_by_label("Lock the screen").check()
     e.get_by_role("button", name="Submit answers").click()
     e.wait_for_selector("text=Passed with")
+
+
+def test_report_from_the_portal_and_triage(demo_server, open_page):
+    emp = open_page(demo_server)
+    e = emp.login("nina.weber@alpineskihouse.example")
+    e.get_by_role("button", name="Report something").click()
+    d = e.get_by_role("dialog")
+    d.get_by_role("combobox", name="What happened").click()
+    e.get_by_role("option", name="Lost or stolen device").click()
+    d.get_by_label("Tell us more").fill("Left my work phone on the train this morning.")
+    d.get_by_role("button", name="Send report").click()
+    e.get_by_text("With the security team").first.wait_for()
+
+    mgr = open_page(demo_server)
+    m = mgr.login("mia.isms")
+    mgr.go("/security-reports")
+    m.get_by_role("cell", name="Lost or stolen device").first.click()
+    m.get_by_role("button", name="Open an incident").click()
+    m.get_by_role("dialog").last.get_by_role("button", name="Open incident").click()
+    m.get_by_text("Handled as an incident").first.wait_for()
 
 
 def test_first_sign_in_tour(demo_server, open_page):

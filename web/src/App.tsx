@@ -54,6 +54,10 @@ const CalendarPage = lazy(() => import("@/pages/Calendar"));
 const AttackSurface = lazy(() => import("@/pages/AttackSurface"));
 const Configuration = lazy(() => import("@/pages/Configuration"));
 const Help = lazy(() => import("@/pages/Help"));
+const RegisterPage = lazy(() => import("@/pages/Registers"));
+const SecurityReports = lazy(() => import("@/pages/Security").then((m) => ({ default: m.SecurityReports })));
+const AccessCheck = lazy(() => import("@/pages/Security").then((m) => ({ default: m.AccessCheck })));
+const Exceptions = lazy(() => import("@/pages/Security").then((m) => ({ default: m.Exceptions })));
 const PortalHelp = lazy(() => import("@/pages/Help").then((m) => ({ default: m.PortalHelp })));
 
 /** Authenticated application routes. `nav` marks routes that appear in the sidebar. */
@@ -101,7 +105,13 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/settings/channels", element: <Channels />, nav: true },
   { path: "/settings/system", element: <SystemHealth />, nav: true },
   { path: "/help", element: <Help /> },
+  { path: "/registers/:key", element: <RegisterPage /> },
+  { path: "/security-reports", element: <SecurityReports />, nav: true },
+  { path: "/access-check", element: <AccessCheck />, nav: true },
+  { path: "/exceptions", element: <Exceptions />, nav: true },
 ];
+// Registers share one page; their sidebar entries and tabs exist in this build.
+["obligations", "changes", "policy-exceptions", "screening", "confidentiality", "sites", "visitors", "physical-checks"].forEach((k) => BUILT.add(`/registers/${k}`));
 APP_ROUTES.filter((r) => r.nav).forEach((r) => BUILT.add(r.path));
 
 const Loading = () => (

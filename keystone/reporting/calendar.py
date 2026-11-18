@@ -102,6 +102,13 @@ def _more(session: Session, add) -> None:
         add(ca.due_date, "corrective_action", f"Corrective action due: {ca.description[:80]}", f"/nonconformities?open={ca.nonconformity_id}", ca.owner_id)
     for o in session.scalars(select(SecurityObjective).where(SecurityObjective.status.notin_(("achieved", "missed")))):
         add(o.due_date, "objective", f"Objective target date: {o.title}", "/settings/organisation", o.owner_id)
+    from keystone.registers.models import RegisterEntry
+    from keystone.registers.spec import REGISTERS
+
+    for e in session.scalars(select(RegisterEntry).where(RegisterEntry.due_on.is_not(None))):
+        spec = REGISTERS.get(e.register)
+        if spec and spec.read == "read" and e.status not in spec.closed:  # need-to-know registers stay off the shared calendar
+            add(e.due_on, "register", f"{spec.due_label}: {e.ref} {e.title}", f"/registers/{spec.key}?open={e.id}", e.owner_id)
     for fw in session.scalars(select(ConfigTarget).where(ConfigTarget.kind == "firewall", ConfigTarget.facts_at.is_not(None))):
         if fw.facts_at is None:
             continue

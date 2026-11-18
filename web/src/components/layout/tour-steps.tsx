@@ -39,6 +39,7 @@ export function appTourSteps(firstName: string, sections: string[], phone: boole
 export const PORTAL_TOUR: TourStep[] = [
   { title: "Welcome to your employee portal", body: <p>A few things keep you and the company secure. This portal lists what's left for you to do. The tour takes under a minute.</p> },
   { target: "portal-progress", title: "Your progress", body: <p>How much of your security to-do list is done. When it reaches the end, you're all set until something new needs you.</p> },
+  { target: "portal-report", title: "Report something suspicious", body: <p>A strange email, a lost laptop, someone you don't recognise: report it here straight away. The security team's reply comes back to this page.</p> },
   { target: "portal-policies", title: "Policies to accept", body: <p>Read each policy and sign by typing your full name. A new version of a policy may ask you to accept it again.</p> },
   { target: "portal-training", title: "Security training", body: <p>Short modules with a quiz at the end. A pass lasts a year; due dates are shown on each module.</p> },
   { target: "portal-devices", title: "Device security", body: <p>Confirm that each work device meets the basics: updates, encryption, screen lock and so on. Renew it every six months.</p> },

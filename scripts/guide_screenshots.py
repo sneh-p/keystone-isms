@@ -145,6 +145,8 @@ SHOTS: list[Shot] = [
     Shot("policy-detail", "/policies", row("Information Security Policy")),
     Shot("evidence", "/evidence"),
     Shot("soa", "/soa"),
+    Shot("obligations", "/registers/obligations"),
+    Shot("exceptions", "/exceptions"),
     Shot("privacy", "/privacy"),
     Shot("privacy-requests", "/privacy?tab=requests"),
     # risk
@@ -162,6 +164,7 @@ SHOTS: list[Shot] = [
     Shot("configuration-custom", "/configuration?tab=custom"),
     Shot("configuration-custom-new", "/configuration?tab=custom", button("New custom check")),
     Shot("configuration-agents", "/configuration?tab=agents", mask_keys),
+    Shot("change", "/registers/changes", row("Open the Wi-Fi guest network")),
     # third parties
     Shot("vendors", "/vendors"),
     Shot("vendor-detail", "/vendors", row("Fabrikam Backup")),
@@ -174,11 +177,13 @@ SHOTS: list[Shot] = [
     Shot("training-module", "/people?tab=training", new_module),
     Shot("training-external", "/people?tab=training", record_training),
     Shot("access-reviews", "/access-reviews"),
+    Shot("access-check", "/access-check"),
     Shot("trust-center", "/trust-center"),
     Shot("trust-public", "/trust/alpine-ski-house", user=""),
     Shot("customer-questionnaires", "/security-questionnaires"),
     Shot("integrations", "/integrations"),
     # operations
+    Shot("security-reports", "/security-reports"),
     Shot("incidents", "/incidents"),
     Shot("incident-detail", "/incidents", row("Guest list emailed")),
     Shot("continuity", "/continuity"),
@@ -188,6 +193,7 @@ SHOTS: list[Shot] = [
     Shot("management-review", "/reviews"),
     Shot("workload", "/workload"),
     Shot("reports", "/reports"),
+    Shot("physical-security", "/registers/sites"),
     # settings
     Shot("account", "/settings/account"),
     Shot("organisation", "/settings/organisation"),

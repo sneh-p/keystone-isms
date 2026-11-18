@@ -1,5 +1,5 @@
 import {
-  Activity, AlertOctagon, CalendarDays, Crosshair, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Fingerprint, Handshake, HeartPulse, KeyRound, LifeBuoy,
+  Activity, AlertOctagon, BadgeAlert, Building, FileWarning, GitPullRequestArrow, IdCard, Scale, UserX, CalendarDays, Crosshair, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Fingerprint, Handshake, HeartPulse, KeyRound, LifeBuoy,
   LayoutDashboard, ListChecks, Mail, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, ServerCog, Settings, ShieldCheck, Siren, Sparkles, UserCheck, UserCog, Users, Wrench,
 } from "lucide-react";
 
@@ -18,6 +18,19 @@ export const AREAS: { name: string; tabs: AreaTab[] }[] = [
     { label: "Nonconformities", to: "/nonconformities" },
     { label: "Audits", to: "/audits" },
     { label: "Management review", to: "/reviews" },
+  ] },
+  { name: "Exceptions", tabs: [
+    { label: "All exceptions", to: "/exceptions" },
+    { label: "Policy exceptions", to: "/registers/policy-exceptions" },
+  ] },
+  { name: "People security", tabs: [
+    { label: "Background checks", to: "/registers/screening", perm: "people.write" },
+    { label: "Confidentiality agreements", to: "/registers/confidentiality", perm: "people.write" },
+  ] },
+  { name: "Physical security", tabs: [
+    { label: "Sites and secure areas", to: "/registers/sites" },
+    { label: "Physical security checks", to: "/registers/physical-checks" },
+    { label: "Visitor log", to: "/registers/visitors", perm: "asset.write" },
   ] },
   { name: "Settings", tabs: [
     { label: "Organisation", to: "/settings/organisation" },
@@ -48,6 +61,8 @@ export const NAV: NavSection[] = [
       { label: "Evidence", to: "/evidence", icon: Paperclip },
       { label: "Statement of Applicability", to: "/soa", icon: FileCheck2 },
       { label: "Privacy", to: "/privacy", icon: Fingerprint },
+      { label: "Obligations", to: "/registers/obligations", icon: Scale },
+      { label: "Exceptions", to: "/exceptions", icon: FileWarning, also: areaPaths("Exceptions") },
     ],
   },
   {
@@ -57,6 +72,7 @@ export const NAV: NavSection[] = [
       { label: "Assets", to: "/assets", icon: Boxes },
       { label: "Attack surface", to: "/attack-surface", icon: Crosshair },
       { label: "Configuration", to: "/configuration", icon: ServerCog },
+      { label: "Changes", to: "/registers/changes", icon: GitPullRequestArrow },
     ],
   },
   {
@@ -70,7 +86,9 @@ export const NAV: NavSection[] = [
     label: "Trust and people",
     items: [
       { label: "People", to: "/people", icon: Users },
+      { label: "People security", to: "/registers/screening", icon: IdCard, perm: "people.write", also: areaPaths("People security") },
       { label: "Access reviews", to: "/access-reviews", icon: UserCheck },
+      { label: "Leaver access check", to: "/access-check", icon: UserX, perm: "access_review.manage" },
       { label: "Trust Center", to: "/trust-center", icon: Globe2 },
       { label: "Customer questionnaires", to: "/security-questionnaires", icon: MessageSquareText },
       { label: "Integrations", to: "/integrations", icon: Plug },
@@ -79,8 +97,10 @@ export const NAV: NavSection[] = [
   {
     label: "Operations",
     items: [
+      { label: "Security reports", to: "/security-reports", icon: BadgeAlert, perm: "incident.write" },
       { label: "Incidents", to: "/incidents", icon: Siren },
       { label: "Business continuity", to: "/continuity", icon: LifeBuoy },
+      { label: "Physical security", to: "/registers/sites", icon: Building, also: areaPaths("Physical security") },
       { label: "Improvement", to: "/nonconformities", icon: Wrench, also: areaPaths("Improvement") },
       { label: "Workload", to: "/workload", icon: UsersRound },
       { label: "Reports", to: "/reports", icon: Activity },

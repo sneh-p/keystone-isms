@@ -96,3 +96,39 @@ class IncidentEvidence(Audited, OwnedMixin, TimestampMixin, Base):
     collected_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     collected_by: Mapped[str] = mapped_column(String(150), nullable=False)
     custody: Mapped[list] = mapped_column(JSON, nullable=False, default=list)  # [{"at", "by", "action"}]
+
+
+REPORT_KINDS = {
+    "phishing": "Suspicious email, message or call",
+    "lost_device": "Lost or stolen device",
+    "account": "Someone may be using my account",
+    "data": "Information sent or shared by mistake",
+    "malware": "Device behaving strangely, pop-ups or ransom note",
+    "physical": "Stranger, tailgating or open door",
+    "other": "Something else",
+}
+REPORT_CATEGORY = {"phishing": "phishing", "lost_device": "lost_or_stolen_device", "account": "account_compromise", "data": "data_breach",
+                   "malware": "malware", "physical": "physical", "other": "other"}
+
+
+class SecurityReport(Audited, TimestampMixin, Base):
+    """Something an employee reported from the portal (ISO 27001 A.6.8). The security team triages it: it becomes an
+    incident, or is closed with a message back to the reporter."""
+
+    __tablename__ = "security_reports"
+    REF_PREFIX = "REP"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    reporter_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    sender: Mapped[str | None] = mapped_column(String(320))  # suspicious email: who it came from
+    subject: Mapped[str | None] = mapped_column(String(300))
+    where: Mapped[str | None] = mapped_column(String(300))  # which device, office or system
+    clicked: Mapped[bool | None] = mapped_column(Boolean)  # opened a link or attachment, or entered a password
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default="new")  # new | incident | closed
+    outcome: Mapped[str | None] = mapped_column(String(20))  # incident | phishing_blocked | not_a_threat | duplicate
+    reply: Mapped[str | None] = mapped_column(Text)  # message back to the reporter
+    triaged_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    triaged_at: Mapped[datetime | None] = mapped_column(DateTime)
+    incident_id: Mapped[int | None] = mapped_column(ForeignKey("incidents.id", ondelete="SET NULL"))

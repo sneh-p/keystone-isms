@@ -41,6 +41,7 @@ const KINDS: Record<string, { label: string; group: keyof typeof GROUPS }> = {
   firewall_upload: { label: "Firewall configuration out of date", group: "evidence" },
   audit: { label: "Audit", group: "audit" },
   access_review: { label: "Access review", group: "audit" },
+  register: { label: "Register due date (obligations, changes, exceptions, sites, checks)", group: "control" },
 };
 const kindStyle = (kind: string) => {
   const k = KINDS[kind];

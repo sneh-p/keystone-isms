@@ -52,7 +52,17 @@ def _targets() -> dict[str, tuple[type[Any], str]]:
             "nonconformity": (Nonconformity, "/nonconformities?open={id}"), "audit": (Audit, "/audits?open={id}")}
 
 
-def _record(session: Session, kind: str, record_id: int) -> tuple[Any, str]:
+def _record(session: Session, kind: str, record_id: int, actor=None, commenting: bool = False) -> tuple[Any, str]:
+    if kind == "register_entry":
+        # Registers declare who may read them; need-to-know ones (background checks, visitors) take no comments.
+        from keystone.registers.models import RegisterEntry
+        from keystone.registers.spec import REGISTERS
+
+        e = get_or_404(session, RegisterEntry, record_id)
+        r = REGISTERS.get(e.register)
+        if r is None or actor is None or not has_permission(actor, r.read) or (commenting and not r.comments):
+            raise LookupError("Not found")
+        return e, f"/registers/{e.register}?open={e.id}"
     t = _targets().get(kind)
     if t is None:
         raise LookupError("Unknown record type")
@@ -68,14 +78,14 @@ def _label(rec) -> str:
 
 def comments_for(session: Session, actor, kind: str, record_id: int) -> list[Comment]:
     authorize(session, actor, "read")
-    _record(session, kind, record_id)
+    _record(session, kind, record_id, actor, commenting=True)
     return list(session.scalars(select(Comment).where(Comment.entity_type == kind, Comment.entity_id == record_id).order_by(Comment.id)))
 
 
 def add_comment(session: Session, actor, kind: str, record_id: int, body: str) -> tuple[Comment, list[User]]:
     """Add a comment; returns it and the users who were notified of a mention."""
     authorize(session, actor, "read")
-    rec, page = _record(session, kind, record_id)
+    rec, page = _record(session, kind, record_id, actor, commenting=True)
     text = require_text(body, "Comment")
     if len(text) > MAX_COMMENT:
         raise ValueError(f"Comments are limited to {MAX_COMMENT} characters.")
@@ -220,7 +230,7 @@ def history(session: Session, actor, kind: str, record_id: int) -> list[dict]:
     from keystone.core.audit import AuditLog
 
     authorize(session, actor, "read")
-    rec, _page = _record(session, kind, record_id)
+    rec, _page = _record(session, kind, record_id, actor)
     targets = [(type(rec).__name__, [rec.id])]
     if kind == "policy":
         targets.append(("PolicyVersion", [v.id for v in rec.versions]))

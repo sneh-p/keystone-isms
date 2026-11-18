@@ -155,6 +155,17 @@ export const PAGE_HELP: Record<string, string> = {
   "/settings/organisation": "3-setting-up-the-isms",
   "/settings/account": "your-account",
   "/help": "1-getting-started",
+  "/registers/obligations": "legal-and-contract-obligations",
+  "/exceptions": "exceptions",
+  "/registers/policy-exceptions": "exceptions",
+  "/registers/changes": "changes",
+  "/registers/screening": "people-security",
+  "/registers/confidentiality": "people-security",
+  "/registers/sites": "physical-security",
+  "/registers/physical-checks": "physical-security",
+  "/registers/visitors": "physical-security",
+  "/access-check": "leaver-access-check",
+  "/security-reports": "security-reports",
 };
 
 export function helpAnchorFor(pathname: string): string {
