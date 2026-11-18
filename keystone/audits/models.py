@@ -105,6 +105,7 @@ class AuditRequest(Audited, OwnedMixin, TimestampMixin, Base):
     common_control_id: Mapped[int | None] = mapped_column(ForeignKey("common_controls.id"))
     due_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    provided_by_id: Mapped[int | None] = mapped_column(Integer)  # user who answered it; they can't accept it (no FK: plain add_column)
     evidence = relationship("Evidence", secondary=audit_request_evidence, lazy="selectin")
     comments: Mapped[list[AuditRequestComment]] = relationship(back_populates="request", cascade="all, delete-orphan", order_by="AuditRequestComment.id")
 

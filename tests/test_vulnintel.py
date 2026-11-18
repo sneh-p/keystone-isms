@@ -160,6 +160,9 @@ def test_vulnerability_api(api, ready_users, db, feeds):
     assert r.status_code == 200 and r.json()["sla_kev"] == 7
     assert api.put("/api/asm/vuln-policy", json={"sla_kev": 0}).status_code == 422
     assert api.put("/api/asm/vuln-policy", json={"last_error": "x"}).status_code == 422  # read-only fields refused
+    from keystone.core.services import today
+
+    feeds["epss_days"].add(today().isoformat())  # the route refreshes as of the real date, not TODAY
     assert api.post("/api/asm/vuln-intel/refresh").status_code == 200
     feeds["kev_status"] = 503
     r = api.post("/api/asm/vuln-intel/refresh")

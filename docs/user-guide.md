@@ -141,8 +141,10 @@ change.
 | **Viewer** | Read everything, comment, accept policies |
 | **Employee** | The employee portal only: accept policies, complete training, confirm device security |
 
-Keystone also enforces **segregation of duties**: nobody approves their own policy, task, vendor assessment,
-corrective action, risk acceptance, DPIA or exception, and internal auditors don't audit controls they own.
+Keystone also enforces **segregation of duties**: nobody approves their own policy, task, vendor assessment, DPIA
+or exception; the owner of a risk can't accept it, and whoever accepted it can't take it over while the acceptance
+stands; neither the owner of a corrective action nor whoever completed it can verify it; whoever answers an auditor's
+evidence request can't accept the answer; and internal auditors don't audit controls they own.
 
 ---
 
@@ -405,8 +407,10 @@ To add and treat a risk:
 2. Rate inherent and residual likelihood and impact, and link the affected assets.
 3. Choose a **treatment**: mitigate, accept, transfer or avoid. Link the controls that treat it, and add **treatment
    actions** with owners and due dates (*Treatment* tab).
-4. **Accepting** a risk needs risk-acceptance rights and a justification; the approver can't be the risk owner. Risks
-   above appetite can be accepted for at most a year.
+4. **Accepting** a risk needs risk-acceptance rights and a justification; the approver can't be the risk owner, and
+   can't take the risk over while the acceptance stands. Risks above appetite can be accepted for at most a year. If
+   the risk's rating later rises above the level that was accepted, the acceptance lapses and the risk needs a new
+   decision.
 
 Good to know:
 
@@ -545,7 +549,8 @@ processes personal data. Overriding the tier needs a reason.
   risks. Reviews come round according to the tier.
 - **Offboarding**: setting a vendor to offboarding shows a checklist: access removed, data returned or deleted,
   equipment returned, DPA closed, subprocessor lists and the Trust Center updated, dependent risks reviewed. The vendor
-  can't be set to terminated until every item is done.
+  can't be set to terminated until every item is done, and a vendor that has been active can't go back to
+  prospective.
 
 ### Vendor questionnaires
 
@@ -641,8 +646,8 @@ The Trust Center is a public page that shows customers how you protect their dat
 - Only controls that are implemented with current evidence appear, and they drop off automatically if they stop
   passing. Published policies, **Subprocessors** and **FAQ** can be shown too.
 - **Documents** can be public or **on request**: the requester asks on the public page, signs an NDA if you require
-  one, and once you approve under **Access requests** receives an expiring private link (by email when email is set
-  up). You can revoke access at any time.
+  one, and once you approve under **Access requests** receives a private link that expires after 1 to 365 days (by
+  email when email is set up). You can revoke access at any time.
 - **Published** turns the public page on and off; **Open public page** shows it.
 
 ### Customer questionnaires
@@ -695,8 +700,8 @@ Report incidents as soon as you know about them (ISO 27001 A.5.24 to A.5.28). **
   recorded (chain of custody). Only incident handlers can download them.
 - **Linked records**: link the risk that materialised (its review comes forward), **Raise nonconformity** from the
   lessons learned, or open a ticket.
-- Closing needs a root cause and lessons learned, and no outstanding required notification. False positives can be
-  closed from triage.
+- Closing needs a root cause and lessons learned, and no outstanding required notification. Only an incident still in
+  triage, and never contained, can be closed as a false positive or duplicate.
 
 ### Business continuity
 
@@ -724,8 +729,8 @@ tests or your own observations (**Raise nonconformity**).
 2. Find the **root cause**, recording the method (5 whys, fishbone, fault tree or other). Keystone warns when similar
    nonconformities appeared in the last three years, so you can check whether earlier actions worked.
 3. Add **corrective actions** with owners and due dates, and complete them.
-4. Someone other than the action owner **checks each action was effective**. An ineffective action sends the
-   nonconformity back for a new plan.
+4. Someone other than the action's owner and whoever completed it **checks each action was effective**. An
+   ineffective action sends the nonconformity back for a new plan.
 
 ### Audits
 
@@ -737,7 +742,8 @@ Plan and run internal audits (ISO 27001 9.2), and record external, certification
 2. Record **findings**: conformity, observation, opportunity, minor or major nonconformity. Major and minor findings
    open nonconformity records automatically. Findings can be edited while the audit is in progress or reporting.
 3. **Evidence requests** let an auditor ask for evidence; people who manage evidence answer by linking evidence and a
-   note, and the auditor accepts or reopens each request.
+   note, and the auditor accepts or reopens each request. Only answered requests can be accepted, and not by whoever
+   answered them.
 4. **Audit pack (ZIP)** holds the SoA, approved policies, current evidence for the audit's controls and everything
    linked to requests, with a manifest of SHA-256 hashes.
 

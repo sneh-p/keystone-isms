@@ -306,3 +306,24 @@ silent, ambiguous, or conflicted with how Microsoft Graph or the standards actua
   role can see and to phones. The e2e suite runs axe on the open tour.
 - **Not shown over the setup wizard**, which a new administrator lands in; it starts once the wizard is done.
 
+## Logic security review (round 6)
+
+A review of how workflows and approvals can be got round, beyond who may call what. Each finding has a test in
+`tests/test_logic_security.py` that failed before the fix.
+
+| Finding | Fix |
+|---|---|
+| A risk accepted at a low level kept its acceptance (with no time limit below appetite) after its rating was raised | The acceptance lapses when the risk rises above the accepted level; the risk returns to *assessed* |
+| Segregation of duties over time: hand a risk to someone else, accept it, take it back | Whoever accepted a risk can't become its owner while the acceptance stands |
+| A recovered incident could be closed as a "false positive", skipping root cause, lessons and the regulator-notification check | Only an incident still in triage and never contained can close as false positive or duplicate |
+| Corrective-action verification checked only the owner, so whoever completed an action (or any unowned one) could verify it | `completed_by_id` is recorded (migration 0044); owner and completer can't verify |
+| Whoever answered an auditor's evidence request could accept it, and requests could be accepted with nothing provided | `provided_by_id` is recorded (migration 0044); only provided requests can be accepted, not by whoever answered |
+| An active vendor could go back to prospective and then be terminated without the offboarding checklist | Active and offboarding vendors can't go back to prospective |
+| A Trust Center access link's duration was unbounded (a century-long link, or a server error) | 1 to 365 days, like the default in the settings (SC-VAL-002) |
+
+Reviewed and left as they are: the control owner check on control tests is also a point-in-time check (owner changes
+are audit-logged; an owner round-trip shows in the history); customer-questionnaire answers can be approved by whoever
+drafted them (a small team often has one person answering; every approval is logged); employees can retake a training
+quiz until they pass (each attempt is recorded); a continuity test can be recorded as passed without per-process
+recovery times (tabletop exercises have none).
+

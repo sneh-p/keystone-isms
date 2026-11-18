@@ -78,6 +78,7 @@ def complete_action(session: Session, actor, action_id: int, notes: str) -> Corr
     if ca.status != "open":
         raise ValueError("Only open actions can be completed.")
     ca.status, ca.completed_at, ca.completion_notes = "done", utcnow(), require_text(notes, "What was done")
+    ca.completed_by_id = actor.id
     nc = ca.nonconformity
     if nc.status == "action_planned" and all(a.status in ("done", "verified", "ineffective") for a in nc.actions):
         nc.status = "verification"
@@ -91,8 +92,8 @@ def verify_action(session: Session, actor, action_id: int, effective: bool, note
     ca = get_or_404(session, CorrectiveAction, action_id)
     if ca.status != "done":
         raise ValueError("Only completed actions can be verified.")
-    if ca.owner_id == actor.id:
-        raise ValueError("Segregation of duties: the action owner cannot verify their own action.")
+    if actor.id in (ca.owner_id, ca.completed_by_id):
+        raise ValueError("Segregation of duties: the action's owner and whoever completed it can't verify it.")
     ca.status = "verified" if effective else "ineffective"
     ca.verified_by_id, ca.verified_at, ca.effectiveness_notes = actor.id, utcnow(), require_text(notes, "Effectiveness evidence")
     nc = ca.nonconformity

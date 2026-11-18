@@ -213,6 +213,7 @@ def respond_request(session: Session, actor, request_id: int, *, body: str | Non
         _comment(session, r, body)
     if r.status == "open":
         r.status = "provided"
+    r.provided_by_id = actor.id
     session.flush()
     return r
 
@@ -223,6 +224,11 @@ def set_request_status(session: Session, actor, request_id: int, status: str) ->
         raise ValueError(f"status must be one of {REQUEST_STATUSES}")
     r = get_or_404(session, AuditRequest, request_id)
     _open_audit(session, r.audit_id)
+    if status == "accepted":
+        if r.status != "provided":
+            raise ValueError("Only a request that has been provided can be accepted.")
+        if r.provided_by_id is not None and r.provided_by_id == actor.id:
+            raise ValueError("Segregation of duties: whoever answered this request can't accept it.")
     r.status = status
     session.flush()
     return r

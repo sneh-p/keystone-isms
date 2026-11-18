@@ -105,6 +105,12 @@ def save_risk(session: Session, actor, risk_id: int | None = None, *, asset_ids:
     r = get_or_404(session, Risk, risk_id) if risk_id else Risk(category="operational", status="identified")
     apply_fields(r, fields, EDITABLE)
     _validate(r)
+    with session.no_autoflush:  # reading acceptances mustn't flush half an edit (one change, one audit entry)
+        held = active_acceptance(r) if risk_id else None
+    if held is not None and "owner_id" in fields and r.owner_id is not None and r.owner_id == held.accepted_by_id:
+        # Segregation of duties also over time: the person who accepted a risk can't take it over while that
+        # acceptance stands (otherwise hand it away, accept it, take it back).
+        raise ValueError("Segregation of duties: whoever accepted this risk can't own it while the acceptance stands. Revoke the acceptance first.")
     if asset_ids is not None:
         r.assets = list(session.scalars(select(Asset).where(Asset.id.in_(asset_ids))))
     if control_ids is not None:
@@ -112,7 +118,7 @@ def save_risk(session: Session, actor, risk_id: int | None = None, *, asset_ids:
     if r.status == "identified" and r.inherent_likelihood:
         r.status = "assessed"
     level = current_level(r)
-    acc = active_acceptance(r) if risk_id else None
+    acc = held
     if acc is not None and level is not None and LEVEL_ORDER.index(level) > LEVEL_ORDER.index(acc.level_at_acceptance):
         # An acceptance covers the level that was accepted. A risk that has grown needs a new decision, so the
         # acceptance lapses (recorded as revoked by whoever raised the rating) and the risk goes back to assessed.

@@ -51,6 +51,7 @@ class CorrectiveAction(Audited, OwnedMixin, TimestampMixin, Base):
     due_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    completed_by_id: Mapped[int | None] = mapped_column(Integer)  # user id; can't verify their own work (no FK: plain add_column)
     completion_notes: Mapped[str | None] = mapped_column(Text)
     verified_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     verified_at: Mapped[datetime | None] = mapped_column(DateTime)
