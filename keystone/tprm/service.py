@@ -79,6 +79,9 @@ def save_vendor(session: Session, actor, vendor_id: int | None = None, *, asset_
     v = get_or_404(session, Vendor, vendor_id) if vendor_id else Vendor(status="prospective", data_sensitivity="none", operational_criticality="low", access_level="none", processes_personal_data=False, dpa_signed=False)
     was = v.status
     apply_fields(v, fields, VENDOR_FIELDS)
+    if v.status == "prospective" and was in ("active", "offboarding"):
+        # Going back to prospective would let a vendor that had access be terminated without the offboarding checklist.
+        raise ValueError("A vendor that has been active can't go back to prospective. Set it to offboarding to end the relationship.")
     if v.status == "terminated" and was in ("active", "offboarding"):
         missing = [label for k, label in OFFBOARDING_ITEMS.items() if k not in (v.offboarding or {})]
         if missing:

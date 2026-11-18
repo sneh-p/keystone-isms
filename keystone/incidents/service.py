@@ -129,6 +129,10 @@ def move(session: Session, actor, incident_id: int, status: str, resolution: str
             raise ValueError("Closing from triage needs a resolution: false_positive or duplicate.")
         if inc.status == "triage" and resolution == "resolved":
             raise ValueError("A real incident must be contained, eradicated and recovered before closing.")
+        if resolution != "resolved" and (inc.status != "triage" or inc.contained_at is not None):
+            # Only triage decides "not an incident". Once something was contained it was real, and closing it as a
+            # false positive or duplicate would skip the root cause, lessons learned and notification checks below.
+            raise ValueError("Only an incident still in triage, never contained, can be closed as a false positive or duplicate.")
         if resolution == "resolved":
             open_actions = session.scalar(select(IncidentAction.id).where(IncidentAction.incident_id == inc.id, IncidentAction.status == "open"))
             if open_actions:

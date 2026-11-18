@@ -104,7 +104,7 @@ def subprocessor(vendor_id: int, body: SubIn, user=Depends(perm("trust.manage"))
 
 
 class ApproveIn(In):
-    days: int | None = None
+    days: int | None = Field(None, ge=1, le=365)  # same bounds as the default in the settings (SC-VAL-002)
     send_email: bool = False  # email the link to the requester
 
 

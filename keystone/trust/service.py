@@ -222,6 +222,8 @@ def approve(session: Session, actor, request_id: int, days: int | None = None) -
     if r.status not in ("pending", "revoked", "denied", "approved"):
         raise ValueError("Unknown state.")
     s = settings(session)
+    if days is not None and not 1 <= days <= 365:
+        raise ValueError("Access can last from 1 to 365 days.")
     token = secrets.token_urlsafe(32)
     r.status, r.decided_by_id, r.decided_at = "approved", actor.id, utcnow()
     r.expires_at = utcnow() + timedelta(days=days or s.access_days)

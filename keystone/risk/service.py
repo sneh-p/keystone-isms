@@ -112,6 +112,12 @@ def save_risk(session: Session, actor, risk_id: int | None = None, *, asset_ids:
     if r.status == "identified" and r.inherent_likelihood:
         r.status = "assessed"
     level = current_level(r)
+    acc = active_acceptance(r) if risk_id else None
+    if acc is not None and level is not None and LEVEL_ORDER.index(level) > LEVEL_ORDER.index(acc.level_at_acceptance):
+        # An acceptance covers the level that was accepted. A risk that has grown needs a new decision, so the
+        # acceptance lapses (recorded as revoked by whoever raised the rating) and the risk goes back to assessed.
+        acc.revoked_at, acc.revoked_by_id = utcnow(), actor.id
+        r.status = "assessed"
     if r.review_date is None and level:
         r.review_date = today() + timedelta(days=load_matrix().review_days[level])
     session.add(r)
