@@ -125,11 +125,13 @@ export function KeyValue({ items }: { items: [ReactNode, ReactNode][] }) {
   );
 }
 
-export function Section({ title, children, action }: { title: ReactNode; children: ReactNode; action?: ReactNode }) {
+/** A titled block. `level` keeps the heading outline intact (WCAG 1.3.1): 2 directly under a page title, 3 in a dialog. */
+export function Section({ title, children, action, level = 4 }: { title: ReactNode; children: ReactNode; action?: ReactNode; level?: 2 | 3 | 4 }) {
+  const H = `h${level}` as "h2" | "h3" | "h4";
   return (
     <section className="mb-6">
       <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</h4>
+        <H className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</H>
         {action}
       </div>
       {children}

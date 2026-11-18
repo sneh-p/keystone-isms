@@ -44,6 +44,6 @@ from keystone.reporting.models import ReportSchedule
 from keystone.configcheck.models import ConfigAgentSettings, ConfigBaseline, ConfigCustomCheck, ConfigFinding, ConfigRule, ConfigSnapshot, ConfigTarget
 from keystone.controls.models import ControlTest, evidence_controls
 from keystone.incidents.models import IncidentAction, IncidentEvidence
-from keystone.people.models import TrainingAssignment
+from keystone.people.models import ExternalTraining, TrainingAssignment, TrainingModule
 from keystone.org.models import ObjectiveMeasurement
 from keystone.collab.models import TourState

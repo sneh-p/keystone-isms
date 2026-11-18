@@ -87,6 +87,31 @@ def mask_keys(p: Page) -> None:
       for (let n = w.nextNode(); n; n = w.nextNode()) n.nodeValue = n.nodeValue.replace(/kenr_[A-Za-z0-9_-]{6,}/g, 'kenr_…'); }""")
 
 
+def new_module(p: Page) -> None:
+    """The module editor with an example filled in (not saved)."""
+    p.get_by_role("button", name="New module").click()
+    d = p.get_by_role("dialog")
+    d.get_by_label("Title").fill("Building access and visitors")
+    d.get_by_label("Summary").fill("Badges, tailgating and signing visitors in.")
+    d.get_by_label("Content").fill("## Badges\nWear your badge where it can be seen, and never lend it.\n\n## Visitors\nSign every visitor in at reception and stay with them.")
+    d.get_by_label("Question 1", exact=True).fill("A visitor asks to borrow your badge for a minute. What do you do?")
+    d.get_by_label("Question 1, answer 1").fill("Lend it: it's only a minute")
+    d.get_by_label("Question 1, answer 2").fill("Say no, and take them to reception")
+    d.get_by_label("Answer 2 is right").check()
+    p.wait_for_timeout(400)
+
+
+def record_training(p: Page) -> None:
+    p.get_by_role("button", name="Record training").click()
+    d = p.get_by_role("dialog")
+    d.get_by_role("combobox", name="Person").click()
+    p.get_by_role("option", name="Raj Patel").click()
+    d.get_by_role("combobox", name="Counts as module").click()
+    p.get_by_role("option", name="Phishing and social engineering").click()
+    d.get_by_label("Provider").fill("In-house workshop")
+    p.wait_for_timeout(400)
+
+
 def tour(step: int) -> Callable[[Page], None]:
     def act(p: Page) -> None:
         reset_tours(p, None)
@@ -146,6 +171,8 @@ SHOTS: list[Shot] = [
     # trust and people
     Shot("people", "/people"),
     Shot("training", "/people?tab=training"),
+    Shot("training-module", "/people?tab=training", new_module),
+    Shot("training-external", "/people?tab=training", record_training),
     Shot("access-reviews", "/access-reviews"),
     Shot("trust-center", "/trust-center"),
     Shot("trust-public", "/trust/alpine-ski-house", user=""),

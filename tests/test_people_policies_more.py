@@ -26,7 +26,7 @@ def test_training_assignment_and_due_dates(session, users):
     fin, eng = users["risk_owner"], users["control_owner"]
     _person(session, fin, "Finance")
     _person(session, eng, "Engineering", "contractor")
-    key = ppl.modules()[0]["key"]
+    key = ppl.modules(session)[0]["key"]
     assert key in [m["key"] for m in ppl.modules_for(session, eng)]
     ppl.set_assignment(session, users["isms_manager"], key, audience={"departments": ["finance"], "employment_types": []}, due_days=14)
     assert key in [m["key"] for m in ppl.modules_for(session, fin)] and key not in [m["key"] for m in ppl.modules_for(session, eng)]
@@ -34,10 +34,10 @@ def test_training_assignment_and_due_dates(session, users):
         ppl.set_assignment(session, users["isms_manager"], key, audience={"employment_types": ["intern"]}, due_days=14)
     mine = next(m for m in ppl.my_training(session, fin) if m["key"] == key)
     assert mine["due"] == today() + timedelta(days=14)  # started 60 days ago, assigned today: due 14 days after assignment
-    assert ppl.training_overdue(session, today() + timedelta(days=20)).get(ppl.module(key)["title"]) == 1
+    assert ppl.training_overdue(session, today() + timedelta(days=20)).get(ppl.module(session, key)["title"]) == 1
     headers, rows = ppl.training_matrix(session, users["viewer"])
     eng_row = next(r for r in rows if r[0] == eng.display_name)
-    assert eng_row[headers.index(ppl.module(key)["title"])] == "not assigned"
+    assert eng_row[headers.index(ppl.module(session, key)["title"])] == "not assigned"
 
 
 def test_policy_audience_and_minor_versions(session, users):

@@ -218,6 +218,31 @@ def test_employees_get_the_portal_help_only(demo_server, open_page):
     assert p.url.endswith("/portal")  # the staff guide is for staff
 
 
+def test_own_training_module_reaches_the_portal(demo_server, open_page):
+    mgr = open_page(demo_server)
+    p = mgr.login("mia.isms")
+    mgr.go("/people?tab=training")
+    p.get_by_role("button", name="New module").click()
+    d = p.get_by_role("dialog")
+    d.get_by_label("Title").fill("Clean desk")
+    d.get_by_label("Summary").fill("Lock your screen and clear your desk.")
+    d.get_by_label("Content").fill("## Before you leave\nLock the screen and put papers away.")
+    d.get_by_label("Question 1", exact=True).fill("What do you do before leaving your desk?")
+    d.get_by_label("Question 1, answer 1").fill("Nothing")
+    d.get_by_label("Question 1, answer 2").fill("Lock the screen")
+    d.get_by_label("Answer 2 is right").check()
+    d.get_by_role("button", name="Create module").click()
+    p.get_by_role("cell", name="Clean desk").first.wait_for()
+
+    emp = open_page(demo_server)
+    e = emp.login("nina.weber@alpineskihouse.example")
+    e.get_by_role("link", name="Clean desk").click()
+    e.wait_for_url("**/portal/training/**")
+    e.get_by_label("Lock the screen").check()
+    e.get_by_role("button", name="Submit answers").click()
+    e.wait_for_selector("text=Passed with")
+
+
 def test_first_sign_in_tour(demo_server, open_page):
     pg = open_page(demo_server)
     p = pg.login("mia.isms", tour=True)

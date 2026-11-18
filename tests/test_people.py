@@ -21,7 +21,7 @@ def _person(session, users, **kw):
 
 
 def test_training_content_is_valid():
-    mods = ppl.modules()
+    mods = ppl.builtin_modules()
     assert len(mods) == 6 and len({m["key"] for m in mods}) == 6
     pub = ppl.public_module(mods[0])
     assert all("answer" not in q for q in pub["quiz"])
@@ -67,7 +67,7 @@ def test_expired_invite(users, session):
 
 def test_quiz_grading_and_status(users, session):
     u = users["viewer"]
-    m = ppl.module("phishing")
+    m = ppl.module(session, "phishing")
     wrong = [(q["answer"] + 1) % len(q["options"]) for q in m["quiz"]]
     assert ppl.submit_quiz(session, u, "phishing", wrong).passed is False
     right = [q["answer"] for q in m["quiz"]]
@@ -101,7 +101,7 @@ def test_full_compliance(users, session):
     pol.submit_version(session, users["isms_manager"], v.id)
     pol.approve_version(session, users["admin"], v.id)
     pol.acknowledge(session, u, v.id)
-    for m in ppl.modules():
+    for m in ppl.modules(session):
         ppl.submit_quiz(session, u, m["key"], [q["answer"] for q in m["quiz"]])
     ppl.attest_device(session, u, device_name="Laptop", os="windows", checks=ALL_OK)
     assert ppl.status_for_user(session, u).complete

@@ -119,6 +119,7 @@ DOWNLOAD_PERMISSION = {
     "SecurityQuestionnaire": "read",  # the customer's questionnaire file
     "VendorQuestionnaire": "read",  # vendor portal uploads
     "TrustDocument": "trust.manage",  # gated documents: NDA and approval apply to everyone else
+    "ExternalTraining": "people.write",  # training certificates: personal data, for whoever manages people
 }
 
 

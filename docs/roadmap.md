@@ -60,6 +60,14 @@ to Trust Center subscribers, an iCal feed, and automatic reminder emails to vend
 | Demo | Configuration baselines, hosts, a firewall and custom checks in the demo data |
 | Deployment | README: tested step-by-step install on a fresh Ubuntu 24.04 server (systemd, nginx, Let's Encrypt, ClamAV), upgrade and troubleshooting |
 
+### Round 7: help and training management
+
+| Area | Done |
+|---|---|
+| In-app help | The user guide inside Keystone: contents, search, a help button on every page that opens its section, portal help |
+| Logic security | Seven ways round workflows and approvals closed (risk acceptance, incidents, corrective actions, evidence requests, vendors, Trust Center links) |
+| Training | Your own modules with a quiz editor, versions and retakes; built-in modules switched off or copied to edit; training done elsewhere with certificates, counted per person |
+
 Needs the organisation (can't be done from here): validating attack surface connectors with read-only keys, a real
 TLS certificate and domain, pushing to a remote, and entering SMTP, SSO and connector credentials.
 

@@ -26,7 +26,7 @@ All screenshots show the fictional demo organisation, Alpine Ski House. You can 
 7. [Third parties](#7-third-parties): [Vendors](#vendors) · [Vendor questionnaires](#vendor-questionnaires) ·
    [Vendor assessments](#vendor-assessments) · [Entra exposure](#entra-exposure)
 8. [Trust and people](#8-trust-and-people): [People and training](#people-and-training) ·
-   [Access reviews](#access-reviews) · [Trust Center](#trust-center) ·
+   [Security training](#security-training) · [Access reviews](#access-reviews) · [Trust Center](#trust-center) ·
    [Customer questionnaires](#customer-questionnaires) · [Integrations](#integrations)
 9. [Operations](#9-operations): [Incidents](#incidents) · [Business continuity](#business-continuity) ·
    [Nonconformities](#nonconformities) · [Audits](#audits) · [Management review](#management-review) ·
@@ -623,15 +623,57 @@ policies, training and device checks.
   so on). Completing it disables their account.
 - **Import CSV** adds many people at once. HR systems (BambooHR, Personio, HiBob) can keep People up to date.
 
-The **Training** tab sets who takes each module and how soon.
+### Security training
 
-![Training assignment](user-guide/training.png)
+**People → Training** is where you manage security awareness training (ISO 27001 A.6.3): which modules there are, who
+takes them, how soon, and training people did elsewhere. Changing it needs the people-management permission
+(administrators and ISMS managers).
 
-- Each module applies to everyone unless you limit it to departments or employment types. Click a module to change
-  this, and the number of days new starters have to complete it.
-- A pass lasts a year, and a new version of a module asks for it again. Whoever manages people is reminded about
-  overdue training.
-- **Training matrix** downloads everyone's status as a spreadsheet.
+![Training modules](user-guide/training.png)
+
+**Modules.** Keystone comes with six built-in modules (*Built-in*). Add your own (*Your own*) for anything specific to
+your organisation.
+
+- **Who and when**: click a module's row. Each module applies to everyone unless you limit it to departments or
+  employment types, and you set how many days new starters have to complete it.
+- **On / off**: the switch. A module that's off isn't offered in the portal, isn't due and isn't in the training
+  matrix. Earlier passes are kept.
+- A pass is valid for a year. People who are overdue show in the *Overdue* column, and whoever manages people is
+  reminded.
+- **Training matrix** downloads everyone's status as a spreadsheet, including people without a portal account and
+  training done elsewhere.
+
+**Writing your own module.** Choose **New module**.
+
+![Writing a training module](user-guide/training-module.png)
+
+1. Give it a title, a one-line summary and how many minutes it takes.
+2. Write the content in Markdown (`##` headings, `-` lists, `**bold**`). **Preview** shows how employees will see it.
+3. Write the quiz: up to 20 questions, each with 2 to 6 answers. Select the right answer with the round button. The
+   right answers stay on the server; employees never see them.
+4. Set the **pass mark** (how many questions must be right), then **Create module**. It's switched on for everyone
+   straight away; limit it with *Who and when* if needed.
+
+To change it later, use the module's **⋯** menu → **Edit content and quiz**. Corrections keep everyone's passes. Tick
+**New version: everyone takes it again** when the change matters: earlier passes stop counting and the module is due
+again. **Delete** works only until someone has taken the module; after that, switch it off instead, because passes
+are training records.
+
+**Changing a built-in module.** Built-in modules can't be edited. In the **⋯** menu, **View content** shows them,
+and **Make your own copy** creates an editable copy with the same content, quiz, audience and due days, and switches
+the built-in module off. Passes of the built-in module count for the copy until you save a new version of it.
+
+**Training done elsewhere.** For a classroom session, an external course or anything else outside Keystone, choose
+**Record training**.
+
+![Recording training done elsewhere](user-guide/training-external.png)
+
+- Choose the person (anyone in People, with or without a portal account) and, if it covers one of the modules, the
+  module under **Counts as module**. It then counts as passing that module until **Valid until** (a year after
+  completion unless you set another date). Leave the module empty for other training, and name it.
+- Attach the certificate if there is one (PDF, PNG or JPG). Certificates are personal data: only people who manage
+  people can open them.
+- Remove a record entered by mistake with its bin icon; the audit log keeps what it said.
 
 ### Access reviews
 

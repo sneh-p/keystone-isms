@@ -327,3 +327,23 @@ drafted them (a small team often has one person answering; every approval is log
 quiz until they pass (each attempt is recorded); a continuity test can be recorded as passed without per-process
 recovery times (tabletop exercises have none).
 
+## Managing training (round 7)
+
+- **Built-in and your own modules side by side.** Keystone's six modules stay files in `content/training/` and can't
+  be edited in the app, so an upgrade can improve them without overwriting anyone's text. Organisations write their
+  own (`training_modules`) or start from a copy of a built-in one. A copy keeps the built-in module's passes until it
+  gets a new version, so copying alone doesn't make everyone retake it.
+- **Versions decide retakes.** Saving a module keeps its version (corrections don't send people back); ticking "new
+  version" raises it and earlier passes stop counting. Passes are training records, so a module someone has taken can
+  only be switched off, not deleted.
+- **On/off lives with the assignment** (`training_assignments.active`, migration 0045): one place for who, when and
+  whether, for built-in and own modules alike.
+- **Quiz answers never leave the server.** The portal's module endpoint strips them (`public_module`); only people
+  with the people-management permission can read a module with its answers, for editing.
+- **Training done elsewhere counts per person**, not per account, so contractors without a portal account show as
+  trained in the matrix. A record names the module and version it covers and is valid until a date (a year by
+  default, at most three).
+- **Certificates are personal data.** Only PDF, PNG and JPG, stored through the same checks as other uploads (type
+  by content, size limit, content-addressed storage), and only people with the people-management permission can
+  download them (`DOWNLOAD_PERMISSION["ExternalTraining"]`). The upload was approved as part of the feature request.
+

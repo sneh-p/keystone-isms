@@ -398,7 +398,7 @@ def _seed_workflows(session: Session, people: dict, fab, nw) -> None:
     nina = ppl.save_person(session, admin, full_name="Nina Weber", email="nina.weber@alpineskihouse.example", job_title="Front desk supervisor", department="Hotels", start_date=date.today() - timedelta(days=10))
     token = ppl.invite(session, admin, nina.id)
     nina_user = ppl.accept_invite(session, token, DEMO_PASSWORD)
-    for m in ppl.modules()[:3]:
+    for m in ppl.modules(session)[:3]:
         ppl.submit_quiz(session, nina_user, m["key"], [q["answer"] for q in m["quiz"]])
     ppl.attest_device(session, nina_user, device_name="Front desk laptop 3", os="windows", checks={k: True for k in ("disk_encryption", "screen_lock", "antivirus", "auto_updates", "firewall")})
     ppl.save_person(session, admin, full_name="Tomás García", email="tomas.garcia@alpineskihouse.example", job_title="Seasonal ski instructor", department="Ski school", employment_type="contractor", start_date=date.today() + timedelta(days=14))

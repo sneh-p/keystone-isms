@@ -128,8 +128,8 @@ def portal(user=Depends(perm("portal")), db: Session = Depends(get_db)):
 
 
 @router.get("/portal/training/{key}")
-def training_module(key: str, user=Depends(perm("portal"))):
-    return ppl.public_module(ppl.module(key))
+def training_module(key: str, user=Depends(perm("portal")), db: Session = Depends(get_db)):
+    return ppl.public_module(ppl.module(db, key))
 
 
 class QuizIn(In):
@@ -197,10 +197,101 @@ def training_assignments(user=Depends(perm("read")), db: Session = Depends(get_d
     from keystone.core import audience
 
     assigned = ppl.assignments(db)
-    return {"modules": [{"key": m["key"], "title": m["title"], "minutes": m["minutes"], "version": m["version"],
+    return {"modules": [{"key": m["key"], "title": m["title"], "minutes": m["minutes"], "version": m["version"], "source": m["source"], "active": m["active"],
+                         "copied_from": m.get("copied_from"), "questions": len(m["quiz"]),
                          "audience": assigned[m["key"]].audience if m["key"] in assigned else None,
-                         "due_days": assigned[m["key"]].due_days if m["key"] in assigned else ppl.DEFAULT_DUE_DAYS} for m in ppl.modules()],
+                         "due_days": assigned[m["key"]].due_days if m["key"] in assigned else ppl.DEFAULT_DUE_DAYS} for m in ppl.modules(db, include_off=True)],
             "departments": audience.departments(db), "overdue": ppl.training_overdue(db)}
+
+
+# ---- training modules: the organisation's own, and switching any module on or off (people.write) ------------------
+
+@router.get("/training/modules/{key}")
+def training_module_full(key: str, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+    """A module with its quiz answers, for editing or copying: only for people who manage training."""
+    m = ppl.module(db, key, include_off=True)
+    return {k: m.get(k) for k in ("key", "title", "summary", "minutes", "version", "body", "quiz", "pass_mark", "source", "active", "copied_from")}
+
+
+class QuizQuestionIn(In):
+    q: str = Field(min_length=1, max_length=500)
+    options: list[str] = Field(min_length=2, max_length=6)
+    answer: int = Field(ge=0, le=5)
+
+
+class ModuleIn(In):
+    title: str = Field(min_length=1, max_length=200)
+    summary: str = Field(min_length=1, max_length=300)
+    minutes: int = Field(ge=1, le=240)
+    body: str = Field(min_length=1, max_length=50_000)
+    quiz: list[QuizQuestionIn] = Field(min_length=1, max_length=20)
+    pass_mark: int = Field(ge=1, le=20)
+    retake: bool = False
+
+
+def _module_fields(body: ModuleIn) -> dict:
+    return {"title": body.title, "summary": body.summary, "minutes": body.minutes, "body": body.body, "quiz": [q.model_dump() for q in body.quiz], "pass_mark": body.pass_mark}
+
+
+@router.post("/training/modules")
+def create_training_module(body: ModuleIn, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+    m = ppl.save_module(db, user, **_module_fields(body))
+    return {"key": m.key, "version": m.version}
+
+
+@router.put("/training/modules/{key}")
+def update_training_module(key: str, body: ModuleIn, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+    m = ppl.save_module(db, user, key, retake=body.retake, **_module_fields(body))
+    return {"key": m.key, "version": m.version}
+
+
+@router.delete("/training/modules/{key}")
+def delete_training_module(key: str, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+    ppl.delete_module(db, user, key)
+    return {"ok": True}
+
+
+@router.post("/training/modules/{key}/copy")
+def copy_training_module(key: str, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+    m = ppl.copy_builtin(db, user, key)
+    return {"key": m.key, "version": m.version}
+
+
+class ActiveIn(In):
+    active: bool
+
+
+@router.put("/training/modules/{key}/active")
+def set_training_module_active(key: str, body: ActiveIn, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+    ppl.set_module_active(db, user, key, body.active)
+    return {"key": key, "active": body.active}
+
+
+# ---- training done elsewhere (people.write) ------------------------------------------------------------------------
+
+EXTERNAL = ("id", "person_id", "module_key", "module_version", "title", "provider", "completed_on", "valid_until", "note", "attachment_id", "created_at")
+
+
+@router.get("/training/external")
+def external_training(person_id: int | None = None, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+    people = {p.id: p.full_name for p in ppl.list_people(db)}
+    return [ser(e, EXTERNAL, person=people.get(e.person_id)) for e in ppl.external_records(db, user, person_id)]
+
+
+@router.post("/training/external")
+async def record_external_training(person_id: int = Form(...), completed_on: date = Form(...), module_key: str | None = Form(None, max_length=60),
+                                   title: str | None = Form(None, max_length=200), provider: str | None = Form(None, max_length=200),
+                                   valid_until: date | None = Form(None), note: str | None = Form(None, max_length=2000),
+                                   file: UploadFile | None = File(None), user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+    e = ppl.record_external(db, user, person_id=person_id, completed_on=completed_on, module_key=module_key or None, title=title, provider=provider,
+                            valid_until=valid_until, note=note, filename=file.filename if file else None, data=await file.read() if file else None)
+    return ser(e, EXTERNAL)
+
+
+@router.delete("/training/external/{eid}")
+def delete_external_training(eid: int, user=Depends(perm("people.write")), db: Session = Depends(get_db)):
+    ppl.delete_external(db, user, eid)
+    return {"ok": True}
 
 
 class AssignmentIn(In):

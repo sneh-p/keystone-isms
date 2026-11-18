@@ -21,7 +21,7 @@ from keystone.core.services import apply_fields, authorize, get_or_404, require_
 from keystone.core.settings import PROJECT_ROOT
 from keystone.policies import service as pol
 
-from .models import DEVICE_CHECKS, OFFBOARDING_ITEMS, PERSON_STATUSES, DeviceAttestation, Invitation, Person, TrainingCompletion
+from .models import DEVICE_CHECKS, OFFBOARDING_ITEMS, PERSON_STATUSES, DeviceAttestation, ExternalTraining, Invitation, Person, TrainingCompletion, TrainingModule
 
 INVITE_DAYS = 7
 TRAINING_VALID_DAYS = 365
@@ -31,21 +31,39 @@ EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 # ---- training content -----------------------------------------------------------------------
+# Built-in modules are Keystone's own (content/training/*.yaml). Organisations add their own (TrainingModule), and can
+# switch any module off (TrainingAssignment.active). Quiz answers never leave the server (public_module).
 
 @lru_cache(maxsize=1)
-def modules() -> list[dict]:
+def builtin_modules() -> tuple[dict, ...]:
     out = []
     for p in sorted((PROJECT_ROOT / "content" / "training").glob("*.yaml")):
         m = yaml.safe_load(p.read_text(encoding="utf-8"))
         for q in m["quiz"]:
             if not 0 <= q["answer"] < len(q["options"]):
                 raise ValueError(f"{p.name}: bad answer index")
-        out.append(m)
-    return out
+        out.append(m | {"source": "builtin"})
+    return tuple(out)
 
 
-def module(key: str) -> dict:
-    for m in modules():
+def _custom(m: TrainingModule) -> dict:
+    return {"key": m.key, "title": m.title, "summary": m.summary, "minutes": m.minutes, "version": m.version, "body": m.body,
+            "quiz": m.quiz, "pass_mark": m.pass_mark, "source": "custom", "id": m.id, "copied_from": m.copied_from}
+
+
+def modules(session: Session, include_off: bool = False) -> list[dict]:
+    """Every training module: built-in ones first, then the organisation's own. Switched-off ones only on request."""
+    from .models import TrainingAssignment
+
+    off = set(session.scalars(select(TrainingAssignment.module_key).where(TrainingAssignment.active.is_(False))))
+    out = [dict(m) for m in builtin_modules()] + [_custom(c) for c in session.scalars(select(TrainingModule).order_by(TrainingModule.title))]
+    for m in out:
+        m["active"] = m["key"] not in off
+    return out if include_off else [m for m in out if m["active"]]
+
+
+def module(session: Session, key: str, include_off: bool = False) -> dict:
+    for m in modules(session, include_off):
         if m["key"] == key:
             return m
     raise LookupError(f"Training module {key} not found")
@@ -219,13 +237,28 @@ class PersonStatus:
         return self.__dict__ | {"complete": self.complete}
 
 
-def _current_completions(session: Session, user_id: int, on: date) -> dict[str, TrainingCompletion]:
-    out = {}
-    for c in session.scalars(select(TrainingCompletion).where(TrainingCompletion.user_id == user_id, TrainingCompletion.passed.is_(True)).order_by(TrainingCompletion.completed_at)):
-        if c.completed_at.date() >= on - timedelta(days=TRAINING_VALID_DAYS):
-            m = next((m for m in modules() if m["key"] == c.module_key), None)
-            if m and c.module_version >= m["version"]:
+def _current_completions(session: Session, user_id: int | None, on: date, person: Person | None = None, catalogue: list[dict] | None = None) -> dict:
+    """The passes that still count, per module key: quizzes passed in the portal within a year, and training recorded
+    as done elsewhere that is still valid. Both must be of the module's current version. A copy of a built-in module
+    keeps the built-in module's passes until it gets a new version."""
+    catalogue = catalogue if catalogue is not None else modules(session, include_off=True)
+    versions = {m["key"]: m["version"] for m in catalogue}
+    out: dict = {}
+    if user_id is not None:
+        for c in session.scalars(select(TrainingCompletion).where(TrainingCompletion.user_id == user_id, TrainingCompletion.passed.is_(True)).order_by(TrainingCompletion.completed_at)):
+            if c.completed_at.date() >= on - timedelta(days=TRAINING_VALID_DAYS) and c.module_key in versions and c.module_version >= versions[c.module_key]:
                 out[c.module_key] = c
+        if person is None:
+            person = session.scalar(select(Person).where(Person.user_id == user_id))
+    if person is not None:
+        for e in session.scalars(select(ExternalTraining).where(ExternalTraining.person_id == person.id, ExternalTraining.module_key.is_not(None)).order_by(ExternalTraining.completed_on)):
+            key = e.module_key or ""
+            if e.completed_on <= on <= e.valid_until and key in versions and (e.module_version or 0) >= versions[key]:
+                if key not in out or out[key].completed_at <= e.completed_at:
+                    out[key] = e
+    for m in catalogue:
+        if m.get("copied_from") and m["version"] == 1 and m["key"] not in out and m["copied_from"] in out:
+            out[m["key"]] = out[m["copied_from"]]
     return out
 
 
@@ -266,7 +299,7 @@ def people_overview(session: Session) -> list[tuple[Person, PersonStatus | None]
 
 def submit_quiz(session: Session, user: auth.User, key: str, answers: list[int]) -> TrainingCompletion:
     authorize(session, user, "portal")
-    m = module(key)
+    m = module(session, key)
     if len(answers) != len(m["quiz"]):
         raise ValueError("Answer every question.")
     score = sum(1 for a, q in zip(answers, m["quiz"]) if a == q["answer"])
@@ -293,29 +326,32 @@ def assignments(session: Session) -> dict:
     return {a.module_key: a for a in session.scalars(select(TrainingAssignment))}
 
 
-def modules_for(session: Session, user: auth.User, assigned: dict | None = None) -> list[dict]:
+def modules_for(session: Session, user: auth.User | None, assigned: dict | None = None, person: Person | None = None, mods: list[dict] | None = None) -> list[dict]:
+    """The switched-on modules that apply to a user (or, for someone without an account, to their People record)."""
     from keystone.core import audience
 
     assigned = assigned if assigned is not None else assignments(session)
-    person = None
     out = []
-    for m in modules():
+    for m in (mods if mods is not None else modules(session)):
         a = assigned.get(m["key"])
         if a is not None and a.audience:
-            person = person if person is not None else audience.person_of(session, user.id)
+            if person is None and user is not None:
+                person = audience.person_of(session, user.id)
             if not audience.matches(a.audience, person):
                 continue
         out.append(m)
     return out
 
 
-def training_due(session: Session, key: str, person, user: auth.User, completion: TrainingCompletion | None, assigned: dict | None = None) -> date:
+def training_due(session: Session, key: str, person, user: auth.User | None, completion: TrainingCompletion | ExternalTraining | None, assigned: dict | None = None) -> date:
     """When the module is due: a year after the last pass, or `due_days` after the person started (or after the
     module was assigned, or the account created, whichever is later)."""
     if completion is not None:
+        if isinstance(completion, ExternalTraining):
+            return completion.valid_until
         return completion.completed_at.date() + timedelta(days=TRAINING_VALID_DAYS)
     a = (assigned if assigned is not None else assignments(session)).get(key)
-    starts = [d for d in ((person.start_date if person else None), (a.created_at.date() if a else None), user.created_at.date() if getattr(user, "created_at", None) else None) if d]
+    starts = [d for d in ((person.start_date if person else None), (a.created_at.date() if a else None), user.created_at.date() if user is not None and getattr(user, "created_at", None) else None) if d]
     return max(starts or [today()]) + timedelta(days=a.due_days if a else DEFAULT_DUE_DAYS)
 
 
@@ -325,7 +361,7 @@ def set_assignment(session: Session, actor, module_key: str, *, audience: dict |
     from .models import TrainingAssignment
 
     authorize(session, actor, "people.write")
-    module(module_key)
+    module(session, module_key, include_off=True)
     if not 1 <= due_days <= 365:
         raise ValueError("Give between 1 and 365 days.")
     a = session.scalar(select(TrainingAssignment).where(TrainingAssignment.module_key == module_key)) or TrainingAssignment(module_key=module_key)
@@ -335,26 +371,200 @@ def set_assignment(session: Session, actor, module_key: str, *, audience: dict |
     return a
 
 
+# ---- managing modules (people.write) ------------------------------------------------------------------------------
+
+MAX_QUESTIONS, MAX_OPTIONS = 20, 6
+CERTIFICATE_TYPES = (".pdf", ".png", ".jpg", ".jpeg")
+_KEY_CHARS = re.compile(r"[^a-z0-9]+")
+
+
+def clean_quiz(quiz) -> list[dict]:
+    """Questions with 2 to 6 answers and exactly one right answer, given by its position."""
+    if not isinstance(quiz, list) or not 1 <= len(quiz) <= MAX_QUESTIONS:
+        raise ValueError(f"Write between 1 and {MAX_QUESTIONS} quiz questions.")
+    out = []
+    for n, q in enumerate(quiz, 1):
+        if not isinstance(q, dict) or set(q) - {"q", "options", "answer"}:
+            raise ValueError(f"Question {n}: give the question, its answers and which one is right.")
+        text = str(q.get("q") or "").strip()
+        options = [str(o).strip() for o in (q.get("options") or [])] if isinstance(q.get("options"), list) else []
+        answer = q.get("answer")
+        if not text or len(text) > 500:
+            raise ValueError(f"Question {n}: write the question (up to 500 characters).")
+        if not 2 <= len(options) <= MAX_OPTIONS or any(not o or len(o) > 300 for o in options):
+            raise ValueError(f"Question {n}: give 2 to {MAX_OPTIONS} answers of up to 300 characters.")
+        if len(set(o.lower() for o in options)) != len(options):
+            raise ValueError(f"Question {n}: two answers are the same.")
+        if not isinstance(answer, int) or isinstance(answer, bool) or not 0 <= answer < len(options):
+            raise ValueError(f"Question {n}: choose the right answer.")
+        out.append({"q": text, "options": options, "answer": answer})
+    return out
+
+
+def _new_key(session: Session, title: str) -> str:
+    base = "own-" + (_KEY_CHARS.sub("-", title.lower()).strip("-")[:40] or "module")
+    taken = {m["key"] for m in builtin_modules()} | set(session.scalars(select(TrainingModule.key)))
+    key, n = base, 2
+    while key in taken:
+        key, n = f"{base}-{n}", n + 1
+    return key
+
+
+def save_module(session: Session, actor, key: str | None = None, *, title: str, summary: str, minutes: int, body: str, quiz, pass_mark: int,
+                retake: bool = False, copied_from: str | None = None) -> TrainingModule:
+    """Create or change one of the organisation's own modules. `retake` makes it a new version: earlier passes stop
+    counting and everyone it applies to takes it again. Built-in modules can't be changed; copy one instead."""
+    authorize(session, actor, "people.write")
+    if key is not None:
+        m = session.scalar(select(TrainingModule).where(TrainingModule.key == key))
+        if m is None:
+            if any(b["key"] == key for b in builtin_modules()):
+                raise ValueError("Built-in modules can't be changed. Make your own copy instead.")
+            raise LookupError(f"Training module {key} not found")
+    else:
+        m = TrainingModule(key=_new_key(session, require_text(title, "Title")), version=1, copied_from=copied_from)
+    m.title = require_text(title, "Title")[:200]
+    m.summary = require_text(summary, "Summary")[:300]
+    if not isinstance(minutes, int) or not 1 <= minutes <= 240:
+        raise ValueError("Give how long it takes: 1 to 240 minutes.")
+    m.minutes = minutes
+    body = require_text(body, "Content")
+    if len(body) > 50_000:
+        raise ValueError("The content can be up to 50,000 characters.")
+    m.body = body
+    m.quiz = clean_quiz(quiz)
+    if not isinstance(pass_mark, int) or not 1 <= pass_mark <= len(m.quiz):
+        raise ValueError(f"The pass mark must be between 1 and {len(m.quiz)} (the number of questions).")
+    m.pass_mark = pass_mark
+    if key is not None and retake:
+        m.version += 1
+    session.add(m)
+    session.flush()
+    return m
+
+
+def set_module_active(session: Session, actor, key: str, active: bool):
+    """Switch a module on or off. Off: no longer offered in the portal, due or counted; earlier passes are kept."""
+    from .models import TrainingAssignment
+
+    authorize(session, actor, "people.write")
+    module(session, key, include_off=True)
+    a = session.scalar(select(TrainingAssignment).where(TrainingAssignment.module_key == key)) or TrainingAssignment(module_key=key, due_days=DEFAULT_DUE_DAYS)
+    a.active = bool(active)
+    session.add(a)
+    session.flush()
+    return a
+
+
+def copy_builtin(session: Session, actor, key: str) -> TrainingModule:
+    """Start an editable module from a built-in one: same content and quiz, same audience and due days. The built-in
+    module is switched off, so people aren't asked to take both."""
+    from .models import TrainingAssignment
+
+    authorize(session, actor, "people.write")
+    b = next((m for m in builtin_modules() if m["key"] == key), None)
+    if b is None:
+        raise LookupError(f"Built-in training module {key} not found")
+    m = save_module(session, actor, title=b["title"], summary=b["summary"], minutes=b["minutes"], body=b["body"], quiz=b["quiz"], pass_mark=b["pass_mark"], copied_from=key)
+    old = session.scalar(select(TrainingAssignment).where(TrainingAssignment.module_key == key))
+    if old is not None:
+        session.add(TrainingAssignment(module_key=m.key, audience=old.audience, due_days=old.due_days))
+    set_module_active(session, actor, key, False)
+    return m
+
+
+def delete_module(session: Session, actor, key: str) -> None:
+    """Delete one of the organisation's own modules created by mistake. Once anyone took it, switch it off instead:
+    passes are training records."""
+    from .models import TrainingAssignment
+
+    authorize(session, actor, "people.write")
+    m = session.scalar(select(TrainingModule).where(TrainingModule.key == key))
+    if m is None:
+        raise LookupError(f"Training module {key} not found")
+    used = session.scalar(select(TrainingCompletion.id).where(TrainingCompletion.module_key == key).limit(1)) or session.scalar(select(ExternalTraining.id).where(ExternalTraining.module_key == key).limit(1))
+    if used:
+        raise ValueError("People have taken this module, so it is part of their training records. Switch it off instead.")
+    for a in session.scalars(select(TrainingAssignment).where(TrainingAssignment.module_key == key)):
+        session.delete(a)
+    session.delete(m)
+    session.flush()
+
+
+# ---- training done elsewhere (people.write; holds personal data) ---------------------------------------------------
+
+def record_external(session: Session, actor, *, person_id: int, completed_on: date, module_key: str | None = None, title: str | None = None,
+                    provider: str | None = None, valid_until: date | None = None, note: str | None = None,
+                    filename: str | None = None, data: bytes | None = None) -> ExternalTraining:
+    """Record training someone did outside Keystone. Naming a module makes it count as passing that module (its
+    current version) until `valid_until` (a year by default)."""
+    authorize(session, actor, "people.write")
+    p = get_or_404(session, Person, person_id)
+    on = today()
+    if completed_on > on:
+        raise ValueError("The training can't have been completed in the future.")
+    if completed_on < on - timedelta(days=3 * 365):
+        raise ValueError("Record training from the last three years.")
+    valid_until = valid_until or completed_on + timedelta(days=TRAINING_VALID_DAYS)
+    if not completed_on < valid_until <= completed_on + timedelta(days=3 * 365):
+        raise ValueError("Valid until must be after the completion date, and within three years of it.")
+    m = module(session, module_key, include_off=True) if module_key else None
+    title = (title or "").strip() or (m["title"] if m else "")
+    if not title:
+        raise ValueError("Choose the module this training covers, or name the training.")
+    if data is not None and filename and not filename.lower().endswith(CERTIFICATE_TYPES):
+        raise ValueError("Attach the certificate as a PDF, PNG or JPG.")
+    e = ExternalTraining(person_id=p.id, module_key=m["key"] if m else None, module_version=m["version"] if m else None, title=title[:200],
+                         provider=(provider or "").strip()[:200] or None, completed_on=completed_on, valid_until=valid_until,
+                         note=(note or "").strip()[:2000] or None)
+    session.add(e)
+    session.flush()
+    if data is not None and filename:
+        e.attachment_id = save_attachment(session, actor, filename, data, "ExternalTraining", e.id).id
+        session.flush()
+    return e
+
+
+def external_records(session: Session, actor, person_id: int | None = None) -> list[ExternalTraining]:
+    authorize(session, actor, "people.write")
+    q = select(ExternalTraining).order_by(ExternalTraining.completed_on.desc(), ExternalTraining.id.desc())
+    if person_id is not None:
+        q = q.where(ExternalTraining.person_id == person_id)
+    return list(session.scalars(q))
+
+
+def delete_external(session: Session, actor, record_id: int) -> None:
+    """Remove a record entered by mistake (the audit log keeps what it said)."""
+    authorize(session, actor, "people.write")
+    session.delete(get_or_404(session, ExternalTraining, record_id))
+    session.flush()
+
+
 def training_matrix(session: Session, actor) -> tuple[list[str], list[list]]:
-    """Every person with an account, against every module that applies to them: passed (until when), due or overdue."""
+    """Everyone in scope (with or without a portal account) against every switched-on module that applies to them:
+    passed (until when, and where it was done elsewhere), due or overdue."""
     authorize(session, actor, "read")
     on = today()
     assigned = assignments(session)
-    mods = modules()
+    mods = modules(session)
+    catalogue = modules(session, include_off=True)
     headers = ["Person", "Department", "Type", "Status"] + [m["title"] for m in mods]
     rows = []
     for p in list_people(session):
-        u = session.get(auth.User, p.user_id) if p.user_id else None
-        if u is None:
+        if p.status == "offboarded":
             continue
-        mine = {m["key"] for m in modules_for(session, u, assigned)}
-        done = _current_completions(session, u.id, on)
+        u = session.get(auth.User, p.user_id) if p.user_id else None
+        mine = {m["key"] for m in modules_for(session, u, assigned, person=p, mods=mods)}
+        done = _current_completions(session, u.id if u else None, on, person=p, catalogue=catalogue)
         cells = []
         for m in mods:
             if m["key"] not in mine:
                 cells.append("not assigned")
             elif m["key"] in done:
-                cells.append(f"passed until {training_due(session, m['key'], p, u, done[m['key']], assigned).isoformat()}")
+                where = " (recorded: done elsewhere)" if isinstance(done[m["key"]], ExternalTraining) else ""
+                cells.append(f"passed until {training_due(session, m['key'], p, u, done[m['key']], assigned).isoformat()}{where}")
+            elif u is None:
+                cells.append("no portal account")
             else:
                 due = training_due(session, m["key"], p, u, None, assigned)
                 cells.append(f"{'overdue since' if due < on else 'due'} {due.isoformat()}")
@@ -366,6 +576,8 @@ def training_overdue(session: Session, on: date | None = None) -> dict[str, int]
     """How many people are overdue on each module (for reminders to people managers)."""
     on = on or today()
     assigned = assignments(session)
+    mods = modules(session)
+    catalogue = modules(session, include_off=True)
     out: dict[str, int] = {}
     for p in list_people(session):
         if p.status not in ("active", "onboarding") or not p.user_id:
@@ -373,8 +585,8 @@ def training_overdue(session: Session, on: date | None = None) -> dict[str, int]
         u = session.get(auth.User, p.user_id)
         if u is None or not u.active:
             continue
-        done = _current_completions(session, u.id, on)
-        for m in modules_for(session, u, assigned):
+        done = _current_completions(session, u.id, on, person=p, catalogue=catalogue)
+        for m in modules_for(session, u, assigned, person=p, mods=mods):
             if m["key"] not in done and training_due(session, m["key"], p, u, None, assigned) < on:
                 out[m["title"]] = out.get(m["title"], 0) + 1
     return out
