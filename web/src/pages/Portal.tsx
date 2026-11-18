@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SignatureInput, signatureOk } from "@/components/Signature";
 import { Link, useNavigate, useParams } from "react-router";
-import { BookOpen, Check, CheckCircle2, ChevronLeft, Compass, Laptop, LogOut, ScrollText, ShieldCheck } from "lucide-react";
+import { BookOpen, Check, CheckCircle2, ChevronLeft, Compass, Laptop, LifeBuoy, LogOut, ScrollText, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { api, downloadUrl, fragmentParam, setCsrf, upload } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
@@ -20,7 +20,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { Tour, useTourState } from "@/components/Tour";
 import { PORTAL_TOUR } from "@/components/layout/tour-steps";
 
-function PortalShell({ children, onTour }: { children: any; onTour?: () => void }) {
+export function PortalShell({ children, onTour }: { children: any; onTour?: () => void }) {
   const { me, logout } = useAuth();
   const nav = useNavigate();
   return (
@@ -33,6 +33,7 @@ function PortalShell({ children, onTour }: { children: any; onTour?: () => void 
             {me?.permissions.includes("read") && <Link to="/" className="text-primary hover:underline">Back to Keystone</Link>}
             <span data-tour="portal-notifications" className="inline-flex"><NotificationBell /></span>
             {onTour && <Button size="sm" variant="ghost" onClick={onTour} aria-label="Take the tour"><Compass /><span className="hidden sm:inline">Tour</span></Button>}
+            <Link to="/portal/help" className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm hover:bg-muted" aria-label="Help"><LifeBuoy className="size-4" /><span className="hidden sm:inline">Help</span></Link>
             <span className="hidden text-muted-foreground sm:inline">{me?.display_name}</span>
             <Button size="sm" variant="ghost" onClick={() => logout().then(() => nav("/login"))}><LogOut /> Sign out</Button>
           </div>

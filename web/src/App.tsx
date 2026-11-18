@@ -53,6 +53,8 @@ const Continuity = lazy(() => import("@/pages/Continuity"));
 const CalendarPage = lazy(() => import("@/pages/Calendar"));
 const AttackSurface = lazy(() => import("@/pages/AttackSurface"));
 const Configuration = lazy(() => import("@/pages/Configuration"));
+const Help = lazy(() => import("@/pages/Help"));
+const PortalHelp = lazy(() => import("@/pages/Help").then((m) => ({ default: m.PortalHelp })));
 
 /** Authenticated application routes. `nav` marks routes that appear in the sidebar. */
 export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] = [
@@ -98,6 +100,7 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/settings/provisioning", element: <Provisioning />, nav: true },
   { path: "/settings/channels", element: <Channels />, nav: true },
   { path: "/settings/system", element: <SystemHealth />, nav: true },
+  { path: "/help", element: <Help /> },
 ];
 APP_ROUTES.filter((r) => r.nav).forEach((r) => BUILT.add(r.path));
 
@@ -136,6 +139,7 @@ export default function App() {
       <Route path="/invite" element={<Suspense fallback={<Loading />}><AcceptInvite /></Suspense>} />
       <Route path="/invite/:token" element={<Suspense fallback={<Loading />}><AcceptInvite /></Suspense>} />
       <Route path="/portal" element={<Private><Suspense fallback={<Loading />}><Portal /></Suspense></Private>} />
+      <Route path="/portal/help" element={<Private><Suspense fallback={<Loading />}><PortalHelp /></Suspense></Private>} />
       <Route path="/portal/training/:key" element={<Private><Suspense fallback={<Loading />}><TrainingModule /></Suspense></Private>} />
       <Route
         path="/*"

@@ -12,7 +12,8 @@ All screenshots show the fictional demo organisation, Alpine Ski House. You can 
 ## Contents
 
 1. [Getting started](#1-getting-started)
-   - [Signing in](#signing-in) · [The guided tour](#the-guided-tour) · [Finding your way around](#finding-your-way-around)
+   - [Signing in](#signing-in) · [The guided tour](#the-guided-tour) · [Getting help](#getting-help) ·
+     [Finding your way around](#finding-your-way-around)
    - [Search](#search) · [Notifications](#notifications) · [Your account](#your-account) · [Roles](#roles-what-you-can-do)
 2. [Working with records](#2-working-with-records): tables, record panels, discussion and history, import, export, delete
 3. [Setting up the ISMS](#3-setting-up-the-isms) (ISMS managers and administrators)
@@ -70,6 +71,18 @@ can use, notifications and your account menu.
 
 Keystone remembers that you have seen the tour on any device, so it doesn't open again by itself. Employees get a
 shorter tour of the employee portal; the **Tour** button in the portal header starts it again.
+
+### Getting help
+
+![Help in Keystone, open at the risk register](user-guide/help.png)
+
+This guide is built into Keystone.
+
+- The **?** button at the top of every page opens the help for that page. On the risk register it opens
+  *Risk register*, on Configuration it opens *Configuration*, and so on.
+- **Search help** finds every topic that mentions what you type, for example *exception* or *DPIA*.
+- Help is also in your name menu (**Help**) and in search (**Ctrl + K**, then *help*).
+- In the employee portal, **Help** at the top explains the portal.
 
 ### Finding your way around
 

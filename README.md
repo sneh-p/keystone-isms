@@ -50,7 +50,7 @@ All screenshots show the fictional demo organisation, Alpine Ski House.
 | **Trust Center** | A public page with "frameworks we align to", certifications, passing controls, policies, subprocessors and FAQs; gated documents behind access requests, NDA and expiring links |
 | **Customer questionnaires** | Import a customer's spreadsheet, answer from approved policies and a knowledge base (optionally drafted by AI with verified quotes), approve each answer, export into their file |
 | **Find and export** | ⌘K finds records by reference or title; every searchable table exports to CSV; records created by mistake can be deleted while nothing depends on them |
-| **Working together** | A guided tour on first sign-in; notifications (in-app and a daily email digest) routed to the owner of each record; comments with @mentions; a one-page board summary |
+| **Working together** | A guided tour on first sign-in and the user guide built in (**?** on every page opens the help for it); notifications (in-app and a daily email digest) routed to the owner of each record; comments with @mentions; a one-page board summary |
 | **Sign-in** | Local accounts or **single sign-on** with Microsoft Entra ID or Google; optional "SSO required" with administrators as break-glass |
 | **Assurance** | Seven roles, segregation of duties throughout, an append-only hash-chained audit log, register exports and CSV imports |
 
@@ -512,7 +512,7 @@ TypeScript, Vite, Tailwind, Radix, TanStack Query; PowerShell 7 for the Entra co
 
 | Document | For |
 |---|---|
-| [docs/user-guide.md](docs/user-guide.md) | Everyone who signs in: every screen, with screenshots and step-by-step instructions |
+| [docs/user-guide.md](docs/user-guide.md) | Everyone who signs in: every screen, with screenshots and step-by-step instructions. The same guide is the Help section inside Keystone |
 | [docs/admin-guide.md](docs/admin-guide.md) | Installing, hardening, roles, SSO, email, ClamAV, integrations, backups and restore, system health |
 | [docs/roadmap.md](docs/roadmap.md) | Roadmap and progress, round by round |
 | [docs/design-decisions.md](docs/design-decisions.md) | Why things work the way they do, and known limits |

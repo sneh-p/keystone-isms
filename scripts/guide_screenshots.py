@@ -103,6 +103,7 @@ SHOTS: list[Shot] = [
     Shot("login", "/login", user=""),
     Shot("tour-welcome", "/", tour(0)),
     Shot("tour-section", "/", tour(3)),
+    Shot("help", "/help#risk-register"),
     Shot("search", "/", palette),
     Shot("notifications", "/", click(lambda p: p.locator("[data-tour=notifications] button").first), user="mia.isms"),
     Shot("dashboard", "/"),

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router";
+import { Link, NavLink, useLocation, useNavigate } from "react-router";
 import { Command } from "cmdk";
 import * as D from "@radix-ui/react-dialog";
-import { ChevronDown, ChevronsLeft, ChevronsRight, Compass, FileSearch, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Sun, User } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, CircleHelp, Compass, FileSearch, LifeBuoy, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Sun, User } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { helpAnchorFor } from "@/lib/help";
 import { Menu } from "@/components/ui/dropdown";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Tour, useTourState } from "@/components/Tour";
@@ -149,6 +150,12 @@ function CommandPalette({ open, setOpen }: { open: boolean; setOpen: (o: boolean
                   ))}
                 </Command.Group>
               )}
+              <Command.Group heading="Help" className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground">
+                <Command.Item value="help user guide how to" onSelect={() => go("/help")} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm data-[selected=true]:bg-muted">
+                  <LifeBuoy className="size-4 text-muted-foreground" />
+                  Help and user guide
+                </Command.Item>
+              </Command.Group>
               {groups.map((g) => (
                 <Command.Group key={g} heading={g} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground">
                   {pages.filter((p) => p.section === g).map((it) => (
@@ -235,12 +242,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button data-tour="menu" className="rounded p-1.5 hover:bg-muted md:hidden" onClick={() => setMobile(true)} aria-label="Open menu">
             <MenuIcon className="size-5" />
           </button>
-          <button data-tour="search" onClick={() => setPalette(true)} className="flex h-9 w-full max-w-sm items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground hover:bg-muted">
-            <Search className="size-4" />
-            <span className="flex-1 text-left">Search or jump to…</span>
+          <button data-tour="search" onClick={() => setPalette(true)} className="flex h-9 w-full min-w-0 max-w-sm items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground hover:bg-muted">
+            <Search className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-left">Search or jump to…</span>
             <kbd className="hidden rounded border bg-muted px-1.5 text-[10px] font-medium sm:inline">⌘K</kbd>
           </button>
           <div className="ml-auto flex items-center gap-1">
+            <Link data-tour="help" to={`/help#${helpAnchorFor(loc.pathname)}`} aria-label="Help for this page" title="Help for this page" className="rounded-md p-2 hover:bg-muted">
+              <CircleHelp className="size-4" />
+            </Link>
             <span data-tour="notifications" className="inline-flex"><NotificationBell /></span>
             <Menu
               trigger={<button className="rounded-md p-2 hover:bg-muted" aria-label="Theme"><ThemeIcon className="size-4" /></button>}
@@ -263,6 +273,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               items={[
                 { label: "My account", icon: User, onSelect: () => { void nav("/settings/account"); } },
                 { label: "My employee portal", icon: User, onSelect: () => { void nav("/portal"); } },
+                { label: "Help", icon: LifeBuoy, onSelect: () => { void nav("/help"); } },
                 { label: "Take the tour", icon: Compass, onSelect: () => setTour(true) },
                 "sep",
                 { label: "Sign out", icon: LogOut, onSelect: () => { logout().then(() => nav("/login"), () => nav("/login")); }, danger: true },

@@ -5,7 +5,8 @@ import path from "node:path";
 export default defineConfig({
   plugins: [react()],
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
-  server: { proxy: { "/api": "http://127.0.0.1:8000" } },
+  // The in-app help bundles docs/user-guide.md and its screenshots, which live outside web/.
+  server: { proxy: { "/api": "http://127.0.0.1:8000" }, fs: { allow: [__dirname, path.resolve(__dirname, "../docs")] } },
   build: {
     outDir: "dist", sourcemap: false, chunkSizeWarningLimit: 1500,
     rollupOptions: {

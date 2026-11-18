@@ -63,6 +63,13 @@
   .prose-policy table { @apply w-full text-sm my-3 border; }
   .prose-policy th, .prose-policy td { @apply border px-2 py-1 text-left; }
   .prose-policy code { @apply rounded bg-muted px-1 py-0.5 text-[0.85em]; }
+  /* In-app help: a little more room, and tables that scroll sideways on a phone instead of the page. */
+  .prose-help { @apply text-[0.9rem]; }
+  .prose-help h3 { @apply mt-6 text-base; }
+  .prose-help h4 { @apply mt-4 font-semibold; }
+  .prose-help table { @apply block max-w-full overflow-x-auto; }
+  .prose-help th { @apply bg-muted/50 font-medium; }
+  .prose-help a { @apply break-words; }
 }
 
 /* WCAG 1.4.3: the critical red is too dark for text on dark surfaces; fills keep the brand red. */

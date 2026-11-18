@@ -19,7 +19,9 @@ STAFF_ROUTES = ["/", "/frameworks", "/controls", "/soa", "/evidence", "/risks", 
                 # configuration baselines
                 "/configuration", "/configuration?tab=targets", "/configuration?tab=baselines", "/configuration?tab=agents", "/configuration?tab=upload",
                 # round 4
-                "/configuration?tab=custom", "/people?tab=training"]
+                "/configuration?tab=custom", "/people?tab=training",
+                # round 6: in-app help
+                "/help", "/help#risk-register"]
 
 
 def test_every_screen_renders(demo_server, open_page):
@@ -185,6 +187,35 @@ def test_security_questionnaire_manual_mode(demo_server, open_page, tmp_path):
 
 A11Y_ROUTES = STAFF_ROUTES + ["/frameworks/ISO27001_2022", "/onboarding"]
 AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"]
+
+
+def test_help_opens_at_the_page_and_searches(demo_server, open_page):
+    pg = open_page(demo_server)
+    p = pg.login("raj.risk")
+    pg.go("/configuration?tab=baselines")
+    p.get_by_role("link", name="Help for this page").click()
+    p.wait_for_url("**/help#configuration")
+    p.locator("h3#configuration").wait_for()
+    assert p.locator("article img").count() > 3  # the guide's own screenshots
+    p.get_by_label("Search help").fill("treatment plan")
+    results = p.get_by_role("region", name="Search results").get_by_role("button")
+    assert results.count() >= 1 and "Risk register" in results.first.inner_text()
+    results.first.click()
+    p.wait_for_url("**/help#risk-register")
+    p.locator("[data-tour=account]").click()  # also in the account menu
+    p.get_by_role("menuitem", name="Help").click()
+    p.wait_for_url("**/help")
+
+
+def test_employees_get_the_portal_help_only(demo_server, open_page):
+    pg = open_page(demo_server)
+    p = pg.login("nina.weber@alpineskihouse.example")
+    p.get_by_role("link", name="Help").click()
+    p.wait_for_url("**/portal/help")
+    p.get_by_text("How the employee portal works").wait_for()
+    assert "Policies to accept" in p.inner_text("main") and p.locator("article img").count() >= 1
+    pg.go("/help")
+    assert p.url.endswith("/portal")  # the staff guide is for staff
 
 
 def test_first_sign_in_tour(demo_server, open_page):

@@ -8,6 +8,9 @@ WORKDIR /web
 COPY web/package.json web/package-lock.json web/.npmrc ./
 RUN npm ci --no-audit --no-fund   # .npmrc: ignore-scripts, exact versions (SC-DEP-003/004)
 COPY web/ ./
+# The in-app help is built from the user guide and its screenshots (web/src/lib/help-content.ts reads ../docs).
+COPY docs/user-guide.md /docs/user-guide.md
+COPY docs/user-guide/ /docs/user-guide/
 RUN npm run build
 
 # ---- 2. Python runtime ------------------------------------------------------------------
