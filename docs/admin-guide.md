@@ -80,7 +80,8 @@ plain HTTP for evaluation on a private network only.
 - [ ] Restrict who can reach the site: VPN, IP allowlist or an identity-aware proxy. If the
       Trust Center is public, allow `/trust/*`, `/api/public/*` and `/assets/*` from anywhere
       and keep everything else restricted. Vendors using the vendor portal also need
-      `/vendor-portal`; people accepting invitations need `/invite`.
+      `/vendor-portal`; people accepting invitations need `/invite`. If you run phishing
+      simulations, staff need `/phish` and `/api/public/phish` (and `/assets/*`) from wherever they read email.
 - [ ] Set `KEYSTONE_PUBLIC_URL` to the address people use, so emailed links and single sign-on
       redirects are right.
 - [ ] Prefer single sign-on (**Settings → Single sign-on**) and consider **Require single sign-on**,
@@ -458,7 +459,9 @@ What it looks at, once a day and on **Check now** (needs the integration-managem
 
 It never port-scans, never tries logins or vulnerability probes, and only connects to ports 443 and 80 of public
 addresses under a verified domain. New critical or high issues notify the ISMS managers, and the dashboard counts them.
-DNS queries go through the server's own resolver; allow `crt.sh` through your egress firewall for discovery. Some DNS
+DNS queries go through the server's own resolver; allow `crt.sh` through your egress firewall for discovery (it is also
+used every day to look for look-alike domains, Risk → Domain protection). Supplier breach news needs
+`haveibeenpwned.com`: Keystone downloads the whole public breach list once a day and matches it to your vendors itself. Some DNS
 providers answer "no records" instead of "no such name" for missing names, so a dangling CNAME there isn't detected:
 the check errs towards silence rather than false alarms.
 

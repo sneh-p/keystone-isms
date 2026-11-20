@@ -168,6 +168,10 @@ SHOTS: list[Shot] = [
     Shot("findings", "/registers/findings"),
     Shot("applications", "/registers/applications"),
     Shot("crypto", "/registers/crypto"),
+    Shot("domain-protection", "/domain-protection"),
+    Shot("vendor-breaches", "/vendor-breaches"),
+    Shot("phishing", "/phishing"),
+    Shot("on-call", "/on-call"),
     # third parties
     Shot("vendors", "/vendors"),
     Shot("vendor-detail", "/vendors", row("Fabrikam Backup")),

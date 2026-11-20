@@ -33,6 +33,7 @@ METRICS: dict[str, tuple[str, str, bool]] = {
     "tasks_overdue": ("Overdue tasks", "", False),
     "high_risks": ("High and critical risks", "", False),
     "readiness_pct": ("Framework readiness", "%", True),
+    "phishing_click_rate": ("Phishing simulation click rate (latest campaign)", "%", False),
 }
 
 RECOMMENDED = (  # (metric, amber, red)
@@ -71,6 +72,11 @@ def measure(session: Session, on: date | None = None) -> dict[str, float]:
     out["findings_past_fix_by"] = sum(1 for e in entries if e.register == "findings" and e.status in ("open", "fixed") and e.due_on and e.due_on < on)
     out["backups_failing"] = sum(1 for e in entries if e.register == "backups" and e.status == "failing")
     out["certs_expiring_30d"] = sum(1 for e in entries if e.register == "crypto" and e.status == "active" and e.due_on and e.due_on <= on + timedelta(days=30))
+    from keystone.phishing.service import latest_click_rate
+
+    rate = latest_click_rate(session)
+    if rate is not None:
+        out["phishing_click_rate"] = rate
     dash = dashboard.metrics(session, on)
     for k in ("open_incidents", "tasks_overdue", "high_risks", "readiness_pct"):
         out[k] = float(dash[k])

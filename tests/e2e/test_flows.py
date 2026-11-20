@@ -27,7 +27,8 @@ STAFF_ROUTES = ["/", "/frameworks", "/controls", "/soa", "/evidence", "/risks", 
                 "/registers/sites", "/registers/visitors", "/registers/physical-checks", "/exceptions", "/security-reports", "/access-check",
                 # batch 2
                 "/alerts", "/alerts?tab=sources", "/registers/pentests", "/registers/findings", "/registers/applications", "/registers/threat-models",
-                "/registers/release-signoffs", "/registers/crypto", "/registers/backups", "/indicators", "/maturity"]
+                "/registers/release-signoffs", "/registers/crypto", "/registers/backups", "/indicators", "/maturity",
+                "/phishing", "/domain-protection", "/domain-protection?tab=dmarc", "/vendor-breaches", "/on-call"]
 
 
 def test_every_screen_renders(demo_server, open_page):
@@ -333,6 +334,10 @@ def test_accessibility_wcag21_aa(demo_server, browser):
     page = ctx.new_page()
     page.goto(demo_server + "/trust/alpine-ski-house", wait_until="networkidle")
     problems["/trust/alpine-ski-house"] = _axe(page)
+    page.goto(demo_server + "/phish#t=not-a-real-token-123", wait_until="networkidle")
+    page.get_by_role("heading", name="This was a practice phishing email").wait_for()
+    assert "#t=" not in page.url  # the token doesn't stay in the address bar
+    problems["/phish"] = _axe(page)
     ctx.close()
     problems = {k: v for k, v in problems.items() if v}
     assert not problems, problems

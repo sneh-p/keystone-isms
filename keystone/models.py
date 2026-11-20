@@ -53,3 +53,7 @@ from keystone.incidents.models import SecurityReport
 from keystone.alerts.models import Alert, AlertSource
 from keystone.indicators.models import Indicator, IndicatorValue
 from keystone.maturity.models import MaturityAssessment
+from keystone.phishing.models import PhishingCampaign, PhishingTarget
+from keystone.threatintel.models import LookalikeDomain, VendorBreach
+from keystone.oncall.models import OnCallRota, Page
+from keystone.dmarc.models import DmarcRecord, DmarcReport

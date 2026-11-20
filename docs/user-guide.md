@@ -24,14 +24,17 @@ All screenshots show the fictional demo organisation, Alpine Ski House. You can 
    [Legal and contract obligations](#legal-and-contract-obligations) · [Exceptions](#exceptions)
 6. [Risk](#6-risk): [Risk register](#risk-register) · [Assets](#assets) · [Attack surface](#attack-surface) ·
    [Configuration](#configuration) · [Changes](#changes) · [Penetration tests](#penetration-tests) ·
-   [Application security](#application-security) · [Certificates and keys](#certificates-and-keys)
+   [Application security](#application-security) · [Certificates and keys](#certificates-and-keys) ·
+   [Domain protection](#domain-protection)
 7. [Third parties](#7-third-parties): [Vendors](#vendors) · [Vendor questionnaires](#vendor-questionnaires) ·
-   [Vendor assessments](#vendor-assessments) · [Entra exposure](#entra-exposure)
+   [Vendor assessments](#vendor-assessments) · [Supplier breach news](#supplier-breach-news) ·
+   [Entra exposure](#entra-exposure)
 8. [Trust and people](#8-trust-and-people): [People and training](#people-and-training) ·
-   [Security training](#security-training) · [People security](#people-security) · [Access reviews](#access-reviews) ·
+   [Security training](#security-training) · [People security](#people-security) ·
+   [Phishing simulations](#phishing-simulations) · [Access reviews](#access-reviews) ·
    [Leaver access check](#leaver-access-check) · [Trust Center](#trust-center) ·
    [Customer questionnaires](#customer-questionnaires) · [Integrations](#integrations)
-9. [Operations](#9-operations): [Security reports](#security-reports) · [Alert inbox](#alert-inbox) · [Incidents](#incidents) · [Business continuity](#business-continuity) ·
+9. [Operations](#9-operations): [Security reports](#security-reports) · [Alert inbox](#alert-inbox) · [Incidents](#incidents) · [On-call](#on-call) · [Business continuity](#business-continuity) ·
    [Nonconformities](#nonconformities) · [Audits](#audits) · [Management review](#management-review) ·
    [Workload](#workload) · [Reports](#reports) · [Backup assurance](#backup-assurance) ·
    [Indicators and maturity](#indicators-and-maturity) · [Physical security](#physical-security)
@@ -625,6 +628,22 @@ is the expiry, or for keys without one, the last rotation plus the rotation peri
 rotation to today. Public certificates the internet-facing checks find are added and kept up to date by themselves
 (*Added by: Internet-facing check*).
 
+### Domain protection
+
+![Domain protection](user-guide/domain-protection.png)
+
+**Risk → Domain protection** watches for people imitating your domains (ISO 27001 A.5.7, A.8.23).
+
+- **Look-alike domains**: every day, for each verified domain (Attack surface → Internet-facing), Keystone looks in
+  the public certificate logs (crt.sh) for names that contain your name, or are one or two typing mistakes away from it
+  (`examp1e.com`, `example-login.com`). Only your own domain names are looked up. People who manage integrations get a
+  notification of new ones, and can **Check now**. **Decide** each one: ours, harmless, or a threat. A threat needs a
+  note of what is being done (blocked in email and web filters, takedown requested).
+- **DMARC reports**: mail providers send aggregate reports to the address in your DMARC record (`rua=`). **Upload**
+  them (.xml, .xml.gz or .zip, up to 10 MB). Keystone keeps only the figures: which servers send email as your domains,
+  how many messages, and how many passed. Failing sources come first: either someone is spoofing you, or a service you
+  use (a newsletter tool, a helpdesk) isn't set up to send for your domain yet.
+
 ---
 
 ## 7. Third parties
@@ -669,6 +688,15 @@ questionnaires; to chase the vendor, send a new link (it replaces the old one).
 A vendor assessment is a FAIR analysis of a loss scenario involving a vendor. Enter ranges for frequency and loss,
 run it for an expected annual loss, and **Submit** it. Someone other than the author approves it. Assessments of
 vendors with Microsoft 365 access can take suggestions from Entra exposure (below).
+
+### Supplier breach news
+
+![Supplier breach news](user-guide/vendor-breaches.png)
+
+**Vendors → Supplier breach news** matches publicly reported breaches (Have I Been Pwned) to your vendors by their web
+address. The whole public list is downloaded once a day and matched in Keystone, so nobody learns who your vendors are.
+The vendor's owner (or the vendor managers) is notified of a new match. Open one and record whether you were affected
+(not affected, assessing, affected), with a note; if you were, reassess the vendor and consider an incident.
 
 ### Entra exposure
 
@@ -768,6 +796,24 @@ the built-in module off. Passes of the built-in module count for the copy until 
   signed, when, where it's kept, and when it needs renewing.
 
 These records have no discussion and don't appear on the shared calendar.
+
+### Phishing simulations
+
+![Phishing simulations](user-guide/phishing.png)
+
+**Trust and people → Phishing simulations** (people who manage people) sends practice phishing emails to staff
+(ISO 27001 A.6.3).
+
+1. **New campaign**: give it a name, choose a template (each shows the email and the warning signs it contains) and
+   the audience (everyone, or chosen departments and employment types).
+2. **Someone else launches it.** Email must be set up (Settings → Email) and `KEYSTONE_PUBLIC_URL` set, because the
+   links point to it. Emails go out through your own relay, 25 every few minutes, only to people with a portal account.
+3. Anyone who clicks lands on a page saying it was practice, with the warning signs they could have spotted. It never
+   asks for a password or anything else. Anyone who reports the email from the portal (**Report something
+   suspicious → Suspicious email, message or call**) counts as having caught it.
+4. A campaign ends by itself after 14 days, or choose **End now**. Results show the click and report rates, by
+   department and by person. Use individual results for support and training, not blame. The latest click rate is also
+   an indicator (Measurement → Indicators).
 
 ### Access reviews
 
@@ -897,6 +943,19 @@ Report incidents as soon as you know about them (ISO 27001 A.5.24 to A.5.28). **
   lessons learned, or open a ticket.
 - Closing needs a root cause and lessons learned, and no outstanding required notification. Only an incident still in
   triage, and never contained, can be closed as a false positive or duplicate.
+
+### On-call
+
+![On-call](user-guide/on-call.png)
+
+**Operations → On-call** decides who is paged about critical incidents and critical alerts.
+
+- **New rota** (people who manage the organisation): the members in rotation order (people who can handle incidents),
+  the day the first person starts, how often it rotates, and how long to wait for an acknowledgement.
+- When a critical incident is reported or a critical alert arrives, whoever is on call gets an in-app notification and
+  an email straight away, and the event goes to your chat channels. There is no SMS or phone call.
+- The person paged sees the call at the top of this page: **Acknowledge** it to stop escalation. If nobody does in
+  time, the next person on the rota is paged, and after them the ISMS managers.
 
 ### Business continuity
 

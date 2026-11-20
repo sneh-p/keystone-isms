@@ -63,6 +63,10 @@ def report_incident(session: Session, actor, *, asset_ids: list[int] | None = No
     session.flush()
     _event(session, inc, actor, f"Incident reported ({inc.severity}, {inc.category}).", "system", inc.detected_at)
     _risk_realised(session, inc, actor)
+    if inc.severity == "critical":
+        from keystone.oncall.service import page_on_call
+
+        page_on_call(session, f"Critical incident {inc.ref}: {inc.title}", f"/incidents?open={inc.id}", f"incident:{inc.id}")
     from keystone.outbound.service import emit
 
     # Reference and severity only: chat channels are a wider audience than the incident register.

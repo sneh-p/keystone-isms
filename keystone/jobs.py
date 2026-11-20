@@ -61,10 +61,12 @@ def scan_external() -> None:
     from keystone.asm import external
 
     from keystone.registers.service import sync_public_certificates
+    from keystone.threatintel.service import scan_lookalikes
 
     with db.session_scope() as s:
         out = external.scan_all(s)
         sync_public_certificates(s)
+        scan_lookalikes(s)
     if out["failed"]:
         raise RuntimeError(f"{out['failed']} domain(s) lost their verification record")
 
@@ -136,3 +138,31 @@ def recurring_access_reviews() -> None:
 
     with db.session_scope() as s:
         ar.start_due_campaigns(s)
+
+
+@register("breach-news", minutes=1440)
+def breach_news() -> None:
+    """Match the public breach list against vendors' web addresses (download only; see threatintel/service.py)."""
+    from keystone.threatintel.service import scan_breaches
+
+    with db.session_scope() as s:
+        scan_breaches(s)
+
+
+@register("phishing-simulations", minutes=5)
+def phishing_simulations() -> None:
+    """Send the next practice emails of running campaigns, and complete campaigns past their two weeks."""
+    from keystone.phishing.service import complete_due, send_batch
+
+    with db.session_scope() as s:
+        send_batch(s)
+        complete_due(s)
+
+
+@register("on-call", minutes=5)
+def on_call_escalation() -> None:
+    """Escalate on-call pages nobody acknowledged in time."""
+    from keystone.oncall.service import escalate
+
+    with db.session_scope() as s:
+        escalate(s)

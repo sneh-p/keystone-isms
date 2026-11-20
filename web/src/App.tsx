@@ -61,6 +61,11 @@ const Exceptions = lazy(() => import("@/pages/Security").then((m) => ({ default:
 const AlertInbox = lazy(() => import("@/pages/Measure").then((m) => ({ default: m.AlertInbox })));
 const Indicators = lazy(() => import("@/pages/Measure").then((m) => ({ default: m.Indicators })));
 const Maturity = lazy(() => import("@/pages/Measure").then((m) => ({ default: m.Maturity })));
+const PhishingSimulations = lazy(() => import("@/pages/Outreach").then((m) => ({ default: m.PhishingSimulations })));
+const PhishLanding = lazy(() => import("@/pages/Outreach").then((m) => ({ default: m.PhishLanding })));
+const DomainProtection = lazy(() => import("@/pages/Outreach").then((m) => ({ default: m.DomainProtection })));
+const VendorBreaches = lazy(() => import("@/pages/Outreach").then((m) => ({ default: m.VendorBreaches })));
+const OnCall = lazy(() => import("@/pages/Outreach").then((m) => ({ default: m.OnCall })));
 const PortalHelp = lazy(() => import("@/pages/Help").then((m) => ({ default: m.PortalHelp })));
 
 /** Authenticated application routes. `nav` marks routes that appear in the sidebar. */
@@ -115,6 +120,10 @@ export const APP_ROUTES: { path: string; element: ReactNode; nav?: boolean }[] =
   { path: "/alerts", element: <AlertInbox />, nav: true },
   { path: "/indicators", element: <Indicators />, nav: true },
   { path: "/maturity", element: <Maturity />, nav: true },
+  { path: "/phishing", element: <PhishingSimulations />, nav: true },
+  { path: "/domain-protection", element: <DomainProtection />, nav: true },
+  { path: "/vendor-breaches", element: <VendorBreaches />, nav: true },
+  { path: "/on-call", element: <OnCall />, nav: true },
 ];
 // Registers share one page; their sidebar entries and tabs exist in this build.
 ["obligations", "changes", "policy-exceptions", "screening", "confidentiality", "sites", "visitors", "physical-checks",
@@ -153,6 +162,7 @@ export default function App() {
       <Route path="/setup" element={needsBootstrap ? <Setup /> : <Navigate to="/" replace />} />
       <Route path="/trust/:slug" element={<Suspense fallback={<Loading />}><PublicTrust /></Suspense>} />
       <Route path="/vendor-portal" element={<Suspense fallback={<Loading />}><VendorPortal /></Suspense>} />
+      <Route path="/phish" element={<Suspense fallback={<Loading />}><PhishLanding /></Suspense>} />
       <Route path="/invite" element={<Suspense fallback={<Loading />}><AcceptInvite /></Suspense>} />
       <Route path="/invite/:token" element={<Suspense fallback={<Loading />}><AcceptInvite /></Suspense>} />
       <Route path="/portal" element={<Private><Suspense fallback={<Loading />}><Portal /></Suspense></Private>} />

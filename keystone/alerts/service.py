@@ -141,6 +141,10 @@ def receive(session: Session, source: AlertSource, *, title: str, severity: str,
     session.flush()
     if severity in ("high", "critical"):
         _notify_new(session, a, source)
+    if severity == "critical":
+        from keystone.oncall.service import page_on_call
+
+        page_on_call(session, f"Critical alert from {source.name}: {a.title}", f"/alerts?open={a.id}", f"alert:{a.id}")
     return a, True
 
 

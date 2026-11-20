@@ -1,0 +1,17 @@
+key: parcel
+title: Parcel delivery
+difficulty: easy
+from_name: Parcel Delivery Service
+subject: "We couldn't deliver your parcel"
+body: |
+  We tried to deliver your parcel today but nobody was available.
+
+  To arrange a new delivery, confirm your address and pay the EUR 1.99 redelivery fee:
+
+  {link}
+
+  Parcels not rearranged within 48 hours are returned to the sender.
+red_flags:
+  - A parcel you didn't order, sent to your work address.
+  - A small fee: a common way to collect card details.
+  - A deadline to make you act without checking.

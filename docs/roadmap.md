@@ -68,6 +68,17 @@ to Trust Center subscribers, an iCal feed, and automatic reminder emails to vend
 | Logic security | Seven ways round workflows and approvals closed (risk acceptance, incidents, corrective actions, evidence requests, vendors, Trust Center links) |
 | Training | Your own modules with a quiz editor, versions and retakes; built-in modules switched off or copied to edit; training done elsewhere with certificates, counted per person |
 
+### Round 8: security expansion
+
+| Batch | Done |
+|---|---|
+| 1 | Report suspicious activity from the portal; leaver access check; one exceptions register; background checks and confidentiality agreements; legal and contract obligations; change management; physical security (sites, visitor log, checks); policy exceptions |
+| 2 | Security alert inbox with per-tool tokens; penetration tests and findings; application security; certificates and keys; backup jobs; indicators; NIST CSF maturity |
+| 3 | Phishing simulations; look-alike domain monitoring; supplier breach news; on-call paging with escalation; DMARC report upload |
+
+Not done, each needs its own decision: SMS or phone paging (a third party holding staff phone numbers), DMARC reports
+read straight from a mailbox, and takedown requests sent from Keystone.
+
 Needs the organisation (can't be done from here): validating attack surface connectors with read-only keys, a real
 TLS certificate and domain, pushing to a remote, and entering SMTP, SSO and connector credentials.
 

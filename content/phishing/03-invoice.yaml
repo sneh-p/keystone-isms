@@ -1,0 +1,19 @@
+key: invoice
+title: Overdue invoice
+difficulty: medium
+from_name: Accounts Receivable
+subject: "Overdue invoice INV-20931 - final reminder"
+body: |
+  Dear customer,
+
+  Our records show invoice INV-20931 (EUR 4,860.00) is 30 days overdue. To avoid a late fee and suspension of service, view and settle the invoice here:
+
+  {link}
+
+  If you have already paid, please ignore this message.
+
+  Accounts Receivable
+red_flags:
+  - Pressure about money and late fees.
+  - An invoice from a supplier you don't recognise, or for an amount you can't place.
+  - Payment or invoice links in an email instead of the supplier's usual portal.

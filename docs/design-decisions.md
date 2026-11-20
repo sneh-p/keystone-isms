@@ -389,3 +389,29 @@ recovery times (tabletop exercises have none).
 - **Maturity** uses Keystone's own NIST CSF 2.0 content for the categories, so it works whether or not the
   framework is turned on; final assessments can't change, and the next one starts as a copy.
 
+## Security expansion, batch 3 (round 8)
+
+All new connections and the upload below were approved with the request (SC-AGT-006).
+
+- **Phishing simulations stay harmless by construction.** Templates are Keystone's own YAML (`content/phishing/`);
+  there is no template editor and no user-supplied HTML. The landing page (`/phish`, public) explains the warning signs
+  and has no form: it never asks for a password or anything else. The link token is 24 random bytes, kept only as a
+  SHA-256 hash, sent in the URL fragment (so it isn't in server or proxy logs) and removed from the address bar once
+  read; the click endpoint is rate-limited per address and gives the same "not found" for every bad token. Emails go
+  only to the organisation's own active users with a portal account, through the organisation's own relay, never to
+  anyone else. Someone other than whoever prepared a campaign launches it. Individual results need people.write and
+  are labelled for support, not blame; a portal report of a suspicious email during a campaign counts as reporting it.
+- **Look-alike domains** reuse the crt.sh access the attack surface discovery already has, and send only the
+  organisation's own verified domain names (as a `%name%` pattern). Matching is local: the name contained in another
+  domain, or one or two edits away (optimal string alignment). Deciding "threat" needs a note of what is being done.
+- **Supplier breach news** downloads Have I Been Pwned's whole public breach list (no key, no per-vendor query) and
+  matches vendors' web addresses locally, so no outside party learns who the vendors are. Only matches added in the
+  last 30 days notify, so the first run doesn't flood owners with old breaches.
+- **On-call** pages in Keystone, by email and through the existing chat/webhook events; there is no SMS or phone
+  provider (no new third party holding staff phone numbers). Only the person paged can acknowledge, which stops the
+  escalation for the whole call; unanswered pages go to the next member, then the ISMS managers. Members must be able
+  to handle incidents. Critical incidents and critical alerts page; nothing else does, to keep pages meaningful.
+- **DMARC upload** accepts .xml, .xml.gz or .zip up to 10 MB, at most 5 entries and 50 MB decompressed (checked while
+  decompressing, so a zip bomb stops early), .xml entries only, parsed with defusedxml with DTDs forbidden. Only the
+  figures are stored; the file isn't kept. Upload needs integration.manage.
+

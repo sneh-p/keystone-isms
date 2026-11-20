@@ -176,6 +176,10 @@ export const PAGE_HELP: Record<string, string> = {
   "/registers/backups": "backup-assurance",
   "/indicators": "indicators-and-maturity",
   "/maturity": "indicators-and-maturity",
+  "/phishing": "phishing-simulations",
+  "/domain-protection": "domain-protection",
+  "/vendor-breaches": "supplier-breach-news",
+  "/on-call": "on-call",
 };
 
 export function helpAnchorFor(pathname: string): string {

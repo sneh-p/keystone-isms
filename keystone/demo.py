@@ -179,6 +179,7 @@ def seed(session: Session, admin) -> dict:
     _seed_operations(session, admin, people)
     seed_external(session)
     seed_privacy_continuity(session, people)
+    _seed_outreach(session, admin, people)
     return {"people": people, "assets": [booking, guestdb, m365], "risks": [r1, r2, r3]}
 
 
@@ -462,6 +463,60 @@ def _seed_operations(session: Session, admin, people: dict) -> None:
             scores[c["ref"]] = {"current": cur, "target": min(4, max(cur, 3))}
     mat.save(session, admin, a.id, scores=scores)
     mat.finalise(session, admin, a.id)
+
+
+DEMO_DMARC = """<?xml version="1.0"?>
+<feedback><report_metadata><org_name>Mail provider (fictional)</org_name><report_id>demo-{day}</report_id>
+<date_range><begin>{begin}</begin><end>{end}</end></date_range></report_metadata>
+<policy_published><domain>alpineskihouse.example</domain><p>quarantine</p></policy_published>
+<record><row><source_ip>192.0.2.10</source_ip><count>1840</count><policy_evaluated><disposition>none</disposition><dkim>pass</dkim><spf>pass</spf></policy_evaluated></row>
+<identifiers><header_from>alpineskihouse.example</header_from></identifiers></record>
+<record><row><source_ip>198.51.100.7</source_ip><count>212</count><policy_evaluated><disposition>none</disposition><dkim>pass</dkim><spf>fail</spf></policy_evaluated></row>
+<identifiers><header_from>alpineskihouse.example</header_from></identifiers></record>
+<record><row><source_ip>203.0.113.66</source_ip><count>37</count><policy_evaluated><disposition>quarantine</disposition><dkim>fail</dkim><spf>fail</spf></policy_evaluated></row>
+<identifiers><header_from>alpineskihouse.example</header_from></identifiers></record>
+</feedback>"""
+
+
+def _seed_outreach(session: Session, admin, people: dict) -> None:
+    """A finished phishing simulation, look-alike domains, a supplier breach, an on-call rota and a DMARC report. All
+    fictional and made locally: the demo never sends an email or calls crt.sh or Have I Been Pwned."""
+    from keystone.asm.models import ExternalDomain
+    from keystone.dmarc import service as dm
+    from keystone.oncall import service as oc
+    from keystone.phishing import service as ph
+    from keystone.phishing.models import PhishingTarget
+    from keystone.threatintel import service as ti
+
+    mia, raj, lena = people["mia.isms"], people["raj.risk"], people["lena.ctl"]
+    now = datetime.now().replace(microsecond=0)
+
+    c = ph.create(session, mia, name="Autumn practice: shared document", template="shared-document", audience=None)
+    c.status, c.launched_by_id, c.launched_at, c.completed_at = "completed", admin.id, now - timedelta(days=20), now - timedelta(days=6)
+    rows = [(admin, "IT", 2, None), (mia, "IT", None, 3), (raj, "Digital", 1, None), (lena, "IT", None, 5), (people["omar.audit"], "Audit", None, None), (people["sam.view"], "Front desk", 4, 9)]
+    for u, dept, clicked, reported in rows:  # fixed results: the same demo every time
+        session.add(PhishingTarget(campaign_id=c.id, user_id=u.id, department=dept, sent_at=c.launched_at,
+                                   clicked_at=c.launched_at + timedelta(hours=clicked) if clicked else None, clicks=1 if clicked else 0,
+                                   reported_at=c.launched_at + timedelta(hours=reported) if reported else None))
+    ph.create(session, mia, name="Winter practice: parcel delivery", template="parcel", audience={"departments": ["Front desk"], "employment_types": []})
+
+    def ct(pattern: str) -> set[str]:
+        return {"alpineskihouse-login.example", "alpineskihuose.example", "alpineskihouse.example", "mail.alpineskihouse.example"} if "alpine" in pattern else set()
+
+    if session.scalar(select(ExternalDomain)) is not None:
+        ti.scan_lookalikes(session, fetch=ct)
+        for x in ti.lookalikes(session, admin):
+            if x.name.startswith("alpineskihuose"):
+                ti.decide_lookalike(session, admin, x.id, "threat", "Blocked in email and web filters; takedown requested from the registrar.")
+
+    def hibp() -> list[dict]:
+        return [{"Name": "FabrikamBackup2026", "Title": "Fabrikam Backup (fictional)", "Domain": "fabrikambackup.example", "BreachDate": (date.today() - timedelta(days=45)).isoformat(),
+                 "AddedDate": (date.today() - timedelta(days=4)).isoformat(), "PwnCount": 182000, "DataClasses": ["Email addresses", "Names", "Passwords"]}]
+
+    ti.scan_breaches(session, fetch=hibp)
+    oc.save(session, admin, name="Security on-call", member_ids=[mia.id, lena.id, raj.id], start_on=date.today() - timedelta(days=3), rotation_days=7, escalate_after_minutes=15)
+    end = int(now.timestamp())
+    dm.upload(session, admin, "demo.xml", DEMO_DMARC.format(day=date.today().isoformat(), begin=end - 86400, end=end).encode())
 
 
 def _seed_trend_history(session: Session, weeks: int = 11) -> None:

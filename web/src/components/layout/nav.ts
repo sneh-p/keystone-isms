@@ -1,5 +1,5 @@
 import {
-  Activity, AlertOctagon, AppWindow, BadgeAlert, BellRing, Bug, Building, FileWarning, GitPullRequestArrow, IdCard, KeySquare, LineChart, Scale, UserX, CalendarDays, Crosshair, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Fingerprint, Handshake, HeartPulse, KeyRound, LifeBuoy,
+  Activity, AlertOctagon, Fish, PhoneCall, ShieldAlert, AppWindow, BadgeAlert, BellRing, Bug, Building, FileWarning, GitPullRequestArrow, IdCard, KeySquare, LineChart, Scale, UserX, CalendarDays, Crosshair, UsersRound, BookOpen, Boxes, Building2, ClipboardList, FileCheck2, Gauge, Globe2, Fingerprint, Handshake, HeartPulse, KeyRound, LifeBuoy,
   LayoutDashboard, ListChecks, Mail, Map as MapIcon, MessageSquareText, Paperclip, Plug, ScrollText, ServerCog, Settings, ShieldCheck, Siren, Sparkles, UserCheck, UserCog, Users, Wrench,
 } from "lucide-react";
 
@@ -13,6 +13,7 @@ export const AREAS: { name: string; tabs: AreaTab[] }[] = [
     { label: "Vendors", to: "/vendors" },
     { label: "Vendor questionnaires", to: "/questionnaires" },
     { label: "Vendor assessments", to: "/assessments" },
+    { label: "Supplier breach news", to: "/vendor-breaches" },
   ] },
   { name: "Improvement", tabs: [
     { label: "Nonconformities", to: "/nonconformities" },
@@ -93,6 +94,7 @@ export const NAV: NavSection[] = [
       { label: "Penetration tests", to: "/registers/pentests", icon: Bug, also: areaPaths("Penetration tests") },
       { label: "Application security", to: "/registers/applications", icon: AppWindow, also: areaPaths("Application security") },
       { label: "Certificates and keys", to: "/registers/crypto", icon: KeySquare },
+      { label: "Domain protection", to: "/domain-protection", icon: ShieldAlert },
     ],
   },
   {
@@ -107,6 +109,7 @@ export const NAV: NavSection[] = [
     items: [
       { label: "People", to: "/people", icon: Users },
       { label: "People security", to: "/registers/screening", icon: IdCard, perm: "people.write", also: areaPaths("People security") },
+      { label: "Phishing simulations", to: "/phishing", icon: Fish, perm: "people.write" },
       { label: "Access reviews", to: "/access-reviews", icon: UserCheck },
       { label: "Leaver access check", to: "/access-check", icon: UserX, perm: "access_review.manage" },
       { label: "Trust Center", to: "/trust-center", icon: Globe2 },
@@ -120,6 +123,7 @@ export const NAV: NavSection[] = [
       { label: "Security reports", to: "/security-reports", icon: BadgeAlert, perm: "incident.write" },
       { label: "Alert inbox", to: "/alerts", icon: BellRing, perm: "incident.write" },
       { label: "Incidents", to: "/incidents", icon: Siren },
+      { label: "On-call", to: "/on-call", icon: PhoneCall },
       { label: "Business continuity", to: "/continuity", icon: LifeBuoy, also: areaPaths("Business continuity") },
       { label: "Physical security", to: "/registers/sites", icon: Building, also: areaPaths("Physical security") },
       { label: "Improvement", to: "/nonconformities", icon: Wrench, also: areaPaths("Improvement") },

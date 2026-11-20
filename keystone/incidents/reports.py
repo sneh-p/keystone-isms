@@ -41,6 +41,10 @@ def submit(session: Session, user: User, *, kind: str, description: str, sender:
                        where=(where or "").strip()[:300] or None, clicked=clicked)
     session.add(r)
     session.flush()
+    if kind == "phishing":
+        from keystone.phishing.service import mark_reported
+
+        mark_reported(session, user.id)  # reporting a practice email counts as catching it
     handlers = [u for u in session.scalars(select(User).where(User.active.is_(True))) if u.id != user.id and has_permission(u, "incident.write")]
     urgent = " (they clicked or entered a password)" if clicked else ""
     _notify(session, handlers, f"report:{r.id}", f"New report {r.ref}: {REPORT_KINDS[kind]}{urgent}", f"/security-reports?open={r.id}")

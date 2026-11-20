@@ -1,0 +1,18 @@
+key: shared-document
+title: A shared document
+difficulty: medium
+from_name: Document sharing
+subject: "Finance shared \"Bonus plan 2027.xlsx\" with you"
+body: |
+  A colleague in Finance shared a file with you.
+
+  Bonus plan 2027.xlsx
+  "Please review before Friday - confidential."
+
+  Open: {link}
+
+  You received this because the file was shared with your work address.
+red_flags:
+  - A tempting, confidential-sounding file you weren't expecting.
+  - The sender isn't named: just "a colleague in Finance".
+  - Opening it asks you to sign in again on a page reached from an email.
