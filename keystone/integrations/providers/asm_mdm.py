@@ -125,6 +125,7 @@ KANDJI_DETAILS_MAX = 1000  # FileVault state needs one call per device; larger f
 
 class KandjiProvider(InventoryProvider):
     key = "kandji"
+    host_fields = ("subdomain", "region")
     name = "Kandji"
     description = "Read-only: Apple devices managed by Kandji, FileVault state, OS version and last check-in."
     category = "mdm"

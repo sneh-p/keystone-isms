@@ -26,7 +26,7 @@ from .providers.asm_rmm import ConnectWiseAutomateProvider, DattoRmmProvider, NC
 from .providers.asm_vuln import QualysProvider, Rapid7Provider, TenableProvider
 from .providers.aws import AwsProvider
 from .http import ConnectorError
-from .providers.base import InventoryProvider, Outcome, Provider
+from .providers.base import InventoryProvider, Outcome, Provider, bound_host
 from .providers.hr import HR_PROVIDERS, HrProvider
 from .providers.ticketing import TICKET_PROVIDERS, TicketProvider
 from .providers.entra import EntraProvider
@@ -90,13 +90,13 @@ def save_integration(session: Session, actor, integration_id: int | None = None,
     config, secrets = _split(p, values or {})
     stored = json.loads(crypto.decrypt(i.secret_enc)) if i.secret_enc else {}
     merged_config = {**(i.config or {}), **config}
-    hf = getattr(p, "host_field", None)
-    if hf and i.id and (i.config or {}).get(hf) != merged_config.get(hf) and not secrets:
+    moved = bool(i.id) and bound_host(p, i.config or {}) != bound_host(p, merged_config)
+    if moved:
         stored = {}  # SC-SSRF-003: credentials are only ever sent to the server they were entered for
     merged_secrets = {**stored, **secrets}
     missing = [f.label for f in p.fields if f.required and not (merged_secrets.get(f.name) if f.secret else merged_config.get(f.name))]
     if missing:
-        raise ValueError("Missing: " + ", ".join(missing) + (" (the server address changed, so enter the credentials again)" if hf and i.id and not stored else ""))
+        raise ValueError("Missing: " + ", ".join(missing) + (" (the server address changed, so enter the credentials again)" if moved else ""))
     i.name = require_text(name or i.name or p.name, "Name")
     i.config = merged_config
     i.secret_enc = crypto.encrypt(json.dumps(merged_secrets)) if merged_secrets else None
@@ -336,10 +336,14 @@ def test(session: Session, actor, provider_key: str | None = None, values: dict 
         stored_secrets = json.loads(crypto.decrypt(i.secret_enc)) if i.secret_enc else {}
     p = provider(provider_key or "")
     config, secrets = _split(p, values or {})
-    config, secrets = {**stored_config, **config}, {**stored_secrets, **secrets}
+    config = {**stored_config, **config}
+    moved = bool(integration_id) and bound_host(p, stored_config) != bound_host(p, config)
+    if moved:
+        stored_secrets = {}  # SC-SSRF-003: stored credentials never go to a server other than the one they were entered for
+    secrets = {**stored_secrets, **secrets}
     missing = [f.label for f in p.fields if f.required and not (secrets.get(f.name) if f.secret else config.get(f.name))]
     if missing:
-        raise ValueError("Missing: " + ", ".join(missing))
+        raise ValueError("Missing: " + ", ".join(missing) + (" (the server address changed, so enter the credentials again)" if moved else ""))
     inventory, msg = None, "Test failed"
     try:
         if isinstance(p, InventoryProvider):

@@ -539,3 +539,12 @@ locations, and the agents (1.2.1) resolve the real path, following every link, c
 only regular files, and read the resolved path. Tests reproduce each route against the real Linux agent and the macOS
 agent with stand-in tools.
 
+## Security review fix: stored credentials stay with their server (2026-11-21)
+
+Saving an integration already dropped its stored credentials when the server address changed (SC-SSRF-003), but Test
+connection did not: it merged a new address with the stored secrets, so someone who manages integrations could have a
+stored firewall, MDM or service-desk key sent to an address of their choosing. Test connection now applies the same
+rule. The rule is also stricter in both places (a changed address drops every stored secret, not only those not
+re-entered) and covers more connectors: Okta, SentinelOne, Qualys and Kandji (sub-domain and region) choose their host
+from a setting too, and are now bound to it. Trailing slashes and letter case don't count as a new address.
+

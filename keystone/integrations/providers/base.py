@@ -65,6 +65,13 @@ class SetupStep:
     link_label: str = ""
 
 
+def bound_host(p, config: dict) -> tuple | None:
+    """The settings that decide which server a provider sends its credentials to, or None when the host is fixed.
+    Stored credentials are only ever sent to the server they were entered for (SC-SSRF-003)."""
+    names = tuple(getattr(p, "host_fields", ()) or ()) or ((p.host_field,) if getattr(p, "host_field", None) else ())
+    return tuple(str(config.get(n) or "").strip().lower().rstrip("/") for n in names) if names else None
+
+
 class Provider:
     key: str = ""
     name: str = ""
@@ -101,6 +108,7 @@ class InventoryProvider(Provider):
     category: str = ""  # rmm | edr | vuln | mdm | identity | posture (several for multi-purpose sources)
     categories: tuple[str, ...] = ()
     host_field: str | None = None  # self-hosted server field: stored credentials are bound to it (SC-SSRF-003)
+    host_fields: tuple[str, ...] = ()  # when the host is built from several fields (e.g. a tenant name and a region)
     mapping_note: str = ""  # how the field mapping was verified, shown on the integration
 
     def collect(self, config: dict, secrets: dict, preview: bool = False):  # pragma: no cover - interface

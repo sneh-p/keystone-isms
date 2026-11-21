@@ -282,3 +282,36 @@ def test_extra_ca_file(monkeypatch, tmp_path):
 def test_new_inbound_route_requires_a_token(api, ready_users):
     assert api.post("/api/inbound/checkin", json={"kind": "backup", "job": "x", "status": "success"}).status_code == 401
     assert api.post("/api/inbound/checkin", json={"kind": "backup"}, headers={"Authorization": "Bearer kalt_nope"}).status_code == 401
+
+
+# ---- stored credentials stay with their server (security review fix) -------------------------------------------------------
+
+@pytest.mark.parametrize("provider_key,values,change", [
+    ("fortigate_api", {"server": "https://fw1.example.org", "token": "STORED-KEY"}, {"server": "https://attacker.example"}),
+    ("panos_api", {"server": "https://pa1.example.org", "token": "STORED-KEY"}, {"server": "https://attacker.example"}),
+    ("jamf", {"server": "https://acme.jamfcloud.com", "client_id": "cid", "client_secret": "STORED-KEY"}, {"server": "https://attacker.example"}),
+    ("okta", {"domain": "https://acme.okta.com", "token": "STORED-KEY"}, {"domain": "https://dev-123.okta.com"}),
+    ("sentinelone", {"console": "https://acme.sentinelone.net", "token": "STORED-KEY"}, {"console": "https://other.sentinelone.net"}),
+    ("kandji", {"subdomain": "acme", "region": "us", "token": "STORED-KEY"}, {"region": "eu"}),
+])
+def test_test_connection_never_sends_stored_secrets_to_a_new_server(content, session, users, transport, provider_key, values, change):
+    calls: list = []
+    transport({}, calls)
+    i = integ.save_integration(session, users["admin"], provider_key=provider_key, name="X", values=values)
+    with pytest.raises(ValueError, match="server address changed"):
+        integ.test(session, users["admin"], values=change, integration_id=i.id)
+    assert calls == []  # nothing was sent anywhere
+    with pytest.raises(ValueError, match="server address changed"):
+        integ.save_integration(session, users["admin"], i.id, values=change)
+
+
+def test_same_server_still_uses_the_stored_secret(content, session, users, transport):
+    seen: list = []
+
+    def handler(req: httpx.Request):
+        seen.append(req.headers.get("x-pan-key"))
+        return httpx.Response(200, content=b'<response status="error"><msg>no</msg></response>')
+    transport({("GET", "pa1.example.org/api/"): handler})
+    i = integ.save_integration(session, users["admin"], provider_key="panos_api", name="PA", values={"server": "https://pa1.example.org", "token": "STORED-KEY"})
+    integ.test(session, users["admin"], values={"server": "https://pa1.example.org/"}, integration_id=i.id)  # a trailing slash isn't a new server
+    assert seen == ["STORED-KEY"]

@@ -94,6 +94,7 @@ S1_POLICY = HostPolicy(suffixes=(".sentinelone.net",))
 
 class SentinelOneProvider(InventoryProvider):
     key = "sentinelone"
+    host_field = "console"
     name = "SentinelOne"
     description = "Read-only: agents, their health, active threats and firewall status."
     category = "edr"

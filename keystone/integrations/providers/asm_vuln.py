@@ -102,6 +102,7 @@ QUALYS_SEVERITY = {"5": "critical", "4": "high", "3": "medium"}
 
 class QualysProvider(InventoryProvider):
     key = "qualys"
+    host_field = "api_server"
     name = "Qualys VMDR"
     description = "Read-only: hosts with open severity 3-5 detections (Qualys 5 is critical, 4 high, 3 medium)."
     category = "vuln"

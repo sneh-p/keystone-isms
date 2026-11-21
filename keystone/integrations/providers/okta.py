@@ -26,6 +26,7 @@ NEXT = re.compile(r'<([^>]+)>;\s*rel="next"')
 
 class OktaProvider(Provider):
     key = "okta"
+    host_field = "domain"  # anyone can open an Okta org: stored tokens stay bound to this one
     name = "Okta"
     description = "Checks Okta for inactive users, MFA enrolment, the number of super administrators and the password policy's minimum length."
     fields = (
