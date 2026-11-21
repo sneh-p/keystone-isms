@@ -6,9 +6,12 @@ import re
 
 import httpx
 
-from .base import CheckDef, ConfigField, Outcome, Provider, SetupStep
+from .base import CheckDef, ConfigField, Outcome, PermissionReport, Provider, SetupStep
 
 API = "https://api.github.com"
+# Classic token scopes that only read. Anything else (repo, admin:*, write:*, workflow, delete_repo...) can change things.
+READ_ONLY_SCOPES = frozenset({"read:org", "read:user", "user:email", "read:packages", "read:discussion", "read:project", "read:gpg_key", "read:public_key",
+                              "read:repo_hook", "read:enterprise", "read:audit_log", "read:ssh_signing_key"})
 ORG_LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}")
 
 
@@ -59,14 +62,33 @@ class GitHubProvider(Provider):
     def __init__(self, client_factory=None):
         self.client_factory = client_factory
 
-    def run(self, config: dict, secrets: dict, session=None) -> list[Outcome]:
+    def _client(self, config: dict, secrets: dict):
         org = (config.get("org") or "").strip()
         if not ORG_LOGIN.fullmatch(org):  # SC-VAL-002 / SC-SSRF-001: input only fills a validated path segment
             raise ValueError("Enter the organisation login (letters, digits and single hyphens, up to 39 characters).")
         headers = {"Authorization": f"Bearer {secrets['token']}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
         factory = self.client_factory or (lambda: httpx.Client(base_url=API, headers=headers, timeout=20.0, follow_redirects=False))
+        return org, factory()
+
+    def permissions(self, config: dict, secrets: dict) -> PermissionReport:
+        """Classic tokens list their scopes in a response header; fine-grained tokens don't, so those are "unknown"."""
+        org, client = self._client(config, secrets)
+        with client as c:
+            r = c.get(f"/orgs/{org}")
+        if r.status_code in (401, 403, 404):
+            raise ValueError(f"GitHub returned {r.status_code}: check the organisation name and token permissions.")
+        scopes = r.headers.get("x-oauth-scopes")
+        if scopes is None:
+            return PermissionReport("unknown", "Fine-grained token: GitHub doesn't tell a token its own permissions. On the token's page, every permission must say Read-only.")
+        extra = sorted({x.strip() for x in scopes.split(",") if x.strip()} - READ_ONLY_SCOPES)
+        if extra:
+            return PermissionReport("fail", f"Classic token that can change things ({', '.join(extra)}). Replace it with a fine-grained, read-only token.", extra)
+        return PermissionReport("pass", "Classic token with read-only scopes only. A fine-grained token is still preferred.")
+
+    def run(self, config: dict, secrets: dict, session=None) -> list[Outcome]:
+        org, client = self._client(config, secrets)
         out = []
-        with factory() as c:
+        with client as c:
             r = c.get(f"/orgs/{org}")
             if r.status_code in (401, 403, 404):
                 raise ValueError(f"GitHub returned {r.status_code}: check the organisation name and token permissions.")

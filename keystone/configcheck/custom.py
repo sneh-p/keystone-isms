@@ -12,6 +12,8 @@ Limits (enforced here, and again inside each agent, which never trusts the serve
   directories, process environments. The same list is hard-coded in the Linux agent. Probes that only look at
   metadata (exists, mode, owner) may name those paths, so "/etc/shadow is 0640" can be checked without reading it.
 - Windows registry probes read HKEY_LOCAL_MACHINE only, and never the SAM or SECURITY hives.
+- macOS probes read files, property lists and app bundles under the same rules, and never keychains, the local
+  directory's password store or users' home folders.
 - Values are capped at 200 characters.
 """
 
@@ -35,6 +37,9 @@ VALUE_MAX_INT = 4_294_967_295  # a registry DWORD
 
 # Character sets for parameters (literal patterns; nothing user-supplied becomes a regex).
 LINUX_PATH = re.compile(r"^/[A-Za-z0-9._/+@:-]{1,250}$")
+MAC_PATH = re.compile(r"^/[A-Za-z0-9._/+@: -]{1,250}$")  # macOS paths often contain spaces ("Application Support")
+APP_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._()+-]{0,99}$")
+LAUNCHD_LABEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 WINDOWS_PATH = re.compile(r"^[A-Za-z]:\\[A-Za-z0-9 ._\\()\-]{1,250}$")
 REGISTRY_PATH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._\\(){}\-]{0,250}$")
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@+:-]{0,127}$")
@@ -50,8 +55,11 @@ FORTI_PATH = re.compile(r"^[a-z0-9][a-z0-9 \-]{0,100}$")
 XPATH = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./\-@\[\]=' ]{0,250}$")
 
 # Paths whose contents no probe may read. Mirrored, literally, in agents/linux/keystone-agent.sh (deny_path).
+# macOS: the local directory (password hashes), keychains, root's and users' home folders.
 DENIED_PATH_GLOBS = ("/etc/shadow*", "/etc/gshadow*", "/etc/security/opasswd*", "/etc/ssl/private/*", "/root/*", "/home/*", "*/.ssh/*",
-                     "/proc/*/environ", "/proc/*/mem", "*.key", "*.pem", "*.p12", "*.pfx", "*.keytab", "*/krb5.keytab", "/var/lib/sss/*")
+                     "/proc/*/environ", "/proc/*/mem", "*.key", "*.pem", "*.p12", "*.pfx", "*.keytab", "*/krb5.keytab", "/var/lib/sss/*",
+                     "/users/*", "/var/root/*", "/private/var/root/*", "/var/db/dslocal/*", "/private/var/db/dslocal/*", "*/keychains/*", "*.keychain*",
+                     "/etc/master.passwd", "/private/etc/master.passwd")
 DENIED_REGISTRY_ROOTS = ("sam", "security")
 
 
@@ -63,7 +71,7 @@ class CheckInvalid(ValueError):
 class Param:
     name: str
     label: str
-    kind: str  # path | winpath | regpath | regname | name | text | key | sysctl | secedit | guid | sid | sshd | forti | xpath | choice | int
+    kind: str  # path | winpath | regpath | regname | name | text | key | sysctl | secedit | guid | sid | sshd | forti | xpath | appname | label | choice | int
     required: bool = True
     choices: tuple[str, ...] = ()
     hint: str = ""
@@ -98,7 +106,7 @@ PROBES: tuple[Probe, ...] = (
     Probe("software_installed", ("windows",), "Installed software", "Programs whose display name contains the text (from the uninstall registry keys).",
           (Param("name_contains", "Display name contains", "text"), Param("field", "Report", "choice", choices=("present", "version"))),
           {"present": ("bool",), "version": ("str",)}, "field"),
-    Probe("file_exists", ("windows", "linux"), "File or folder exists", "Whether the path exists.",
+    Probe("file_exists", ("windows", "linux", "macos"), "File or folder exists", "Whether the path exists.",
           (Param("path", "Path", "path"),), {"": ("bool",)}),
     Probe("windows_feature", ("windows",), "Windows optional feature", "The feature's state (Enabled, Disabled), or “absent”.",
           (Param("name", "Feature name", "name"),), {"": ("str",)}),
@@ -109,23 +117,33 @@ PROBES: tuple[Probe, ...] = (
     Probe("local_group_count", ("windows",), "Members of a built-in local group", "How many members a built-in group has, by well-known SID (e.g. S-1-5-32-555 Remote Desktop Users).",
           (Param("sid", "Group SID", "sid"),), {"": ("int",)}),
     # ---------------------------------------------------------------- Linux
-    Probe("file_setting", ("linux",), "Setting in a configuration file", "The value of the first uncommented line whose key matches (keys compared without regard to case).",
+    Probe("file_setting", ("linux", "macos"), "Setting in a configuration file", "The value of the first uncommented line whose key matches (keys compared without regard to case).",
           (Param("path", "File", "path"), Param("key", "Key", "key"), Param("separator", "Key and value separated by", "choice", choices=SEPARATORS)),
           {"": ("int", "str")}, reads_content=True, default_allowed=True),
-    Probe("file_contains", ("linux",), "File contains text", "Whether an uncommented line contains the text, exactly as written.",
+    Probe("file_contains", ("linux", "macos"), "File contains text", "Whether an uncommented line contains the text, exactly as written.",
           (Param("path", "File", "path"), Param("text", "Text", "text")), {"": ("bool",)}, reads_content=True),
-    Probe("file_mode", ("linux",), "File permissions or owner", "The permission bits in octal (e.g. 640), the owner or the group.",
+    Probe("file_mode", ("linux", "macos"), "File permissions or owner", "The permission bits in octal (e.g. 640), the owner or the group.",
           (Param("path", "File", "path"), Param("field", "Report", "choice", choices=("mode", "owner", "group"))),
           {"mode": ("str",), "owner": ("str",), "group": ("str",)}, "field"),
     Probe("package_installed", ("linux",), "Installed package", "Whether a package is installed (dpkg or rpm), or its version.",
           (Param("name", "Package", "name"), Param("field", "Report", "choice", choices=("present", "version"))),
           {"present": ("bool",), "version": ("str",)}, "field"),
-    Probe("sysctl", ("linux",), "Kernel parameter", "A value from /proc/sys, e.g. net.ipv4.conf.all.accept_redirects.",
+    Probe("sysctl", ("linux", "macos"), "Kernel parameter", "A kernel parameter, e.g. net.ipv4.conf.all.accept_redirects (Linux, from /proc/sys) or net.inet.ip.forwarding (macOS).",
           (Param("key", "Parameter", "sysctl"),), {"": ("int", "str")}),
     Probe("kernel_module_loaded", ("linux",), "Kernel module loaded", "Whether a kernel module is currently loaded.",
           (Param("name", "Module", "name"),), {"": ("bool",)}),
     Probe("sshd_effective", ("linux",), "SSH server setting", "An effective SSH server setting as `sshd -T` reports it (lower-case name, e.g. logingracetime).",
           (Param("key", "Setting", "sshd"),), {"": ("int", "str")}),
+    # ---------------------------------------------------------------- macOS
+    Probe("plist_value", ("macos",), "Property list value", "A top-level value in a property list file (e.g. /Library/Preferences/com.apple.loginwindow.plist), or whether it is set.",
+          (Param("path", "Property list file", "path", hint="e.g. /Library/Preferences/com.apple.loginwindow.plist"), Param("key", "Key", "key"),
+           Param("mode", "Report", "choice", choices=("value", "exists"))),
+          {"value": ("int", "str", "bool"), "exists": ("bool",)}, "mode", reads_content=True, default_allowed=True),
+    Probe("app_installed", ("macos",), "Installed app", "An app in /Applications: whether it is there, or its version.",
+          (Param("name", "App name (without .app)", "appname", hint="e.g. Microsoft Teams"), Param("field", "Report", "choice", choices=("present", "version"))),
+          {"present": ("bool",), "version": ("str",)}, "field"),
+    Probe("launchd_service", ("macos",), "Background service loaded", "Whether a system launchd service is loaded, by label (e.g. com.apple.screensharing).",
+          (Param("label", "Service label", "label"),), {"": ("bool",)}),
     # ---------------------------------------------------------------- firewalls (evaluated on the uploaded export)
     Probe("fortigate_setting", ("fortigate",), "FortiGate setting", "A `set` value in a `config` block, optionally inside one `edit` entry; or how many entries the block has.",
           (Param("block", "Config block", "forti", hint="e.g. system global"), Param("edit", "Edit entry (optional)", "text", required=False),
@@ -145,7 +163,7 @@ PROBE_BY_KEY = {p.key: p for p in PROBES}
 
 KIND_RE = {"path": None, "winpath": WINDOWS_PATH, "regpath": REGISTRY_PATH, "regname": REG_VALUE_NAME, "name": NAME, "text": TEXT,
            "key": SETTING_KEY, "sysctl": SYSCTL_KEY, "secedit": SECEDIT_KEY, "guid": GUID, "sid": BUILTIN_SID, "sshd": SSHD_KEY,
-           "forti": FORTI_PATH, "xpath": XPATH}
+           "forti": FORTI_PATH, "xpath": XPATH, "appname": APP_NAME, "label": LAUNCHD_LABEL}
 
 
 def denied_path(path: str) -> bool:
@@ -166,8 +184,8 @@ def _check_param(platform: str, probe: Probe, prm: Param, value) -> str | None:
             raise CheckInvalid(f"{prm.label} must be one of {', '.join(prm.choices)}.")
         return v
     if prm.kind == "path":
-        rx = WINDOWS_PATH if platform == "windows" else LINUX_PATH
-        if not rx.match(v) or ".." in v or "//" in v or "/./" in v:
+        rx = WINDOWS_PATH if platform == "windows" else MAC_PATH if platform == "macos" else LINUX_PATH
+        if not rx.match(v) or ".." in v or "//" in v or "/./" in v or v != v.strip():
             raise CheckInvalid(f"{prm.label}: give a full path without '..'" + (" (e.g. C:\\Windows\\...)." if platform == "windows" else " (e.g. /etc/ssh/sshd_config)."))
         if probe.reads_content and denied_path(v):
             raise CheckInvalid(f"{prm.label}: Keystone doesn't read this file's contents (passwords, keys or private data). Check its permissions with “File permissions or owner” instead.")
@@ -183,6 +201,8 @@ def _check_param(platform: str, probe: Probe, prm: Param, value) -> str | None:
         raise CheckInvalid(f"{prm.label}: {v[:40]!r} contains characters that aren't allowed here.")
     if prm.kind == "xpath" and (".." in v or v.startswith("/")):
         raise CheckInvalid(f"{prm.label}: give a relative path without '..'.")
+    if prm.kind == "appname" and ".." in v:
+        raise CheckInvalid(f"{prm.label}: give the app's name only.")
     return v
 
 

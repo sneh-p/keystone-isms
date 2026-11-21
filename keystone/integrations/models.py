@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from keystone.core.db import Audited, Base, OwnedMixin, TimestampMixin
@@ -25,6 +25,10 @@ class Integration(Audited, OwnedMixin, TimestampMixin, Base):
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
     last_status: Mapped[str | None] = mapped_column(String(20))
     last_error: Mapped[str | None] = mapped_column(Text)
+    # Health (plain add_column): failed runs in a row, the last run that worked, and when the stored credential expires.
+    consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime)
+    credential_expires_on: Mapped[date | None] = mapped_column(Date)
 
 
 class CheckResult(Base):

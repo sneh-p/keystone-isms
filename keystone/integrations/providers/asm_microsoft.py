@@ -8,16 +8,38 @@ A part whose permission is missing is skipped with a note; nothing it reported b
 
 from __future__ import annotations
 
+import base64
+import json
 import re
 
 from keystone.asm.vocabulary import DeviceObs, IdentityObs, Inventory, SettingObs, VulnObs, as_bool, device_type_from, parse_time, severity_from
 
 from ..http import Api, ConnectorError, HostPolicy, fields_of
-from .base import ConfigField, InventoryProvider, SetupStep
+from .base import ConfigField, InventoryProvider, PermissionReport, SetupStep
 
 LOGIN, GRAPH, MDE = "https://login.microsoftonline.com", "https://graph.microsoft.com", "https://api.securitycenter.microsoft.com"
 POLICY = HostPolicy(hosts=frozenset({"login.microsoftonline.com", "graph.microsoft.com", "api.securitycenter.microsoft.com"}))
 GUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+
+def token_roles(token: str) -> list[str]:
+    """The application roles in an access token's claims, to show what the app may do. Display only: the token is not
+    verified here and nothing is authorised by it."""
+    parts = token.split(".")
+    if len(parts) != 3 or len(parts[1]) > 20_000:
+        return []
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+    except ValueError:
+        return []
+    roles = claims.get("roles") if isinstance(claims, dict) else None
+    return [str(r)[:100] for r in roles][:200] if isinstance(roles, list) else []
+
+
+def read_only(role: str) -> bool:
+    return role.endswith((".Read.All", ".Read")) and "Write" not in role
+
+
 EXPLOITED = {"exploitisverified", "exploitisinkit", "exploitispublic"}
 
 
@@ -52,6 +74,20 @@ class MicrosoftProvider(InventoryProvider):
         if not r.get("access_token"):
             raise ConnectorError("Microsoft didn't return an access token.")
         return r["access_token"]
+
+    def permissions(self, config: dict, secrets: dict) -> PermissionReport:
+        api = Api(POLICY)
+        roles = set(token_roles(self._token(api, config, secrets, f"{GRAPH}/.default")))
+        try:
+            roles |= set(token_roles(self._token(api, config, secrets, f"{MDE}/.default")))
+        except ConnectorError:
+            pass  # Defender for Endpoint not licensed or not consented: nothing granted there
+        extra = sorted(r for r in roles if not read_only(r))
+        if extra:
+            return PermissionReport("fail", f"The app can change things: {', '.join(extra)}. Remove these permissions; Keystone only reads.", extra)
+        if not roles:
+            return PermissionReport("unknown", "No application permissions were granted (or admin consent is missing).")
+        return PermissionReport("pass", f"{len(roles)} application permission(s), all read-only.")
 
     def _pages(self, api: Api, start: str, token: str, preview: bool, limit: int = 100_000) -> list[dict]:
         out: list[dict] = []

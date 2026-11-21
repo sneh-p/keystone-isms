@@ -278,7 +278,7 @@ def test_enrolment_and_reports(api, ready_users, db):
     body = {"enrolment_key": "kenr_wrong", "hostname": "web-01", "platform": "linux"}
     assert api.post("/api/agent/v1/enrol", json=body).status_code == 401
     assert api.post("/api/agent/v1/enrol", json={**body, "enrolment_key": key, "hostname": "bad host;rm"}).status_code == 422
-    assert api.post("/api/agent/v1/enrol", json={**body, "enrolment_key": key, "platform": "macos"}).status_code == 400
+    assert api.post("/api/agent/v1/enrol", json={**body, "enrolment_key": key, "platform": "solaris"}).status_code == 400
     r = api.post("/api/agent/v1/enrol", json={**body, "enrolment_key": key, "os_name": "Ubuntu"})
     assert r.status_code == 200, r.text
     token = r.json()["token"]
@@ -342,7 +342,9 @@ def test_downloads_and_permissions(api, ready_users):
     r = api.get("/api/config/agent/download/linux")
     assert r.status_code == 200 and r.text.startswith("#!/bin/sh") and "attachment" in r.headers["content-disposition"]
     assert api.get("/api/config/agent/download/windows").text.lstrip("﻿").startswith("<#")
-    assert api.get("/api/config/agent/download/macos").status_code == 404
+    mac = api.get("/api/config/agent/download/macos")
+    assert mac.status_code == 200 and mac.text.startswith("#!/bin/sh") and 'filename="keystone-agent-macos.sh"' in mac.headers["content-disposition"]
+    assert api.get("/api/config/agent/download/solaris").status_code == 404
     _anonymous(api)
     api_login(api, ready_users["auditor"].username)
     assert api.get("/api/config/overview").status_code == 200  # read

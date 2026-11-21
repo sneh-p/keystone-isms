@@ -102,6 +102,10 @@ class ConfigTarget(Base):
     # Custom checks the agent couldn't evaluate: {"custom.x": "refused" | "missing" | "unsupported" | "error"}.
     check_errors: Mapped[dict | None] = mapped_column(JSON)
     custom_checks: Mapped[str | None] = mapped_column(String(10))  # "disabled" when the host opted out at install
+    # Agents 1.2+: hourly check-ins between reports, and the SHA-256 of the agent's own script (plain add_column).
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime)
+    agent_sha256: Mapped[str | None] = mapped_column(String(64))
+    device_id: Mapped[int | None] = mapped_column(Integer)  # the attack surface device with the same host name
 
 
 class ConfigFinding(Base):
@@ -148,3 +152,23 @@ class ConfigAgentSettings(Audited, TimestampMixin, Base):
     enrollment_key_enc: Mapped[str | None] = mapped_column(Text)  # Fernet-encrypted; shown to administrators
     rotated_at: Mapped[datetime | None] = mapped_column(DateTime)
     report_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
+    # Limits on the current enrolment key (plain add_column): None means no limit.
+    enrollment_expires_at: Mapped[datetime | None] = mapped_column(DateTime)
+    enrollment_days: Mapped[int | None] = mapped_column(Integer)  # how long each new key lasts, when limited
+    enrollment_max_uses: Mapped[int | None] = mapped_column(Integer)
+    enrollment_uses: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+
+
+class AgentRelease(Base):
+    """Every agent script Keystone has served (platform, version, SHA-256), so a reported script hash can be told apart
+    from a modified agent. Recorded from the files on disk; never from what an agent reports."""
+
+    __tablename__ = "agent_releases"
+    __table_args__ = (UniqueConstraint("platform", "sha256"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    platform: Mapped[str] = mapped_column(String(20), nullable=False)
+    version: Mapped[str] = mapped_column(String(20), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    signed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    first_seen: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)

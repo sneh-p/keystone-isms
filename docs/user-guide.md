@@ -514,7 +514,7 @@ Data a tool doesn't report shows as *no data*, never as compliant.
 
 ![Configuration overview](user-guide/configuration.png)
 
-**Configuration** (ISO 27001 A.8.9) checks that Windows and Linux hosts and your firewalls (FortiGate, PAN-OS, Cisco
+**Configuration** (ISO 27001 A.8.9) checks that Windows, macOS and Linux hosts and your firewalls (FortiGate, PAN-OS, Cisco
 ASA/IOS, pfSense/OPNsense) are set up the way your **baselines** require. The **Overview** shows compliance per
 platform and the most common failures.
 
@@ -523,7 +523,17 @@ platform and the most common failures.
 ![Hosts and firewalls](user-guide/configuration-targets.png)
 
 Open one to see every rule's result, with *How to fix* on failing ones, the reported values and the history of what
-changed. You can also set its **tags**, pin a baseline, or link it to an **asset**.
+changed. You can also set its **tags**, pin a baseline, or link it to an **asset**. A host is linked to an asset by
+itself when exactly one asset has its name.
+
+Badges next to a host's status point out agent problems:
+
+| Badge | Meaning |
+|---|---|
+| **Quiet** | The agent hasn't checked in for 3 hours (agents check in every hour). Whoever manages integrations, and the owner of the host's asset, are notified |
+| **Results out of date** | No full report for three report intervals |
+| **Modified agent** | The agent's script isn't one Keystone handed out: it was changed on the host. Reinstall it, and treat its results with care until then |
+| **Agent 1.1.0: update to 1.2.0** | A newer agent is available. Keystone never updates agents itself: reinstall with the new script |
 
 ![A host's results](user-guide/configuration-target.png)
 
@@ -566,10 +576,22 @@ Agents fetch the definitions and read the values themselves. They refuse to read
 can be installed with custom checks turned off. Firewalls are checked when their configuration is uploaded, so upload
 again after adding firewall checks.
 
-**Agents** (for administrators) shows the one-line commands to install the report-only agents on Windows and Linux.
-They read settings every few hours and never change anything on the host.
+**Agents** (for administrators) shows the one-line commands to install the report-only agents on Windows, macOS and
+Linux, and a command to check each download's SHA-256 first. Agents check in every hour and send a full report when
+one is due; they never change anything on the host.
+
+- **Enrolment key limits**: make the key expire after a number of days, or after a number of installs. A new key keeps
+  the same limits.
+- **Pinning** (optional): install with `--pin` (Windows: `-Pin`) and the agent accepts only a server whose public key
+  matches, on top of the normal certificate checks. The tab shows the command that gives your server's pin.
 
 ![Agent installation](user-guide/configuration-agents.png)
+
+![Coverage](user-guide/configuration-coverage.png)
+
+**Coverage** compares the hosts running an agent with the workstations and servers your other tools reported in the
+last 30 days: devices without an agent, agent hosts without endpoint security, and agent hosts your other tools don't
+know (usually a different host name).
 
 **Upload firewall configuration** checks a configuration export. Keystone keeps only the values it checks and the
 file's SHA-256, never the file, because exports contain password hashes and keys.
@@ -885,10 +907,19 @@ Answer the security questionnaires customers send you.
 Integrations connect Keystone to your tools, read-only.
 
 - **Control checks** (website and TLS, GitHub, AWS, Entra ID) run on a schedule. Passing checks become evidence on
-  their controls; a failing, erroring or unknown check makes the control not ready.
+  their controls, with a file of exactly what the check found (JSON, one a day, its SHA-256 kept) for auditors. A
+  failing, erroring or unknown check makes the control not ready.
+- When a check that passed starts **failing**, the owner of its control gets a task (due in two weeks) and a
+  notification, or the people who manage integrations if the control has no owner. They're told again when it passes.
+  A check that keeps changing between pass and fail is marked **Keeps changing**: usually a timing or permission
+  problem, so no new task is opened each time.
+- **Health**: open an integration to see failed runs in a row, the last successful run, and when its key expires.
+  After three failed runs in a row the ISMS managers are told too. Enter **Key or secret expires on** when you connect,
+  and you're reminded two weeks before.
 - **Attack surface sources** (Microsoft 365, EDR, RMM and vulnerability scanners) feed [Attack surface](#attack-surface).
 - **Connect** shows a setup guide with commands to create a read-only credential. **Test connection** tries the
-  settings without saving anything.
+  settings without saving anything. For GitHub, AWS and Microsoft 365 it also asks the tool what the key may do, and
+  warns if it can change anything (*Key is read-only*). For other tools, the guide's last step shows how to check.
 
 ---
 

@@ -283,3 +283,42 @@ checks:
     params: {path: system/ssh/enable, mode: exists}
     type: bool
     rule: {operator: is_false, severity: low, controls: [KC-TEC-20]}
+  # ------------------------------------------------------------------ macOS
+  - slug: mac_login_window_hides_users
+    platform: macos
+    title: "Sign-in window asks for name and password"
+    description: "The sign-in window shows name and password fields instead of a list of users (SHOWFULLNAME = 1)."
+    remediation: "Set “Display login window as: Name and password” in System Settings → Users & Groups, or with a configuration profile (com.apple.loginwindow SHOWFULLNAME)."
+    probe: plist_value
+    params: {path: /Library/Preferences/com.apple.loginwindow.plist, key: SHOWFULLNAME, mode: value}
+    type: int
+    default: 0
+    rule: {operator: eq, expected: 1, severity: low, controls: [KC-TEC-05]}
+  - slug: mac_ip_forwarding_off
+    platform: macos
+    title: "IP forwarding off"
+    description: "net.inet.ip.forwarding is 0: the Mac doesn't route traffic between networks."
+    remediation: "Turn off Internet Sharing in System Settings → General → Sharing."
+    probe: sysctl
+    params: {key: net.inet.ip.forwarding}
+    type: int
+    rule: {operator: eq, expected: 0, severity: low, controls: [KC-TEC-20]}
+  - slug: mac_ssh_max_auth_tries
+    platform: macos
+    title: "SSH allows at most 4 sign-in attempts per connection"
+    description: "MaxAuthTries in /etc/ssh/sshd_config is 4 or less (not set means the default of 6)."
+    remediation: "Add “MaxAuthTries 4” to /etc/ssh/sshd_config.d/ and restart Remote Login."
+    probe: file_setting
+    params: {path: /etc/ssh/sshd_config, key: MaxAuthTries, separator: whitespace}
+    type: int
+    default: 6
+    rule: {operator: lte, expected: 4, severity: low, controls: [KC-TEC-05]}
+  - slug: mac_screen_sharing_off
+    platform: macos
+    title: "Screen Sharing turned off"
+    description: "The Screen Sharing service (com.apple.screensharing) isn't loaded."
+    remediation: "Turn off Screen Sharing in System Settings → General → Sharing, unless the Mac is managed that way."
+    probe: launchd_service
+    params: {label: com.apple.screensharing}
+    type: bool
+    rule: {operator: is_false, severity: medium, controls: [KC-TEC-20]}

@@ -314,6 +314,9 @@ def test_api_customisation_routes(api, ready_users, db):
     api_login(api, "admin")
     tid = api.get("/api/config/targets").json()[0]["id"]
     detail = api.get(f"/api/config/targets/{tid}").json()
+    assert detail["asset"]["name"] == "web-01"  # the only asset with the host's name: linked on the first report
+    assert api.patch(f"/api/config/targets/{tid}", json={"clear_asset": True}).status_code == 200
+    detail = api.get(f"/api/config/targets/{tid}").json()
     assert detail["asset"] is None and detail["asset_suggestions"][0]["name"] == "web-01"
     assert api.patch(f"/api/config/targets/{tid}", json={"asset_id": detail["asset_suggestions"][0]["id"], "tags": ["web"]}).status_code == 200
     detail = api.get(f"/api/config/targets/{tid}").json()

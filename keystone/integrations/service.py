@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import timedelta
 
@@ -63,7 +64,8 @@ def _split(p: Provider, values: dict) -> tuple[dict, dict]:
     return config, secrets
 
 
-def save_integration(session: Session, actor, integration_id: int | None = None, *, provider_key: str | None = None, name: str | None = None, values: dict | None = None, schedule_hours: int | None = None, enabled: bool | None = None) -> Integration:
+def save_integration(session: Session, actor, integration_id: int | None = None, *, provider_key: str | None = None, name: str | None = None, values: dict | None = None, schedule_hours: int | None = None, enabled: bool | None = None,
+                     credential_expires_on=None, clear_credential_expiry: bool = False) -> Integration:
     """Create or update. Secret fields are write-only: omit them to keep the stored value."""
     authorize(session, actor, "integration.manage")
     if integration_id:
@@ -90,6 +92,12 @@ def save_integration(session: Session, actor, integration_id: int | None = None,
         i.schedule_hours = schedule_hours
     if enabled is not None:
         i.enabled = enabled
+    if clear_credential_expiry:
+        i.credential_expires_on = None
+    elif credential_expires_on is not None:
+        if credential_expires_on < today() - timedelta(days=365) or credential_expires_on > today() + timedelta(days=3660):
+            raise ValueError("Enter the date the key or secret expires (within the next ten years).")
+        i.credential_expires_on = credential_expires_on
     session.add(i)
     session.flush()
     return i
@@ -118,14 +126,17 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
 
                 outcomes.append(Outcome("sync", "pass", describe_sync(sync(session, i, p, secrets))))
         i.last_status, i.last_error = "ok", None
+        i.consecutive_failures, i.last_success_at = 0, now
     except Exception as e:  # noqa: BLE001 - any provider failure becomes an 'error' result, never a pass
         msg = str(e)[:500] if isinstance(e, ValueError) else f"{type(e).__name__}: run failed"
         outcomes = []
         i.last_status, i.last_error = "error", msg
+        i.consecutive_failures = (i.consecutive_failures or 0) + 1
         outcomes = [Outcome(c.key, "error", msg) for c in p.checks]
     i.last_run_at = now
     codes = {c.code: c for c in session.scalars(select(CommonControl))}
     valid_until = today() + timedelta(days=max(2, i.schedule_hours * 2 // 24 + 2))
+    previous = {r.check_key: r.result for r in latest_results(session, i.id)}
     results = []
     for o in outcomes:
         d = p.check(o.key)
@@ -134,16 +145,23 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
         results.append(r)
         if o.result == "pass":
             title = f"Automated check: {d.title} ({i.name})"
-            description = f"{o.summary}. Checked {now:%Y-%m-%d %H:%M} UTC by the {p.name} integration."
+            description = f"{o.summary}. Checked {now:%Y-%m-%d %H:%M} UTC by the {p.name} integration. The attached file holds what the check found."
             for code in d.controls:
                 if code not in codes:
                     continue
                 # SC-ERR-004: one evidence record per check and control, refreshed on each passing run.
                 ev = session.scalar(select(Evidence).where(Evidence.common_control_id == codes[code].id, Evidence.title == title, Evidence.kind == "note"))
                 if ev is None:
-                    session.add(Evidence(common_control_id=codes[code].id, title=title, kind="note", description=description, collected_on=today(), valid_until=valid_until))
+                    ev = Evidence(common_control_id=codes[code].id, title=title, kind="note", description=description, collected_on=today(), valid_until=valid_until)
+                    session.add(ev)
+                    session.flush()
                 else:
                     ev.description, ev.collected_on, ev.valid_until = description, today(), valid_until
+                _attach_result(session, ev, i, p, d, o, now)
+        if previous.get(o.key) == "pass" and o.result == "fail":
+            _check_started_failing(session, i, d, o, codes)
+        elif previous.get(o.key) == "fail" and o.result == "pass":
+            _check_passes_again(session, i, d)
     if inventory is not None:
         # Outside the provider's error handling on purpose: a database error fails the run and rolls it back.
         from keystone.asm import baselines, ingest
@@ -160,6 +178,115 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
     log_event(session, actor, "integration_run", "Integration", i.id, f"{i.name}: " + ", ".join(f"{r.check_key}={r.result}" for r in results))
     session.flush()
     return results
+
+
+# ---- raw results as evidence, and alerts when a check changes ---------------------------------------------------------
+
+def _attach_result(session: Session, ev: Evidence, i: Integration, p: Provider, d, o: Outcome, now) -> None:
+    """File what the check found as JSON on the evidence, at most once a day per check (SHA-256 kept with the file).
+    Only the outcome is written: never the integration's settings or credentials."""
+    from keystone.core.attachments import Attachment, save_attachment
+
+    name = f"check-{o.key}-{now:%Y-%m-%d}.json"
+    if session.scalar(select(Attachment.id).where(Attachment.entity_type == "Evidence", Attachment.entity_id == ev.id, Attachment.filename == name)):
+        return
+    doc = {"integration": i.name, "integration_ref": i.ref, "provider": p.name, "check": o.key, "title": d.title, "result": o.result, "summary": o.summary,
+           "details": o.details or {}, "controls": list(d.controls), "checked_at": now.isoformat(timespec="seconds") + "Z"}
+    data = json.dumps(doc, indent=2, sort_keys=True, default=str).encode()
+    att = save_attachment(session, None, name, data, "Evidence", ev.id, external_channel="integration")
+    ev.attachment_id = att.id
+
+
+FLAP_WINDOW = 10  # results looked at
+FLAP_CHANGES = 4  # pass/fail changes within the window that make a check "flapping"
+
+
+def flapping(session: Session, integration_id: int, check_key: str) -> bool:
+    """A check that keeps flipping between pass and fail (usually a timing or permission problem, not a real change)."""
+    rows = list(session.scalars(select(CheckResult.result).where(CheckResult.integration_id == integration_id, CheckResult.check_key == check_key,
+                                                                CheckResult.result.in_(("pass", "fail"))).order_by(CheckResult.run_at.desc()).limit(FLAP_WINDOW)))
+    return sum(1 for a, b in zip(rows, rows[1:], strict=False) if a != b) >= FLAP_CHANGES
+
+
+def _check_task_key(i: Integration, check_key: str) -> str:
+    return f"integration-check:{i.id}:{check_key}"[:60]
+
+
+def _event_key(*parts) -> str:
+    """A notification key for one event: unique per run, so a repeat isn't swallowed by an earlier one."""
+    return hashlib.sha256("|".join(str(p) for p in (*parts, utcnow().isoformat())).encode()).hexdigest()[:64]
+
+
+def _notify_users(session: Session, users, key: str, title: str, page: str) -> None:
+    from keystone.notifications.models import Notification
+
+    for u in users:
+        k = key[:64]
+        if session.scalar(select(Notification.id).where(Notification.user_id == u.id, Notification.key == k)) is None:
+            session.add(Notification(user_id=u.id, key=k, kind="system", title=title[:500], page=page[:200], created_at=utcnow()))
+
+
+def _managers(session: Session) -> list:
+    from keystone.core.auth import User
+    from keystone.core.rbac import has_permission
+
+    return [u for u in session.scalars(select(User).where(User.active.is_(True))) if has_permission(u, "integration.manage")]
+
+
+def _check_started_failing(session: Session, i: Integration, d, o: Outcome, codes: dict) -> None:
+    """A check that passed last time fails now: a task for the owner of its first owned control (or the people who
+    manage integrations), unless one is already open. Flapping checks get a note instead of a new task each time."""
+    from keystone.core.auth import User
+    from keystone.tasks.models import Task
+
+    key = _check_task_key(i, o.key)
+    open_task = session.scalar(select(Task).where(Task.template_key == key, Task.status.in_(("todo", "in_progress", "in_review"))))
+    owner_id = next((codes[c].owner_id for c in d.controls if c in codes and codes[c].owner_id), None)
+    owner = session.get(User, owner_id) if owner_id else None
+    users = [owner] if owner is not None and owner.active else _managers(session)
+    flap = flapping(session, i.id, o.key)
+    page = "/integrations"
+    if open_task is None and not flap:
+        t = Task(title=f"Fix: {d.title} ({i.name}) started failing"[:300], template_key=key, frequency="once", status="todo", assignee_id=owner.id if owner and owner.active else None,
+                 due_date=today() + timedelta(days=14),
+                 description=f"The automated check passed on its previous run and fails now: {o.summary}"[:4000],
+                 evidence_hint="When the check passes again, its evidence is filed automatically.")
+        t.controls = [codes[c] for c in d.controls if c in codes]
+        session.add(t)
+        session.flush()
+        page = f"/tasks?open={t.id}"
+    elif open_task is not None:
+        page = f"/tasks?open={open_task.id}"
+    note = " (it keeps changing between pass and fail: check the integration's permissions or timing)" if flap else ""
+    _notify_users(session, users, _event_key("check-fail", i.id, o.key), f"{d.title} ({i.name}) started failing{note}", page)
+
+
+def _check_passes_again(session: Session, i: Integration, d) -> None:
+    from keystone.core.auth import User
+    from keystone.tasks.models import Task
+
+    t = session.scalar(select(Task).where(Task.template_key == _check_task_key(i, d.key), Task.status.in_(("todo", "in_progress"))))
+    if t is None or t.assignee_id is None:
+        return
+    u = session.get(User, t.assignee_id)
+    if u is not None and u.active:
+        _notify_users(session, [u], _event_key("check-ok", i.id, d.key), f"{d.title} ({i.name}) passes again: you can complete the task", f"/tasks?open={t.id}")
+
+
+# ---- health -------------------------------------------------------------------------------------------------------
+
+ESCALATE_AFTER = 3  # failed runs in a row before the ISMS managers are told too
+CREDENTIAL_WARN_DAYS = 14
+
+
+def health(i: Integration) -> dict:
+    """How the integration is doing: overdue when its last good run is more than two schedules old."""
+    now = utcnow()
+    overdue = i.enabled and (i.last_success_at is None or i.last_success_at < now - timedelta(hours=i.schedule_hours * 2))
+    days_left = (i.credential_expires_on - today()).days if i.credential_expires_on else None
+    return {"consecutive_failures": i.consecutive_failures or 0, "escalated": (i.consecutive_failures or 0) >= ESCALATE_AFTER, "last_success_at": i.last_success_at,
+            "overdue": bool(overdue and i.last_run_at is not None), "credential_expires_on": i.credential_expires_on, "credential_days_left": days_left,
+            "credential_expiring": days_left is not None and days_left <= CREDENTIAL_WARN_DAYS}
 
 
 def test(session: Session, actor, provider_key: str | None = None, values: dict | None = None, integration_id: int | None = None) -> list[dict]:
@@ -195,9 +322,29 @@ def test(session: Session, actor, provider_key: str | None = None, values: dict 
             log_event(session, actor, "integration_test", "Integration", integration_id, f"Tested {p.name}: error")
             return [{"check_key": "inventory", "title": "Connection", "result": "error", "summary": msg}]
         log_event(session, actor, "integration_test", "Integration", integration_id, f"Tested {p.name}: ok")
-        return [inventory_preview(inventory)]
+        return [inventory_preview(inventory), permission_check(p, config, secrets)]
     log_event(session, actor, "integration_test", "Integration", integration_id, f"Tested {p.name}: " + ", ".join(f"{o.key}={o.result}" for o in outcomes))
-    return [{"check_key": o.key, "title": p.check(o.key).title, "result": o.result, "summary": o.summary} for o in outcomes]
+    out = [{"check_key": o.key, "title": p.check(o.key).title, "result": o.result, "summary": o.summary} for o in outcomes]
+    if not any(o.result == "error" for o in outcomes):
+        out.append(permission_check(p, config, secrets))
+    return out
+
+
+def permission_check(p: Provider, config: dict, secrets: dict) -> dict:
+    """Does the key do more than read? Asked of the tool itself where it can tell; otherwise the guide's last step.
+    A failed permission check is reported as unknown, never as read-only."""
+    import httpx
+
+    item = {"check_key": "permissions", "title": "Key is read-only"}
+    try:
+        rep = p.permissions(config, secrets)
+    except ValueError as e:
+        return {**item, "result": "unknown", "summary": str(e)[:300]}
+    except (KeyError, OSError, httpx.HTTPError) as e:
+        return {**item, "result": "unknown", "summary": f"Couldn't check the key's permissions ({type(e).__name__})."}
+    if rep is None:
+        return {**item, "result": "unknown", "summary": "This tool doesn't let a key see its own permissions: follow the last step of the setup guide to check them."}
+    return {**item, "result": rep.result, "summary": rep.summary, "extra": rep.extra}
 
 
 def inventory_preview(inv) -> dict:

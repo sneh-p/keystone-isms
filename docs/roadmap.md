@@ -76,6 +76,12 @@ to Trust Center subscribers, an iCal feed, and automatic reminder emails to vend
 | 2 | Security alert inbox with per-tool tokens; penetration tests and findings; application security; certificates and keys; backup jobs; indicators; NIST CSF maturity |
 | 3 | Phishing simulations; look-alike domain monitoring; supplier breach news; on-call paging with escalation; DMARC report upload |
 
+### Round 9: integrations and agents
+
+| Batch | Done |
+|---|---|
+| A | Raw check results filed as evidence; tasks when a passing check starts failing, flapping checks marked; integration health (failures in a row, last success, escalation) and key expiry reminders; read-only key checks for GitHub, AWS and Microsoft 365; macOS agent; hourly agent check-ins and quiet-agent alerts; agent integrity, out-of-date agents, signed Windows agent, optional key pinning; enrolment key expiry and use limits; coverage against your other tools |
+
 Not done, each needs its own decision: SMS or phone paging (a third party holding staff phone numbers), DMARC reports
 read straight from a mailbox, and takedown requests sent from Keystone.
 

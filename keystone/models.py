@@ -41,7 +41,7 @@ from keystone.access_reviews.models import AccessReview, AccessReviewItem
 from keystone.outbound.models import Delivery, Destination
 from keystone.apitokens.models import ApiToken
 from keystone.reporting.models import ReportSchedule
-from keystone.configcheck.models import ConfigAgentSettings, ConfigBaseline, ConfigCustomCheck, ConfigFinding, ConfigRule, ConfigSnapshot, ConfigTarget
+from keystone.configcheck.models import AgentRelease, ConfigAgentSettings, ConfigBaseline, ConfigCustomCheck, ConfigFinding, ConfigRule, ConfigSnapshot, ConfigTarget
 from keystone.controls.models import ControlTest, evidence_controls
 from keystone.incidents.models import IncidentAction, IncidentEvidence
 from keystone.people.models import ExternalTraining, TrainingAssignment, TrainingModule

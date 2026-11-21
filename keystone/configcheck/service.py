@@ -925,9 +925,34 @@ def rotate_enrolment_key(session: Session, actor) -> str:
     authorize(session, actor, "integration.manage")
     s = agent_settings(session)
     s.enrollment_key_enc, s.rotated_at = crypto.encrypt(ENROLMENT_PREFIX + pysecrets.token_urlsafe(24)), utcnow()
+    s.enrollment_uses = 0
+    if s.enrollment_expires_at is not None:  # a limited key stays limited: the same length of time from now
+        s.enrollment_expires_at = utcnow() + timedelta(days=s.enrollment_days or 7)
     session.flush()
     log_event(session, actor, "rotate", "ConfigAgentSettings", s.id, "Agent enrolment key rotated")
     return crypto.decrypt(s.enrollment_key_enc)
+
+
+MAX_KEY_DAYS = 90
+MAX_KEY_USES = 10_000
+
+
+def set_enrolment_limits(session: Session, actor, *, days: int | None, max_uses: int | None) -> ConfigAgentSettings:
+    """Limit the current enrolment key: it expires `days` from now and/or after `max_uses` enrolments (None: no limit).
+    Uses so far are kept, so lowering the limit can close the key at once."""
+    authorize(session, actor, "integration.manage")
+    if days is not None and not 1 <= days <= MAX_KEY_DAYS:
+        raise ValueError(f"The key can last 1 to {MAX_KEY_DAYS} days.")
+    if max_uses is not None and not 1 <= max_uses <= MAX_KEY_USES:
+        raise ValueError(f"Allow 1 to {MAX_KEY_USES} enrolments.")
+    s = agent_settings(session)
+    s.enrollment_expires_at = utcnow() + timedelta(days=days) if days else None
+    s.enrollment_days = days
+    s.enrollment_max_uses = max_uses
+    session.flush()
+    log_event(session, actor, "update", "ConfigAgentSettings", s.id,
+              f"Enrolment key limits: {f'expires in {days} day(s)' if days else 'no expiry'}, {f'at most {max_uses} use(s)' if max_uses else 'no use limit'}")
+    return s
 
 
 def set_report_hours(session: Session, actor, hours: int) -> ConfigAgentSettings:
@@ -956,8 +981,12 @@ def enrol(session: Session, *, key: str, hostname: str, platform: str, os_name: 
     the old one after a reinstall. The token is returned once and stored only as a hash."""
     s = session.scalar(select(ConfigAgentSettings).limit(1))
     current = crypto.decrypt(s.enrollment_key_enc) if s is not None and s.enrollment_key_enc else None
-    if current is None or not hmac.compare_digest(current.encode(), (key or "").encode()):
+    if s is None or current is None or not hmac.compare_digest(current.encode(), (key or "").encode()):
         raise AgentRejected(401, "Invalid enrolment key.")
+    if s.enrollment_expires_at is not None and s.enrollment_expires_at < utcnow():
+        raise AgentRejected(401, "The enrolment key has expired. Ask for a new one.")
+    if s.enrollment_max_uses is not None and (s.enrollment_uses or 0) >= s.enrollment_max_uses:
+        raise AgentRejected(401, "The enrolment key has been used as many times as allowed. Ask for a new one.")
     if platform not in cat.AGENT_PLATFORMS:
         raise AgentRejected(400, "Unsupported platform.")
     try:
@@ -972,6 +1001,7 @@ def enrol(session: Session, *, key: str, hostname: str, platform: str, os_name: 
                      agent_version=(agent_version or "")[:20] or None, token_hash=_hash(raw), enrolled_at=now, last_ip=(ip or "")[:64] or None, facts={}, created_at=now,
                      tags=clean or None)
     session.add(t)
+    s.enrollment_uses = (s.enrollment_uses or 0) + 1
     session.flush()
     log_event(session, None, "enrol", "ConfigTarget", t.id, f"Agent enrolled: {hostname} ({cat.PLATFORM_LABEL[platform]}) from {ip or 'unknown address'}")
     return t, raw
@@ -990,8 +1020,22 @@ def resolve_device(session: Session, header: str | None) -> ConfigTarget:
     return t
 
 
+def checkin(session: Session, t: ConfigTarget, *, agent_version: str | None, agent_sha256: str | None, ip: str | None) -> dict:
+    """The hourly check-in of agents 1.2+: proves the host is alive between reports and says whether a report is due."""
+    from . import agents
+
+    agents.record_releases(session)
+    t.last_seen_at = utcnow()
+    t.agent_version = (agent_version or t.agent_version or "")[:20] or None
+    t.agent_sha256 = agents.clean_sha(agent_sha256) or t.agent_sha256
+    t.last_ip = (ip or "")[:64] or None
+    hours = agent_settings(session).report_hours
+    session.flush()
+    return {"report_due": agents.report_due(t, hours), "report_hours": hours}
+
+
 def report(session: Session, t: ConfigTarget, *, facts: dict, hostname: str | None, os_name: str | None, os_version: str | None, agent_version: str | None, ip: str | None,
-           check_errors: dict | None = None, custom_checks_state: str | None = None) -> dict:
+           check_errors: dict | None = None, custom_checks_state: str | None = None, agent_sha256: str | None = None) -> dict:
     """Store an agent's report and evaluate it. Unknown keys and values of the wrong type are dropped, not stored."""
     allowed = settings_map(session, t.platform)
     clean, ignored = {}, []
@@ -1003,6 +1047,7 @@ def report(session: Session, t: ConfigTarget, *, facts: dict, hostname: str | No
         else:
             clean[k] = value
     errors = {k: v for k, v in (check_errors or {}).items() if k in allowed and k.startswith(custom.CUSTOM_PREFIX) and v in CHECK_ERRORS and k not in clean}
+    was_reported = t.facts_at is not None
     t.facts, t.facts_at, t.check_errors = clean, utcnow(), errors or None
     t.custom_checks = "disabled" if custom_checks_state == "disabled" else None
     if hostname:
@@ -1011,6 +1056,16 @@ def report(session: Session, t: ConfigTarget, *, facts: dict, hostname: str | No
     t.os_version = (os_version or t.os_version or "")[:100] or None
     t.agent_version = (agent_version or t.agent_version or "")[:20] or None
     t.last_ip = (ip or "")[:64] or None
+    from . import agents
+
+    agents.record_releases(session)
+    # Assets are linked automatically only on a host's first report, or its first from agent 1.2+, so a link an
+    # administrator removed isn't put back.
+    first = t.agent_sha256 is None and (not was_reported or bool(agent_sha256))
+    t.agent_sha256 = agents.clean_sha(agent_sha256) or t.agent_sha256
+    if t.last_seen_at is not None or agent_sha256:
+        t.last_seen_at = utcnow()
+    agents.link(session, t, assets=first)
     session.flush()
     session.info["actor"] = None
     evaluate_target(session, t, source="agent", settings=allowed)

@@ -199,6 +199,21 @@ scheduler.
     without reading the file.
   - Firewall custom checks run on the uploaded export in memory during the upload. The parsed file is dropped
     afterwards.
+- **Check-ins, integrity and macOS (batch A, round 9, approved by human:sneh, 2026-11-21).**
+  - `POST /api/agent/v1/checkin` (device token, rate-limited, Pydantic body: version and a SHA-256) answers only
+    whether a full report is due. It carries no instructions and no code: Keystone never updates agents.
+  - Agents report the SHA-256 of their own script; Keystone compares it with every script it has served
+    (`agent_releases`, recorded from the files on disk) and marks others "modified". A tripwire, not a guarantee: an
+    administrator on the host could fake it.
+  - The enrolment key can expire and/or be limited to a number of enrolments (checked before a device is created).
+  - Optional public-key pinning, always on top of normal certificate validation: curl `--pinnedpubkey` (Linux, macOS);
+    a validation callback on Windows PowerShell 5.1 that requires no policy errors *and* a matching key. PowerShell 7
+    refuses a pin rather than ignoring it.
+  - A signed Windows agent in the data directory is served only if, without its signature block, it equals the
+    shipped script.
+  - The macOS agent (POSIX `sh` + curl, a launchd daemon) has the same probe limits as Linux, plus a deny list for the
+    local directory's password store, keychains and home folders. A test fails if any path the server refuses is
+    missing from an agent's deny list.
 - **Spec note.** The original spec says "no tokens or secrets on disk". That was written for the collector. An agent
   that reports on a schedule can't work without a stored credential, so each host keeps a narrowly scoped,
   revocable, root/SYSTEM-only device token instead. This is a deliberate deviation, raised here for review.

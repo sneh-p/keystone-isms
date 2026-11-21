@@ -330,6 +330,17 @@ def _seed_configuration(session: Session, admin) -> None:
         session.flush()
         cfg.report(session, t, facts={**_passing_facts(platform), "ssh_server_installed": platform == "linux", **overrides}, hostname=name,
                    os_name=os_name, os_version=os_version, agent_version="1.1.0", ip="198.51.100.20")
+    # A Mac on the current agent (so it checks in and its script is recognised); the others still run 1.1.0.
+    from keystone.configcheck import agents as agt
+
+    cfg.create_baseline(session, admin, name="Mac laptops", platform="macos")
+    mac = agt.agent_file("macos")
+    t = ConfigTarget(kind="agent", platform="macos", name="ASH-MB-004", hostname="ASH-MB-004", os_name="macOS 15.1", os_version="15.1 (24B83)", agent_version=mac.version,
+                     enrolled_at=now - timedelta(days=3), last_ip="198.51.100.31", facts={}, created_at=now - timedelta(days=3), tags=["laptops"])
+    session.add(t)
+    session.flush()
+    cfg.report(session, t, facts={**_passing_facts("macos"), "remote_login_enabled": False, "firewall_stealth_mode": False, "local_admin_count": 2},
+               hostname="ASH-MB-004", os_name="macOS 15.1", os_version="15.1 (24B83)", agent_version=mac.version, ip="198.51.100.31", agent_sha256=mac.sha256)
     cfg.upload_firewall(session, admin, platform="fortigate", filename="ASH-FW-HQ_backup.conf", data=_DEMO_FORTIGATE.encode())
 
 

@@ -12,13 +12,14 @@ from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from pydantic import Field, ValidationError
 from sqlalchemy.orm import Session
 
+from keystone.configcheck import agents as agt
 from keystone.configcheck import catalogue as cat
 from keystone.configcheck import custom, parsers
 from keystone.configcheck import service as cfg
 from keystone.configcheck.models import ConfigBaseline, ConfigCustomCheck, ConfigRule, ConfigTarget
 from keystone.core.audit import log_event
 from keystone.core.services import get_or_404
-from keystone.core.settings import PROJECT_ROOT, get_settings
+from keystone.core.settings import get_settings
 from keystone.trust.service import rate_limit
 
 from ..deps import get_db, perm
@@ -28,11 +29,9 @@ from .common import In
 router = APIRouter(prefix="/config", tags=["configuration"])
 agent_router = APIRouter(prefix="/agent/v1", tags=["configuration-agent"])
 
-AGENTS_DIR = PROJECT_ROOT / "agents"
-AGENT_FILES = {"windows": ("windows", "keystone-agent.ps1"), "linux": ("linux", "keystone-agent.sh")}
 MAX_REPORT_BYTES = 256 * 1024
 TARGET = ("id", "kind", "platform", "name", "hostname", "os_name", "os_version", "agent_version", "enrolled_at", "revoked_at", "last_ip",
-          "source_filename", "source_sha256", "facts_at", "created_at", "tags", "asset_id", "custom_checks")
+          "source_filename", "source_sha256", "facts_at", "created_at", "tags", "asset_id", "custom_checks", "last_seen_at", "agent_sha256", "device_id")
 RULE = ("id", "baseline_id", "key", "operator", "expected", "severity", "controls", "enabled", "applies_to_tags", "remediation")
 BASELINE = ("id", "name", "platform", "description", "enabled", "is_default", "scope", "created_at", "updated_at")
 CHECK = ("id", "platform", "slug", "title", "description", "remediation", "probe", "params", "value_type", "default_value", "recommended", "library_key",
@@ -273,7 +272,13 @@ def grant_exceptions(rid: int, body: BulkExceptionIn, user=Depends(perm("risk.ac
 @router.get("/targets")
 def targets(user=Depends(perm("read")), db: Session = Depends(get_db)):
     s = cfg.agent_settings(db)
-    return [ser(t, TARGET, **cfg.summary(db, t, s)) for t in cfg.targets(db)]
+    files = {p: agt.agent_file(p) for p in agt.AGENT_FILES}
+    return [ser(t, TARGET, **cfg.summary(db, t, s), agent=agt.state(db, t, files)) for t in cfg.targets(db)]
+
+
+@router.get("/coverage")
+def coverage(user=Depends(perm("read")), db: Session = Depends(get_db)):
+    return agt.coverage(db)
 
 
 @router.get("/targets/{tid}")
@@ -303,7 +308,7 @@ def target(tid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
     hist = [ser(h, ("id", "at", "source", "baseline_id", "counts", "changes")) for h in cfg.history(db, t.id)]
     asset = db.get(Asset, t.asset_id) if t.asset_id else None
     suggestions = [] if asset else [{"id": a.id, "name": a.name} for a in cfg.suggest_assets(db, t)]
-    return ser(t, TARGET, **cfg.summary(db, t), results=results, facts=facts, history=hist, check_errors=t.check_errors or {},
+    return ser(t, TARGET, **cfg.summary(db, t), agent=agt.state(db, t), results=results, facts=facts, history=hist, check_errors=t.check_errors or {},
                asset={"id": asset.id, "name": asset.name} if asset else None, asset_suggestions=suggestions)
 
 
@@ -374,27 +379,31 @@ def _server(request: Request) -> str:
     return get_settings().public_url or str(request.base_url).rstrip("/")
 
 
-def _agent_file(platform: str) -> bytes:
-    if platform not in AGENT_FILES:
-        raise LookupError("Unknown agent.")
-    folder, name = AGENT_FILES[platform]
-    return (AGENTS_DIR / folder / name).read_bytes()
+PIN_HINT = {"linux": "--pin sha256//BASE64", "macos": "--pin sha256//BASE64", "windows": "-Pin sha256//BASE64"}
 
 
 def _agent_view(db: Session, user, request: Request, key: str) -> dict:
     s = cfg.agent_settings(db)
     server = _server(request)
-    files = {}
-    for p, (_, name) in AGENT_FILES.items():
-        data = _agent_file(p)
-        files[p] = {"filename": name, "sha256": hashlib.sha256(data).hexdigest().upper(), "size": len(data)}
+    current = agt.record_releases(db)
+    sha = {p: f.sha256 for p, f in current.items()}
+    files = {p: {"filename": agt.DOWNLOAD_NAMES[p], "sha256": f.sha256.upper(), "size": len(f.data), "version": f.version, "signed": f.signed} for p, f in current.items()}
+    left = None if s.enrollment_max_uses is None else max(0, s.enrollment_max_uses - (s.enrollment_uses or 0))
     return {"server": server, "https": server.startswith("https://"), "enrolment_key": key, "rotated_at": s.rotated_at, "report_hours": s.report_hours, "files": files,
+            "limits": {"expires_at": s.enrollment_expires_at, "days": s.enrollment_days, "max_uses": s.enrollment_max_uses, "uses": s.enrollment_uses or 0, "uses_left": left,
+                       "expired": bool(s.enrollment_expires_at and s.enrollment_expires_at < cfg.utcnow()), "used_up": left == 0},
             "install": {
                 "windows": f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\keystone-agent.ps1 -Install -Server "{server}" -EnrolmentKey "{key}"',
-                "linux": f'sudo KEYSTONE_ENROLMENT_KEY="{key}" sh ./keystone-agent.sh install --server "{server}"'},
-            "options": {"windows": "-Tags web,dmz  ·  -NoCustomChecks  ·  -Hours 8", "linux": "--tags web,dmz  ·  --no-custom-checks  ·  --hours 8"},
+                "linux": f'sudo KEYSTONE_ENROLMENT_KEY="{key}" sh ./keystone-agent.sh install --server "{server}"',
+                "macos": f'sudo KEYSTONE_ENROLMENT_KEY="{key}" sh ./keystone-agent-macos.sh install --server "{server}"'},
+            "options": {"windows": f"-Tags web,dmz  ·  -NoCustomChecks  ·  -Hours 8  ·  {PIN_HINT['windows']}",
+                        "linux": f"--tags web,dmz  ·  --no-custom-checks  ·  --hours 8  ·  {PIN_HINT['linux']}",
+                        "macos": f"--tags web,dmz  ·  --no-custom-checks  ·  --hours 8  ·  {PIN_HINT['macos']}"},
+            "verify": {"windows": f"(Get-FileHash .\\keystone-agent.ps1 -Algorithm SHA256).Hash -eq '{sha['windows'].upper()}'",
+                       "linux": f"echo '{sha['linux']}  keystone-agent.sh' | sha256sum -c -",
+                       "macos": f"echo '{sha['macos']}  keystone-agent-macos.sh' | shasum -a 256 -c -"},
             "uninstall": {"windows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\keystone-agent.ps1 -Uninstall",
-                          "linux": "sudo sh ./keystone-agent.sh uninstall"}}
+                          "linux": "sudo sh ./keystone-agent.sh uninstall", "macos": "sudo sh ./keystone-agent-macos.sh uninstall"}}
 
 
 @router.get("/agent")
@@ -408,21 +417,28 @@ def rotate(request: Request, user=Depends(perm("integration.manage")), db: Sessi
 
 
 class AgentSettingsIn(In):
-    report_hours: int
+    report_hours: int | None = None
+    key_days: int | None = Field(None, ge=1, le=cfg.MAX_KEY_DAYS)
+    key_max_uses: int | None = Field(None, ge=1, le=cfg.MAX_KEY_USES)
+    set_key_limits: bool = False  # true: apply key_days and key_max_uses (None in either removes that limit)
 
 
 @router.patch("/agent")
-def agent_settings(body: AgentSettingsIn, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
-    s = cfg.set_report_hours(db, user, body.report_hours)
-    return {"report_hours": s.report_hours}
+def agent_settings(request: Request, body: AgentSettingsIn, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
+    if body.report_hours is not None:
+        cfg.set_report_hours(db, user, body.report_hours)
+    if body.set_key_limits:
+        cfg.set_enrolment_limits(db, user, days=body.key_days, max_uses=body.key_max_uses)
+    return _agent_view(db, user, request, cfg.enrolment_key(db, user))
 
 
 @router.get("/agent/download/{platform}")
 def download(platform: str, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
-    data = _agent_file(platform)
-    name = AGENT_FILES[platform][1]
-    log_event(db, user, "export", "ConfigAgent", None, f"Downloaded {name}")
-    return Response(data, media_type="text/plain; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+    f = agt.agent_file(platform)
+    agt.record_releases(db)
+    name = agt.DOWNLOAD_NAMES[platform]
+    log_event(db, user, "export", "ConfigAgent", None, f"Downloaded {name} {f.version}{' (signed)' if f.signed else ''}, SHA-256 {f.sha256}")
+    return Response(f.data, media_type="text/plain; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 # ---- agent endpoints: no session (reviewed design, docs/feature-security-designs.md §5b)
@@ -462,6 +478,11 @@ class EnrolIn(In):
     tags: list[str] | None = Field(None, max_length=20)
 
 
+class CheckinIn(In):
+    agent_version: str | None = Field(None, max_length=20)
+    agent_sha256: str | None = Field(None, max_length=64)
+
+
 class ReportIn(In):
     hostname: str | None = Field(None, max_length=253, pattern=r"^[A-Za-z0-9][A-Za-z0-9.\-_]*$")
     os_name: str | None = Field(None, max_length=200)
@@ -470,6 +491,7 @@ class ReportIn(In):
     facts: dict[str, bool | int | str | list[str] | None] = Field(default_factory=dict, max_length=200)
     check_errors: dict[str, str] = Field(default_factory=dict, max_length=100)
     custom_checks: str | None = Field(None, max_length=10)
+    agent_sha256: str | None = Field(None, max_length=64)
 
 
 def _rejected(e: cfg.AgentRejected) -> JSONResponse:
@@ -514,6 +536,19 @@ def checks(request: Request, fmt: str = Query("json", alias="format", pattern="^
     return {"checks": [custom.wire(c) for c in items]}
 
 
+@agent_router.post("/checkin")
+async def checkin(request: Request, db: Session = Depends(get_db)):
+    """Hourly sign of life from agents 1.2+, between reports. Answers whether a full report is due."""
+    try:
+        t = _device(request, db, "checkin", 12)
+    except PermissionError:
+        return JSONResponse({"detail": "Too many requests."}, status_code=429)
+    except cfg.AgentRejected as e:
+        return _rejected(e)
+    body = await _body(request, CheckinIn)
+    return cfg.checkin(db, t, agent_version=body.agent_version, agent_sha256=body.agent_sha256, ip=_ip(request))
+
+
 @agent_router.post("/report")
 async def report(request: Request, db: Session = Depends(get_db)):
     try:
@@ -524,4 +559,4 @@ async def report(request: Request, db: Session = Depends(get_db)):
         return _rejected(e)
     body = await _body(request, ReportIn)
     return cfg.report(db, t, facts=body.facts, hostname=body.hostname, os_name=body.os_name, os_version=body.os_version, agent_version=body.agent_version,
-                      ip=_ip(request), check_errors=body.check_errors, custom_checks_state=body.custom_checks)
+                      ip=_ip(request), check_errors=body.check_errors, custom_checks_state=body.custom_checks, agent_sha256=body.agent_sha256)

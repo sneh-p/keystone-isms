@@ -55,6 +55,22 @@ def items_for(session: Session, user: User, on: date | None = None, routed: dict
 
         for i in session.scalars(select(Integration).where(Integration.enabled.is_(True), Integration.last_status == "error")):
             out.append({"key": _key("integration", i.id, i.last_run_at), "kind": "integrations", "title": f"Integration {i.name} failed on its last run", "page": "/integrations", "due": None})
+        for i in session.scalars(select(Integration).where(Integration.enabled.is_(True), Integration.credential_expires_on.is_not(None))):
+            exp = i.credential_expires_on
+            if exp is not None and exp <= on + timedelta(days=NOTIFY_WITHIN_DAYS):
+                verb = "expired on" if exp < on else "expires on"
+                out.append({"key": _key("credential", i.id, exp), "kind": "integrations", "title": f"The key for {i.name} {verb} {exp:%d %b %Y}: replace it",
+                            "page": f"/integrations?open={i.id}", "due": exp})
+        out += _agent_items(session, None)
+    if has_permission(user, "org.write"):  # ISMS managers hear about integrations that keep failing
+        from keystone.integrations.models import Integration
+        from keystone.integrations.service import ESCALATE_AFTER
+
+        for i in session.scalars(select(Integration).where(Integration.enabled.is_(True), Integration.consecutive_failures >= ESCALATE_AFTER)):
+            out.append({"key": _key("integration-streak", i.id, i.last_success_at), "kind": "integrations",
+                        "title": f"Integration {i.name} has failed {i.consecutive_failures} runs in a row", "page": f"/integrations?open={i.id}", "due": None})
+    if not has_permission(user, "integration.manage"):  # owners of the assets agents are linked to
+        out += _agent_items(session, user)
     # Questionnaires returned through the vendor portal: the vendor's owner, or vendor managers if it has none.
     from keystone.tprm.models import Vendor, VendorQuestionnaire
 
@@ -62,6 +78,34 @@ def items_for(session: Session, user: User, on: date | None = None, routed: dict
     for vq, v in session.execute(q):
         if v.owner_id == user.id or (v.owner_id is None and has_permission(user, "vendor.write")):
             out.append({"key": _key("vq", vq.id, vq.received_at), "kind": "questionnaires", "title": f"Review the questionnaire returned by {v.name}", "page": f"/questionnaires?open={vq.id}", "due": None})
+    return out
+
+
+def _agent_items(session: Session, owner: User | None) -> list[dict]:
+    """Agents that went quiet, or whose script isn't one Keystone served. owner=None: every agent (for the people who
+    manage integrations); otherwise the agents on assets that user owns."""
+    from keystone.assets.models import Asset
+    from keystone.configcheck import agents
+    from keystone.configcheck.models import ConfigTarget
+    from keystone.configcheck.service import agent_settings, is_stale
+
+    q = select(ConfigTarget).where(ConfigTarget.kind == "agent", ConfigTarget.revoked_at.is_(None), ConfigTarget.facts_at.is_not(None))
+    if owner is not None:
+        mine = select(Asset.id).where(Asset.owner_id == owner.id)
+        q = q.where(ConfigTarget.asset_id.in_(mine))
+    targets = list(session.scalars(q))
+    if not targets:
+        return []
+    settings = agent_settings(session)
+    out = []
+    for t in targets:
+        st = agents.state(session, t)
+        if st["silent"] or (not st["checks_in"] and is_stale(session, t, settings)):
+            out.append({"key": _key("agent-quiet", t.id, st["last_contact"]), "kind": "configuration", "title": f"The agent on {t.name} hasn't been heard from since {st['last_contact']:%d %b %H:%M}",
+                        "page": f"/configuration?tab=targets&target={t.id}", "due": None})
+        if st["integrity"] == "modified":
+            out.append({"key": _key("agent-modified", t.id, t.agent_sha256), "kind": "configuration", "title": f"The agent script on {t.name} isn't one Keystone handed out",
+                        "page": f"/configuration?tab=targets&target={t.id}", "due": None})
     return out
 
 

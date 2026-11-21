@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, Cloud, ExternalLink, FlaskConical, Github, Globe, Play, Plug, Settings2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, Cloud, ExternalLink, FlaskConical, Github, Globe, KeyRound, Play, Plug, Settings2, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
-import { useAction, useApi } from "@/lib/hooks";
+import { useAction, useApi, useUrlFilter } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { cn, fmtDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { PageHeader, Section, Skeleton, Stat, Switch } from "@/components/ui/mis
 import { StatusBadge } from "@/components/ui/status";
 import { DataTable } from "@/components/ui/table";
 import { CodeBlock } from "@/components/CopyButton";
+import { DateInput } from "@/components/forms";
 import { safeHref } from "@/lib/safe-url";
 
 const ICON: Record<string, any> = { website: Globe, github: Github, aws: Cloud, entra: ShieldCheck };
@@ -25,11 +26,17 @@ export default function Integrations() {
   const { can } = useAuth();
   const { data } = useApi<any>("/integrations");
   const [connect, setConnect] = useState<any>(null);
-  const [open, setOpen] = useState<number | null>(null);
-  const save = useAction((b: any) => (b.id ? api(`/integrations/${b.id}`, { method: "PATCH", body: { name: b.name, values: b.values, schedule_hours: b.schedule_hours } }) : api("/integrations", { body: { provider: b.provider, name: b.name, values: b.values, schedule_hours: b.schedule_hours } })), { success: "Integration saved. Run it to see results.", invalidate: ["/integrations"], onSuccess: (r: any) => { setConnect(null); setOpen(r.id); } });
+  const [openParam, setOpenParam] = useUrlFilter("open");
+  const open = openParam ? Number(openParam) : null;
+  const setOpen = (id: number | null) => setOpenParam(id ? String(id) : null);
+  const save = useAction((b: any) => {
+    const common = { name: b.name, values: b.values, schedule_hours: b.schedule_hours, credential_expires_on: b.credential_expires_on || null };
+    return b.id ? api(`/integrations/${b.id}`, { method: "PATCH", body: { ...common, clear_credential_expiry: !b.credential_expires_on } }) : api("/integrations", { body: { provider: b.provider, ...common } });
+  }, { success: "Integration saved. Run it to see results.", invalidate: ["/integrations"], onSuccess: (r: any) => { setConnect(null); setOpen(r.id); } });
   if (!data) return <Skeleton className="h-96" />;
   const all = data.integrations.flatMap((i: any) => i.results);
   const failing = all.filter((r: any) => r.result === "fail").length;
+  const attention = data.integrations.filter((i: any) => i.health.escalated || i.health.overdue || i.health.credential_expiring).length;
   return (
     <div className="animate-fade-in">
       <PageHeader icon={Plug} title="Integrations" description="Read-only connections that test your controls automatically. Passing checks become evidence; failing, erroring or unknown checks never count as passing." />
@@ -37,7 +44,7 @@ export default function Integrations() {
         <Stat label="Connected" value={data.integrations.length} />
         <Stat label="Checks passing" value={all.filter((r: any) => r.result === "pass").length} tone="good" />
         <Stat label="Checks failing" value={failing} tone={failing ? "critical" : undefined} />
-        <Stat label="Errors or unknown" value={all.filter((r: any) => ["error", "unknown"].includes(r.result)).length} tone={all.some((r: any) => r.result === "error") ? "warning" : undefined} />
+        <Stat label="Need attention" value={attention} tone={attention ? "warning" : undefined} hint="Failing runs, overdue, or a key expiring" />
       </div>
       {[["Control checks", (p: any) => !p.inventory && !p.ticketing && !p.hr], ["Attack surface sources", (p: any) => p.inventory], ["Ticketing", (p: any) => p.ticketing], ["HR systems", (p: any) => p.hr]].map(([title, test]: any) => {
         const list = data.providers.filter(test);
@@ -59,7 +66,7 @@ export default function Integrations() {
                       <p className="mt-3 flex-1 text-sm text-muted-foreground">{p.description}</p>
                       <div className="mt-3 text-xs text-muted-foreground">{p.hr ? "Joiners, movers and leavers" : p.ticketing ? "Creates tickets; reads their status" : p.inventory ? `Provides: ${p.categories.map((c: string) => CATEGORY[c] ?? c).join(", ")}` : `${p.checks.length} checks · maps to ${[...new Set(p.checks.flatMap((c: any) => c.controls))].length} controls`}</div>
                       <div className="mt-4 flex flex-wrap gap-2">
-                        {mine.map((i: any) => <Button key={i.id} size="sm" variant="secondary" onClick={() => setOpen(i.id)}>{i.name} <StatusBadge status={i.last_status === "error" ? "error" : i.results.some((r: any) => r.result === "fail") ? "fail" : i.results.length ? "pass" : "unknown"} label=" " /></Button>)}
+                        {mine.map((i: any) => <Button key={i.id} size="sm" variant="secondary" onClick={() => setOpen(i.id)}>{i.name} <StatusBadge status={i.last_status === "error" ? "error" : i.results.some((r: any) => r.result === "fail") ? "fail" : i.results.length ? "pass" : "unknown"} label=" " />{i.health.credential_expiring && <KeyRound className="size-3.5 text-warning" aria-label="Key expiring" />}</Button>)}
                         {can("integration.manage") && <Button size="sm" variant="outline" onClick={() => setConnect({ provider: p.key, name: p.name, values: {}, schedule_hours: p.ticketing ? 1 : p.inventory ? 6 : 24 })}>Connect</Button>}
                       </div>
                     </CardBody>
@@ -87,16 +94,18 @@ function IntegrationDrawer({ id, providers, integrations, onClose, onEdit }: any
   const ed = can("integration.manage");
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()} title={i.name} subtitle={`${p?.name} · ${i.last_run_at ? `last run ${fmtDate(i.last_run_at, true)}` : "never run"} · every ${i.schedule_hours}h`}
-      actions={ed && <><Button size="sm" variant="outline" onClick={() => onEdit({ id: i.id, provider: i.provider, name: i.name, values: { ...i.config }, schedule_hours: i.schedule_hours })}><Settings2 /> Edit</Button><Button size="sm" loading={run.isPending} onClick={() => run.mutate(undefined)}><Play /> Run now</Button></>}>
+      actions={ed && <><Button size="sm" variant="outline" onClick={() => onEdit({ id: i.id, provider: i.provider, name: i.name, values: { ...i.config }, schedule_hours: i.schedule_hours, credential_expires_on: i.health.credential_expires_on })}><Settings2 /> Edit</Button><Button size="sm" loading={run.isPending} onClick={() => run.mutate(undefined)}><Play /> Run now</Button></>}>
       <div className="space-y-6">
         {ed && <Switch checked={i.enabled} onChange={(v) => toggle.mutate(v)} label={i.enabled ? "Runs on schedule" : "Paused"} />}
         {i.last_error && <div className="rounded-lg border border-critical/30 bg-critical/5 px-4 py-3 text-sm">{i.last_error}</div>}
+        <Health h={i.health} schedule={i.schedule_hours} />
         <Section title="Latest results">
           {i.results.length === 0 ? <p className="text-sm text-muted-foreground">Not run yet.</p> : (
             <div className="space-y-2">{i.results.map((r: any) => (
               <div key={r.check_key} className="rounded-lg border p-3">
-                <div className="flex items-start justify-between gap-2"><span className="font-medium">{r.title}</span><StatusBadge status={r.result} /></div>
+                <div className="flex items-start justify-between gap-2"><span className="font-medium">{r.title}</span><span className="flex gap-1">{r.flapping && <Badge tone="warning">Keeps changing</Badge>}<StatusBadge status={r.result} /></span></div>
                 <p className="mt-1 text-sm text-muted-foreground">{r.summary}</p>
+                {r.flapping && <p className="mt-1 text-xs text-muted-foreground">This check has changed between pass and fail several times recently, which usually means a timing or permission problem rather than a real change.</p>}
                 <div className="mt-2 flex flex-wrap gap-1">{r.controls.map((c: string) => <Badge key={c} tone="primary" className="font-mono text-[10px]">{c}</Badge>)}</div>
               </div>
             ))}</div>
@@ -111,6 +120,24 @@ function IntegrationDrawer({ id, providers, integrations, onClose, onEdit }: any
         </Section>
       </div>
     </Sheet>
+  );
+}
+
+/** Failed runs in a row, the last good run, and when the stored key expires. */
+function Health({ h, schedule }: { h: any; schedule: number }) {
+  const rows: [string, string, string | undefined][] = [];
+  if (h.consecutive_failures > 0) rows.push(["Failed runs in a row", `${h.consecutive_failures}${h.escalated ? " (the ISMS managers have been told)" : ""}`, h.escalated ? "critical" : "warning"]);
+  rows.push(["Last successful run", h.last_success_at ? fmtDate(h.last_success_at, true) : "Never", h.overdue ? "warning" : undefined]);
+  if (h.credential_expires_on) rows.push(["Key or secret expires", `${fmtDate(h.credential_expires_on)} (${h.credential_days_left < 0 ? `${-h.credential_days_left} days ago` : `in ${h.credential_days_left} days`})`, h.credential_expiring ? (h.credential_days_left < 0 ? "critical" : "warning") : undefined]);
+  return (
+    <div className="space-y-2">
+      {h.overdue && <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />No successful run for more than twice the schedule ({schedule * 2} hours): results and evidence are getting old.</div>}
+      <dl className="grid gap-2 text-sm sm:grid-cols-3">
+        {rows.map(([k, v, tone]) => (
+          <div key={k} className="rounded-lg border px-3 py-2"><dt className="text-xs text-muted-foreground">{k}</dt><dd className={cn("font-medium", tone === "critical" && "text-critical", tone === "warning" && "text-[#8a5a00] dark:text-warning")}>{v}</dd></div>
+        ))}
+      </dl>
+    </div>
   );
 }
 
@@ -178,9 +205,13 @@ function ConnectDialog({ connect, setConnect, provider, saving, onSave }: { conn
               : <Input type={f.secret ? "password" : "text"} autoComplete="off" placeholder={f.secret && connect.id ? "•••••••• (stored)" : ""} value={connect.values[f.name] ?? ""} onChange={(e) => setValue(f.name, e.target.value)} />}</Field>
           ))}
           <Field label="Run every (hours)"><Input type="number" min={1} max={720} value={connect.schedule_hours} onChange={(e) => setConnect({ ...connect, schedule_hours: Number(e.target.value) })} /></Field>
+          <Field label="Key or secret expires on" hint="Optional. You're reminded two weeks before, so the integration doesn't stop without warning.">
+            <DateInput ariaLabel="Key or secret expires on" value={connect.credential_expires_on ?? null} onChange={(v) => setConnect({ ...connect, credential_expires_on: v })} />
+          </Field>
           <div className="rounded-lg border bg-muted/30 p-3" aria-live="polite">
             <div className="text-sm font-medium">Test connection</div>
-            <p className="mt-0.5 text-xs text-muted-foreground">{provider.inventory ? "Reads one page from each source with these settings and shows what it found. Nothing is saved." : "Runs the checks now with these settings. Nothing is saved and no evidence is filed."}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{provider.inventory ? "Reads one page from each source with these settings and shows what it found. Nothing is saved." : "Runs the checks now with these settings. Nothing is saved and no evidence is filed."}
+              {provider.checks_permissions ? " It also asks the tool what the key is allowed to do, and warns if it can change anything." : " Check the key's permissions with the guide's last step."}</p>
             {provider.inventory && provider.mapping_note && <p className="mt-1 text-xs text-muted-foreground">Field mapping: {provider.mapping_note}</p>}
             {results && (
               <ul className="mt-3 space-y-2">{results.map((r) => (

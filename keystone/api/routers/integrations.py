@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -16,7 +18,9 @@ INT = ("id", "provider", "name", "enabled", "config", "schedule_hours", "last_ru
 
 def out(db, i: Integration) -> dict:
     # Secrets are write-only: only whether one is stored is returned.
-    return ser(i, INT, secret_set=bool(i.secret_enc), results=[ser(r, ("check_key", "title", "result", "summary", "details", "controls", "run_at")) for r in integ.latest_results(db, i.id)])
+    return ser(i, INT, secret_set=bool(i.secret_enc), health=integ.health(i),
+               results=[ser(r, ("check_key", "title", "result", "summary", "details", "controls", "run_at"), flapping=integ.flapping(db, i.id, r.check_key))
+                        for r in integ.latest_results(db, i.id)])
 
 
 @router.get("/integrations")
@@ -30,16 +34,20 @@ class IntegrationIn(In):
     values: dict = {}
     schedule_hours: int | None = None
     enabled: bool | None = None
+    credential_expires_on: date | None = None
+    clear_credential_expiry: bool = False
 
 
 @router.post("/integrations")
 def create(body: IntegrationIn, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
-    return out(db, integ.save_integration(db, user, provider_key=body.provider, name=body.name, values=body.values, schedule_hours=body.schedule_hours))
+    return out(db, integ.save_integration(db, user, provider_key=body.provider, name=body.name, values=body.values, schedule_hours=body.schedule_hours,
+                                          credential_expires_on=body.credential_expires_on))
 
 
 @router.patch("/integrations/{iid}")
 def update(iid: int, body: IntegrationIn, user=Depends(perm("integration.manage")), db: Session = Depends(get_db)):
-    return out(db, integ.save_integration(db, user, iid, name=body.name, values=body.values, schedule_hours=body.schedule_hours, enabled=body.enabled))
+    return out(db, integ.save_integration(db, user, iid, name=body.name, values=body.values, schedule_hours=body.schedule_hours, enabled=body.enabled,
+                                          credential_expires_on=body.credential_expires_on, clear_credential_expiry=body.clear_credential_expiry))
 
 
 class TestIn(In):

@@ -475,12 +475,34 @@ the check errs towards silence rather than false alarms.
    download, its SHA-256 and the one-line install command with the enrolment key.
    - **Windows** (elevated PowerShell 5.1+): installs to `%ProgramFiles%\Keystone Agent`, keeps its config and token in
      `%ProgramData%\Keystone Agent` (SYSTEM and Administrators only), and registers the scheduled task "Keystone Agent"
-     (SYSTEM, at startup and every 4 hours by default). `-Collect` prints what would be sent without sending.
+     (SYSTEM, at startup and every hour). `-Collect` prints what would be sent without sending.
+   - **macOS** (sudo; `sh` and `curl` are built in): installs to `/usr/local/lib/keystone-agent`, keeps config and token
+     in `/etc/keystone-agent` (mode 600), and loads `/Library/LaunchDaemons/org.keystone.agent.plist` (every hour).
+     `sh keystone-agent-macos.sh collect` prints what would be sent. Some settings need Full Disk Access for the agent
+     to read them on recent macOS; without it they show as unknown, never as passing.
    - **Linux** (root, `sh` and `curl`): installs to `/usr/local/lib/keystone-agent`, keeps config and token in
-     `/etc/keystone-agent` (mode 600), and adds a systemd timer, or `/etc/cron.d/keystone-agent` without systemd.
-     `sh keystone-agent.sh collect` prints what would be sent.
+     `/etc/keystone-agent` (mode 600), and adds a systemd timer, or `/etc/cron.d/keystone-agent` without systemd, that
+     runs every hour. `sh keystone-agent.sh collect` prints what would be sent.
+   - Agents 1.2 and later **check in every hour** and send a full report when Keystone says one is due (the "Report at
+     least every" setting) or when their own `--hours` have passed. A host that hasn't checked in for 3 hours is shown
+     as quiet and notified. Older agents keep working and report on their old schedule.
+   - **Updating** agents: Keystone never pushes code to hosts (a compromised Keystone must not mean compromised hosts).
+     Hosts on an older agent are marked "update to …"; reinstall them with the new script. Check every download's
+     SHA-256 first: the Agents tab shows the command.
+   - **Integrity**: each agent reports the SHA-256 of its own script. Keystone records every script it has served, and
+     marks any other hash as **Modified agent**. This catches accidental and careless changes; someone with
+     administrator rights on the host could still fake the hash, so treat agent results as reported data.
+   - **Signed Windows agent**: to run the agent under an `AllSigned` execution policy, sign
+     `agents/windows/keystone-agent.ps1` with your organisation's code-signing certificate (`Set-AuthenticodeSignature`)
+     and put the signed copy at `<KEYSTONE_DATA_DIR>/agents/keystone-agent.ps1`. Keystone serves it only if, without its
+     signature block, it is exactly the shipped script; otherwise it logs a warning and serves the shipped one.
+   - **Pinning** (optional): `--pin sha256//BASE64` (Windows `-Pin`) makes an agent accept only a server whose public
+     key matches, in addition to the normal certificate checks. Give two pins separated by `;` before a certificate
+     renewal that changes the key, or renew with the same key (certbot `--reuse-key`). On Windows, pinning needs Windows
+     PowerShell 5.1, which the scheduled task uses.
    - For many hosts, deploy the same command through your RMM, Group Policy, Intune, Ansible or similar.
-   - Rotate the enrolment key when installs are done; enrolled agents keep working.
+   - Rotate the enrolment key when installs are done; enrolled agents keep working. Or limit it: an expiry in days
+     and/or a maximum number of installs (Agents tab → Enrolment key → Change limits).
    - Revoke a device from its page.
    - A reinstall enrols as a new device, so remove the old entry.
 3. **Firewalls.** Upload a configuration export under "Upload firewall configuration", choosing "Update" to replace
@@ -496,7 +518,8 @@ the check errs towards silence rather than false alarms.
    - Install an agent with `-NoCustomChecks` / `--no-custom-checks` to keep a host on the built-in settings only.
      Its custom results then show as unknown.
    - Probes that read file contents refuse password, key and home-directory files. Keystone refuses to save such a
-     check, and the Linux agent refuses to run one even if told to.
+     check, and the agents refuse to run one even if told to. On macOS that includes the local directory's password
+     store, keychains and users' home folders.
 5. **Scoping.** Which baselines apply to a host:
    - Its pinned baseline, or else the platform default.
    - Plus every baseline whose scope matches it: one of the baseline's tags, or a host-name pattern such as `web-*`.

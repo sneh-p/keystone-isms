@@ -13,12 +13,14 @@
 
     Install copies this script to "%ProgramFiles%\Keystone Agent", writes the server address and the one-time enrolment
     key to "%ProgramData%\Keystone Agent" (readable only by SYSTEM and Administrators), and registers the scheduled task
-    "Keystone Agent", which runs as SYSTEM at startup and every few hours. On its first run the task exchanges the
+    "Keystone Agent", which runs as SYSTEM at startup and every hour. On its first run the task exchanges the
     enrolment key for this computer's own device token, stores the token encrypted with DPAPI for the SYSTEM account,
-    and deletes the enrolment key.
+    and deletes the enrolment key. Each hourly run checks in with Keystone and sends a full report when one is due.
 
-    Options at install: -Tags web,dmz (groups this computer for scoped baselines), -Hours 1|2|4|8|12|24, and
-    -NoCustomChecks (turns custom checks off on this computer; Keystone then shows them as unknown).
+    Options at install: -Tags web,dmz (groups this computer for scoped baselines), -Hours 1|2|4|8|12|24 (report at
+    least this often), -NoCustomChecks (turns custom checks off on this computer; Keystone then shows them as unknown),
+    and -Pin "sha256//BASE64[;sha256//BASE64]" (accept only a server whose public key has this hash, in addition to
+    the normal certificate checks; needs Windows PowerShell 5.1, which the scheduled task uses).
 
     Custom checks: administrators can define extra read-only checks in Keystone. The agent downloads their definitions
     and evaluates each one itself, within limits written into this script, not set by the server: a fixed list of
@@ -37,6 +39,7 @@ param(
     [Parameter(ParameterSetName = 'Install')][ValidateSet(1, 2, 4, 8, 12, 24)][int]$Hours = 4,
     [Parameter(ParameterSetName = 'Install')][string[]]$Tags = @(),
     [Parameter(ParameterSetName = 'Install')][switch]$NoCustomChecks,
+    [Parameter(ParameterSetName = 'Install')][string]$Pin = '',
     [Parameter(ParameterSetName = 'Uninstall', Mandatory = $true)][switch]$Uninstall,
     [Parameter(ParameterSetName = 'Collect', Mandatory = $true)][switch]$Collect,
     [Parameter(ParameterSetName = 'Run')][switch]$Run
@@ -45,7 +48,7 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-$script:AgentVersion = '1.1.0'
+$script:AgentVersion = '1.2.0'
 $script:MaxChecks = 100
 $script:TaskName = 'Keystone Agent'
 $script:ProgramDir = Join-Path $env:ProgramFiles 'Keystone Agent'
@@ -53,6 +56,9 @@ $script:DataDir = Join-Path $env:ProgramData 'Keystone Agent'
 $script:ConfigPath = Join-Path $script:DataDir 'config.json'
 $script:TokenPath = Join-Path $script:DataDir 'token.bin'
 $script:LogPath = Join-Path $script:DataDir 'last-run.log'
+$script:LastReportPath = Join-Path $script:DataDir 'last-report.txt'
+$script:PinPattern = '^sha256//[A-Za-z0-9+/]{43}=(;sha256//[A-Za-z0-9+/]{43}=)?$'
+$script:Pins = @()
 
 # ----------------------------------------------------------------------------------------------- helpers
 
@@ -307,6 +313,7 @@ function Get-KeystoneReport {
         os_name       = if ($os) { [string]$os.Caption } else { 'Windows' }
         os_version    = if ($os) { [string]$os.Version } else { $null }
         agent_version = $script:AgentVersion
+        agent_sha256  = Get-AgentHash
         facts         = $facts
         check_errors  = $custom.Errors
     }
@@ -314,24 +321,105 @@ function Get-KeystoneReport {
     $report
 }
 
+function Get-AgentHash {
+    <# SHA-256 of this script as installed, so Keystone can tell whether it is a version it handed out. #>
+    $path = $PSCommandPath
+    if (-not $path) { return $null }
+    Invoke-Safely { (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
+}
+
 # ----------------------------------------------------------------------------------------------- transport
 
+function Read-DerHeader {
+    <# Tag, header size and content length of the DER element at Offset (lengths up to 4 bytes). #>
+    param([byte[]]$Data, [int]$Offset)
+    if ($Offset + 2 -gt $Data.Length) { throw 'Truncated certificate.' }
+    $first = [int]$Data[$Offset + 1]
+    if ($first -lt 0x80) { $len = $first; $hdr = 2 }
+    else {
+        $n = $first -band 0x7F
+        if ($n -lt 1 -or $n -gt 4 -or $Offset + 2 + $n -gt $Data.Length) { throw 'Bad certificate length.' }
+        $len = 0
+        for ($i = 0; $i -lt $n; $i++) { $len = ($len -shl 8) -bor [int]$Data[$Offset + 2 + $i] }
+        $hdr = 2 + $n
+    }
+    if ($len -lt 0 -or $Offset + $hdr + $len -gt $Data.Length) { throw 'Truncated certificate.' }
+    [pscustomobject]@{ Tag = [int]$Data[$Offset]; Header = $hdr; Length = $len }
+}
+
+function Get-SubjectPublicKeyInfo {
+    <# The certificate's SubjectPublicKeyInfo (DER): the 7th field of the TBSCertificate, or the 6th without a version.
+       Windows PowerShell 5.1 (.NET Framework) has no call that returns it. #>
+    param([byte[]]$Certificate)
+    $outer = Read-DerHeader $Certificate 0
+    if ($outer.Tag -ne 0x30) { throw 'Not a certificate.' }
+    $p = $outer.Header
+    $tbs = Read-DerHeader $Certificate $p
+    if ($tbs.Tag -ne 0x30) { throw 'Not a certificate.' }
+    $p += $tbs.Header
+    $h = Read-DerHeader $Certificate $p
+    if ($h.Tag -eq 0xA0) { $p += $h.Header + $h.Length; $h = Read-DerHeader $Certificate $p }  # [0] version
+    foreach ($expected in 0x02, 0x30, 0x30, 0x30, 0x30) {  # serial, signature algorithm, issuer, validity, subject
+        if ($h.Tag -ne $expected) { throw 'Unexpected certificate layout.' }
+        $p += $h.Header + $h.Length
+        $h = Read-DerHeader $Certificate $p
+    }
+    if ($h.Tag -ne 0x30) { throw 'Unexpected certificate layout.' }
+    $out = New-Object byte[] ($h.Header + $h.Length)
+    [Array]::Copy($Certificate, $p, $out, 0, $out.Length)
+    , $out
+}
+
+function Get-KeystonePin {
+    <# The pin of a certificate's public key, in curl's form: sha256// + base64(SHA-256(SubjectPublicKeyInfo)). #>
+    param([byte[]]$Certificate)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { 'sha256//' + [Convert]::ToBase64String($sha.ComputeHash((Get-SubjectPublicKeyInfo $Certificate))) } finally { $sha.Dispose() }
+}
+
+function Test-PinnedCertificate {
+    <# Normal certificate validation must pass AND the key must match a pin. Never accepts what validation refused. #>
+    param($Certificate, $PolicyErrors, [string[]]$Pins)
+    if ($PolicyErrors -ne [Net.Security.SslPolicyErrors]::None -or -not $Certificate -or -not $Pins) { return $false }
+    try { $pin = Get-KeystonePin $Certificate.GetRawCertData() } catch { return $false }
+    $Pins -contains $pin
+}
+
+function Invoke-PinnedRequest {
+    <# Runs a request; with a pin, only a server whose key matches is accepted, for the duration of the request. #>
+    param([scriptblock]$Request, [string]$Pin)
+    if (-not $Pin) { return & $Request }
+    if ($Pin -notmatch $script:PinPattern) { throw 'The pin must be sha256//BASE64 (one or two, separated by ;).' }
+    if ($PSVersionTable.PSVersion.Major -ge 6) { throw 'Pinning needs Windows PowerShell 5.1 (powershell.exe), which the scheduled task uses.' }
+    $script:Pins = @($Pin -split ';')
+    $previous = [Net.ServicePointManager]::ServerCertificateValidationCallback
+    # The callback's arguments: sender, certificate, chain, policy errors.
+    [Net.ServicePointManager]::ServerCertificateValidationCallback = { Test-PinnedCertificate -Certificate $args[1] -PolicyErrors $args[3] -Pins $script:Pins }
+    try { & $Request } finally { [Net.ServicePointManager]::ServerCertificateValidationCallback = $previous }
+}
+
 function Send-KeystoneRequest {
-    param([string]$Address, [string]$Path, [hashtable]$Headers, [object]$Body)
+    param([string]$Address, [string]$Path, [hashtable]$Headers, [object]$Body, [string]$Pin = '')
     if (-not (Test-ServerAddress $Address)) { throw "The server address must start with https://" }
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.ServicePointManager]::SecurityProtocol
     $json = $Body | ConvertTo-Json -Depth 5 -Compress
     $uri = $Address.TrimEnd('/') + '/api/agent/v1/' + $Path
-    # Certificates are validated by the platform; the agent never turns validation off.
-    Invoke-RestMethod -Method Post -Uri $uri -Headers $Headers -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes($json)) -TimeoutSec 60 -UseBasicParsing -MaximumRedirection 0
+    $requestHeaders = $Headers
+    # Certificates are validated by the platform; the agent never turns validation off (a pin only adds a check).
+    Invoke-PinnedRequest -Pin $Pin -Request {
+        Invoke-RestMethod -Method Post -Uri $uri -Headers $requestHeaders -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes($json)) -TimeoutSec 60 -UseBasicParsing -MaximumRedirection 0
+    }
 }
 
 function Get-KeystoneCheckList {
     <# The custom check definitions for this computer (read-only probes, evaluated by Invoke-KeystoneProbe). #>
-    param([string]$Address, [string]$Token)
+    param([string]$Address, [string]$Token, [string]$Pin = '')
     if (-not (Test-ServerAddress $Address)) { throw "The server address must start with https://" }
     $uri = $Address.TrimEnd('/') + '/api/agent/v1/checks'
-    $reply = Invoke-RestMethod -Method Get -Uri $uri -Headers @{ Authorization = "Bearer $Token" } -TimeoutSec 60 -UseBasicParsing -MaximumRedirection 0
+    $requestHeaders = @{ Authorization = "Bearer $Token" }
+    $reply = Invoke-PinnedRequest -Pin $Pin -Request {
+        Invoke-RestMethod -Method Get -Uri $uri -Headers $requestHeaders -TimeoutSec 60 -UseBasicParsing -MaximumRedirection 0
+    }
     @($reply.checks | Select-Object -First $script:MaxChecks)
 }
 
@@ -354,12 +442,20 @@ function Write-RunLog {
     Set-Content -Path $script:LogPath -Value $line -Encoding UTF8
 }
 
+function Get-ConfigValue {
+    param($Config, [string]$Name, $Default)
+    if ($Config.PSObject.Properties.Name -contains $Name -and $null -ne $Config.$Name) { $Config.$Name } else { $Default }
+}
+
 function Invoke-KeystoneRun {
     $config = Get-Content -Path $script:ConfigPath -Raw | ConvertFrom-Json
+    $pin = [string](Get-ConfigValue $config 'pin' '')
+    $hours = [int](Get-ConfigValue $config 'hours' 4)
+    if ($hours -notin 1, 2, 4, 8, 12, 24) { $hours = 4 }
     if (-not (Test-Path $script:TokenPath)) {
         if (-not $config.enrolment_key) { throw 'Not enrolled and no enrolment key. Reinstall with -EnrolmentKey.' }
         $os = Invoke-Safely { Get-CimInstance -ClassName Win32_OperatingSystem }
-        $reply = Send-KeystoneRequest -Address $config.server -Path 'enrol' -Headers @{} -Body ([ordered]@{
+        $reply = Send-KeystoneRequest -Address $config.server -Path 'enrol' -Pin $pin -Headers @{} -Body ([ordered]@{
                 enrolment_key = [string]$config.enrolment_key; hostname = [string]$env:COMPUTERNAME; platform = 'windows'
                 os_name = if ($os) { [string]$os.Caption } else { 'Windows' }; os_version = if ($os) { [string]$os.Version } else { $null }
                 agent_version = $script:AgentVersion
@@ -367,18 +463,32 @@ function Invoke-KeystoneRun {
             })
         if (-not ($reply.token -match '^kagt_[A-Za-z0-9_\-]+$')) { throw "The server's reply had no device token." }
         [IO.File]::WriteAllBytes($script:TokenPath, (Protect-Token $reply.token))
-        $config = [ordered]@{ server = [string]$config.server; custom_checks = -not ($config.PSObject.Properties.Name -contains 'custom_checks' -and $config.custom_checks -eq $false) }  # the enrolment key is no longer needed
+        $config = [ordered]@{ server = [string]$config.server; custom_checks = -not ($config.PSObject.Properties.Name -contains 'custom_checks' -and $config.custom_checks -eq $false)
+            hours = $hours; pin = $pin }  # the enrolment key is no longer needed
         $config | ConvertTo-Json | Set-Content -Path $script:ConfigPath -Encoding UTF8
         $config = [pscustomobject]$config
     }
     $token = Unprotect-Token ([IO.File]::ReadAllBytes($script:TokenPath))
+    $auth = @{ Authorization = "Bearer $token" }
+    # Check in every hour; report when Keystone says one is due, or when -Hours have passed (or the check-in fails).
+    $due = $true
+    try {
+        $reply = Send-KeystoneRequest -Address $config.server -Path 'checkin' -Pin $pin -Headers $auth -Body ([ordered]@{ agent_version = $script:AgentVersion; agent_sha256 = Get-AgentHash })
+        if ($reply -and $reply.PSObject.Properties.Name -contains 'report_due' -and $reply.report_due -eq $false) { $due = $false }
+    }
+    catch { Write-RunLog 'Check-in failed; sending a full report instead.' }
+    $last = 0
+    if (Test-Path $script:LastReportPath) { [long]::TryParse((Get-Content -Path $script:LastReportPath -Raw).Trim(), [ref]$last) | Out-Null }
+    if ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $last -ge ($hours * 3600 - 600)) { $due = $true }
+    if (-not $due) { Write-RunLog 'Checked in.'; return }
     $customOff = ($config.PSObject.Properties.Name -contains 'custom_checks') -and ($config.custom_checks -eq $false)
     $checks = @()
     if (-not $customOff) {
-        try { $checks = Get-KeystoneCheckList -Address $config.server -Token $token }
+        try { $checks = Get-KeystoneCheckList -Address $config.server -Token $token -Pin $pin }
         catch { Write-RunLog 'Could not fetch custom checks; sending the built-in settings only.' }
     }
-    $null = Send-KeystoneRequest -Address $config.server -Path 'report' -Headers @{ Authorization = "Bearer $token" } -Body (Get-KeystoneReport -Checks $checks -CustomChecksDisabled:$customOff)
+    $null = Send-KeystoneRequest -Address $config.server -Path 'report' -Pin $pin -Headers $auth -Body (Get-KeystoneReport -Checks $checks -CustomChecksDisabled:$customOff)
+    Set-Content -Path $script:LastReportPath -Value ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -Encoding ASCII
     Write-RunLog 'Report sent.'
 }
 
@@ -406,7 +516,7 @@ function Set-PrivateAcl {
 
 function Install-KeystoneAgent {
     [CmdletBinding(SupportsShouldProcess = $true)]
-    param([string]$Address, [string]$Key, [int]$Every, [string[]]$TagList = @(), [switch]$CustomOff)
+    param([string]$Address, [string]$Key, [int]$Every, [string[]]$TagList = @(), [switch]$CustomOff, [string]$PinList = '')
     if (-not (Test-Administrator)) { throw 'Run the installer from an elevated PowerShell prompt (Run as administrator).' }
     $Address = $Address.TrimEnd('/')
     if (-not (Test-ServerAddress $Address)) { throw 'The server address must start with https://' }
@@ -415,6 +525,7 @@ function Install-KeystoneAgent {
         $Key = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
     }
     if (-not ($Key -match '^kenr_[A-Za-z0-9_\-]+$')) { throw 'That is not a Keystone enrolment key (it starts with kenr_).' }
+    if ($PinList -and $PinList -notmatch $script:PinPattern) { throw 'The pin must be sha256//BASE64 (one or two, separated by ;).' }
     $TagList = @($TagList | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
     foreach ($t in $TagList) { if ($t -notmatch '^[a-z0-9][a-z0-9_-]{0,39}$') { throw "Tag '$t': lower-case letters, digits, - and _ only." } }
     if (-not $PSCmdlet.ShouldProcess($env:COMPUTERNAME, 'Install the Keystone agent')) { return }
@@ -423,20 +534,20 @@ function Install-KeystoneAgent {
     Set-PrivateAcl -Path $script:DataDir
     Copy-Item -Path $PSCommandPath -Destination (Join-Path $script:ProgramDir 'keystone-agent.ps1') -Force
     Remove-Item -Path $script:TokenPath -Force -ErrorAction SilentlyContinue  # a reinstall enrols again
-    [ordered]@{ server = $Address; enrolment_key = $Key; tags = $TagList; custom_checks = -not $CustomOff } | ConvertTo-Json | Set-Content -Path $script:ConfigPath -Encoding UTF8
+    [ordered]@{ server = $Address; enrolment_key = $Key; tags = $TagList; custom_checks = -not $CustomOff; hours = $Every; pin = $PinList } | ConvertTo-Json | Set-Content -Path $script:ConfigPath -Encoding UTF8
 
     $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     $arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}" -Run' -f (Join-Path $script:ProgramDir 'keystone-agent.ps1')
     $action = New-ScheduledTaskAction -Execute $exe -Argument $arguments
     $atStartup = New-ScheduledTaskTrigger -AtStartup
     $atStartup.Delay = 'PT5M'
-    $repeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Hours $Every)
+    $repeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Hours 1)
     $principal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18' -LogonType ServiceAccount -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew
     $null = Register-ScheduledTask -TaskName $script:TaskName -Action $action -Trigger @($atStartup, $repeat) -Principal $principal -Settings $settings `
         -Description 'Keystone configuration agent (report-only): sends security settings to Keystone.' -Force
     Start-ScheduledTask -TaskName $script:TaskName
-    Write-Output "Installed. The task '$($script:TaskName)' runs as SYSTEM every $Every hour(s); it is enrolling now. See $($script:LogPath)."
+    Write-Output "Installed. The task '$($script:TaskName)' runs as SYSTEM every hour and reports at least every $Every hour(s); it is enrolling now. See $($script:LogPath)."
 }
 
 function Uninstall-KeystoneAgent {
@@ -452,7 +563,7 @@ function Uninstall-KeystoneAgent {
 # ----------------------------------------------------------------------------------------------- entry point
 
 if ($MyInvocation.InvocationName -ne '.') {
-    if ($Install) { Install-KeystoneAgent -Address $Server -Key $EnrolmentKey -Every $Hours -TagList $Tags -CustomOff:$NoCustomChecks }
+    if ($Install) { Install-KeystoneAgent -Address $Server -Key $EnrolmentKey -Every $Hours -TagList $Tags -CustomOff:$NoCustomChecks -PinList $Pin }
     elseif ($Uninstall) { Uninstall-KeystoneAgent }
     elseif ($Collect) { Get-KeystoneReport | ConvertTo-Json -Depth 5 }
     elseif ($Run -or $PSCmdlet.ParameterSetName -eq 'Run') {

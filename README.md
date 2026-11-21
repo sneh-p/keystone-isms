@@ -41,7 +41,7 @@ All screenshots show the fictional demo organisation, Alpine Ski House.
 | **Tasks and calendar** | Recurring evidence tasks with independent approval that file evidence on their controls; tasks follow control owners; a calendar of every test, review, renewal and audit; a workload view per person |
 | **Risk** | Asset register, risk register with a configurable 5×5 matrix and appetite, treatment actions, time-limited acceptance, **FAIR Monte Carlo** quantification, a library of 24 common scenarios, incidents that bring a risk's review forward |
 | **Attack surface** | Devices, accounts, vulnerabilities and tenant settings from your tools, checked against baselines you set; findings, exceptions and alerts ([details](#attack-surface-management)) |
-| **Configuration** | Required settings for Windows, Linux, FortiGate, PAN-OS, Cisco ASA/IOS and pfSense/OPNsense; report-only agents for Windows and Linux; firewall configuration uploads checked without storing the file ([details](#configuration-baselines)) |
+| **Configuration** | Required settings for Windows, macOS, Linux, FortiGate, PAN-OS, Cisco ASA/IOS and pfSense/OPNsense; report-only agents for Windows, macOS and Linux with hourly check-ins, integrity checks and optional key pinning; coverage against your other tools; firewall configuration uploads checked without storing the file ([details](#configuration-baselines)) |
 | **Third parties** | Vendor register with tiering, questionnaires with scoring, a **vendor self-service portal** with virus-scanned uploads, FAIR vendor assessments with approval |
 | **Entra exposure** | Read-only PowerShell collector and importer for third-party apps in Entra ID: exposure scoring, vendor matching, FAIR suggestions, snapshot comparison, remediation candidates |
 | **Policies** | Versioned documents, approval by someone other than the author, review cycle, staff acceptance tracking, an optional AI policy assistant |
@@ -329,12 +329,16 @@ Data a tool doesn't report is "no data", never compliant; failed or partial runs
    *SMBv1 off*, *SSH root login off*, *no any-to-any allow rules*, *management not over Telnet or HTTP*, *logs sent to
    a remote server*), mapped to Keystone controls. Change values and severities, turn rules off, or add rules from the
    settings catalogue. A platform's default baseline applies to every host without one of its own.
-2. **Agents for Windows and Linux** (Configuration → Agents) read settings and send them to Keystone over HTTPS every
-   few hours. They are **report-only**: they never change the host, and Keystone can't send them commands.
+2. **Agents for Windows, macOS and Linux** (Configuration → Agents) read settings and send them to Keystone over
+   HTTPS. They are **report-only**: they never change the host, and Keystone can't send them commands or updates.
    - Windows: a PowerShell script that installs a scheduled task running as SYSTEM.
+   - macOS: a POSIX `sh` script with a launchd daemon.
    - Linux: a POSIX `sh` script with a systemd timer, falling back to cron.
-   Install with the one-line command shown on the page. Each agent swaps the enrolment key for its own device token,
-   which can only send reports for that host.
+   Install with the one-line command shown on the page, after checking the download's SHA-256. Each agent swaps the
+   enrolment key (which can expire or be limited to a number of installs) for its own device token, which can only
+   send reports for that host. Agents check in every hour; quiet, modified and out-of-date agents are flagged, and
+   **Coverage** lists the devices your other tools know that have no agent. Optional `--pin` accepts only Keystone's
+   own public key.
 3. **Firewalls** are checked from an uploaded configuration export. Keystone keeps only the values it checks and the
    file's SHA-256, never the file itself, because exports contain password hashes and keys.
 4. **Customise it.**
@@ -407,7 +411,9 @@ tickets automatically for known-exploited vulnerabilities.
 
 Every connector is read-only, with step-by-step setup and a **Test connection** dry run that saves nothing. For attack
 surface sources the dry run also lists the field names the API returned, so a mapping can be confirmed against your
-tenant. Connectors were built from vendor documentation; each records how its field mapping was verified (see
+tenant. For GitHub, AWS and Microsoft 365 it also checks that the key can't change anything. Passing checks file the
+raw result as evidence; a check that starts failing opens a task for the control's owner; integrations that keep
+failing, and keys about to expire, are flagged. Connectors were built from vendor documentation; each records how its field mapping was verified (see
 [docs/design-decisions.md](docs/design-decisions.md)).
 
 ## Security model

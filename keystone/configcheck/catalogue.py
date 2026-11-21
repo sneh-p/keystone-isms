@@ -13,10 +13,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-AGENT_PLATFORMS = ("windows", "linux")
+AGENT_PLATFORMS = ("windows", "linux", "macos")
 FIREWALL_PLATFORMS = ("fortigate", "panos", "cisco", "pfsense")
 PLATFORMS = AGENT_PLATFORMS + FIREWALL_PLATFORMS
-PLATFORM_LABEL = {"windows": "Windows", "linux": "Linux", "fortigate": "Fortinet FortiGate", "panos": "Palo Alto PAN-OS",
+PLATFORM_LABEL = {"windows": "Windows", "linux": "Linux", "macos": "macOS", "fortigate": "Fortinet FortiGate", "panos": "Palo Alto PAN-OS",
                   "cisco": "Cisco ASA / IOS", "pfsense": "pfSense / OPNsense"}
 TYPES = ("bool", "int", "str", "list")
 OPERATORS = {"is_true": "is on", "is_false": "is off", "eq": "equals", "ne": "is not", "gte": "at least", "lte": "at most",
@@ -39,7 +39,7 @@ class Setting:
     choices: tuple[str, ...] = field(default=())
 
 
-W, L = ("windows",), ("linux",)
+W, L, M = ("windows",), ("linux",), ("macos",)
 FW = FIREWALL_PLATFORMS
 
 SETTINGS: tuple[Setting, ...] = (
@@ -137,6 +137,35 @@ SETTINGS: tuple[Setting, ...] = (
             ("is_true", None, "medium", ("KC-TEC-09",))),
     Setting("ip_forwarding_enabled", L, "bool", "IP forwarding on", "The host forwards IPv4 packets between interfaces. Expected only on routers and container hosts.",
             ("is_false", None, "low", ("KC-TEC-20", "KC-TEC-22"))),
+    # ---------------------------------------------------------------- macOS
+    Setting("firewall_active", M, "bool", "Application firewall on", "The macOS application firewall is turned on.",
+            ("is_true", None, "high", ("KC-TEC-20", "KC-TEC-01"))),
+    Setting("firewall_stealth_mode", M, "bool", "Firewall stealth mode on", "The Mac doesn't answer probing requests such as ping from the network.",
+            ("is_true", None, "low", ("KC-TEC-20",)), requires="firewall_active"),
+    Setting("filevault_enabled", M, "bool", "Disk encrypted (FileVault)", "FileVault encrypts the startup disk.",
+            ("is_true", None, "high", ("KC-TEC-01", "KC-TEC-24"))),
+    Setting("gatekeeper_enabled", M, "bool", "Gatekeeper on", "Gatekeeper checks that apps come from identified developers or the App Store before they open.",
+            ("is_true", None, "high", ("KC-TEC-07", "KC-TEC-09"))),
+    Setting("sip_enabled", M, "bool", "System Integrity Protection on", "System Integrity Protection stops even administrators from changing protected system files.",
+            ("is_true", None, "high", ("KC-TEC-09", "KC-TEC-01"))),
+    Setting("automatic_updates_enabled", M, "bool", "Automatic updates on", "The Mac checks for updates automatically and installs security responses and system data files.",
+            ("is_true", None, "medium", ("KC-TEC-08",))),
+    Setting("remote_login_enabled", M, "bool", "Remote Login (SSH) on", "The built-in SSH server accepts connections.",
+            ("is_false", None, "low", ("KC-TEC-20", "KC-TEC-02"))),
+    Setting("ssh_permit_root_login", M, "str", "SSH root login", "The effective PermitRootLogin setting of the SSH server.",
+            ("in", ["no", "prohibit-password", "without-password", "forced-commands-only"], "high", ("KC-TEC-02", "KC-TEC-05")), requires="remote_login_enabled",
+            choices=("yes", "no", "prohibit-password", "without-password", "forced-commands-only")),
+    Setting("ssh_password_authentication", M, "bool", "SSH password sign-in allowed", "The SSH server accepts passwords (not only keys or other methods).",
+            ("is_false", None, "medium", ("KC-TEC-05",)), requires="remote_login_enabled"),
+    Setting("screen_sharing_enabled", M, "bool", "Screen Sharing on", "The Mac accepts Screen Sharing (VNC) connections. Reported for information."),
+    Setting("guest_account_enabled", M, "bool", "Guest account enabled", "The Guest user can sign in to the Mac.",
+            ("is_false", None, "medium", ("KC-TEC-02", "KC-ORG-16"))),
+    Setting("auto_login_enabled", M, "bool", "Automatic sign-in on", "The Mac signs a user in automatically at startup, without a password.",
+            ("is_false", None, "high", ("KC-TEC-05", "KC-TEC-01"))),
+    Setting("local_admin_count", M, "int", "Administrator accounts", "Accounts in the local admin group (root not counted).",
+            ("lte", 3, "medium", ("KC-TEC-02",)), max_int=10_000),
+    Setting("time_sync_active", M, "bool", "Clock synchronised", "The Mac sets its clock from a network time server.",
+            ("is_true", None, "medium", ("KC-TEC-17",))),
     # ---------------------------------------------------------------- firewalls (shared keys, parsed from config exports)
     Setting("mgmt_http_enabled", FW, "bool", "Management over plain HTTP", "The management interface accepts unencrypted HTTP (not only HTTPS).",
             ("is_false", None, "high", ("KC-TEC-20", "KC-TEC-24"))),

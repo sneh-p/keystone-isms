@@ -13,7 +13,9 @@ BeforeAll {
     foreach ($fn in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $false)) {
         . ([scriptblock]::Create($fn.Extent.Text))
     }
-    $script:AgentVersion = '1.1.0'
+    $script:AgentVersion = '1.2.0'
+    $script:PinPattern = '^sha256//[A-Za-z0-9+/]{43}=(;sha256//[A-Za-z0-9+/]{43}=)?$'
+    $script:Pins = @()
     $script:MaxChecks = 100
 
     # Stand-ins for Windows-only commands so they can be mocked on any platform.
@@ -122,30 +124,63 @@ Describe 'Invoke-KeystoneRun' {
         $script:ConfigPath = Join-Path $script:DataDir 'config.json'
         $script:TokenPath = Join-Path $script:DataDir 'token.bin'
         $script:LogPath = Join-Path $script:DataDir 'last-run.log'
+        $script:LastReportPath = Join-Path $script:DataDir 'last-report.txt'
+        Mock Get-AgentHash { 'ab' * 32 }
         Mock Protect-Token { [Text.Encoding]::UTF8.GetBytes("protected:$Token") }
         Mock Unprotect-Token { ([Text.Encoding]::UTF8.GetString($Data)) -replace '^protected:', '' }
         Mock Get-KeystoneReport { [ordered]@{ hostname = 'PC-01'; facts = @{ uac_enabled = $true } } }
         $script:Calls = [System.Collections.Generic.List[object]]::new()
+        $script:Due = $true
         Mock Send-KeystoneRequest {
             $script:Calls.Add([pscustomobject]@{ Path = $Path; Headers = $Headers; Body = $Body })
-            if ($Path -eq 'enrol') { [pscustomobject]@{ device_id = 7; token = 'kagt_test' } } else { [pscustomobject]@{ accepted = 1 } }
+            if ($Path -eq 'enrol') { [pscustomobject]@{ device_id = 7; token = 'kagt_test' } }
+            elseif ($Path -eq 'checkin') { [pscustomobject]@{ report_due = $script:Due; report_hours = 4 } }
+            else { [pscustomobject]@{ accepted = 1 } }
         }
     }
 
     It 'enrols once, keeps only the protected token, forgets the enrolment key and reports' {
         @{ server = 'https://keystone.example.org'; enrolment_key = 'kenr_secret' } | ConvertTo-Json | Set-Content $script:ConfigPath
         Invoke-KeystoneRun
-        $script:Calls.Path | Should -Be @('enrol', 'report')
+        $script:Calls.Path | Should -Be @('enrol', 'checkin', 'report')
         $script:Calls[0].Body.enrolment_key | Should -Be 'kenr_secret'
         $script:Calls[0].Body.platform | Should -Be 'windows'
         $script:Calls[1].Headers.Authorization | Should -Be 'Bearer kagt_test'
+        $script:Calls[1].Body.agent_sha256 | Should -Be ('ab' * 32)
+        $script:Calls[2].Headers.Authorization | Should -Be 'Bearer kagt_test'
         (Get-Content $script:ConfigPath -Raw) | Should -Not -Match 'kenr_'
         [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($script:TokenPath)) | Should -Be 'protected:kagt_test'
         (Get-Content $script:LogPath -Raw) | Should -Not -Match 'kagt_|kenr_'
 
         $script:Calls.Clear()
+        $script:Due = $false
         Invoke-KeystoneRun
-        $script:Calls.Path | Should -Be @('report')  # enrolled already
+        $script:Calls.Path | Should -Be @('checkin')  # enrolled already, and the last report is recent
+        (Get-Content $script:LogPath -Raw) | Should -Match 'Checked in'
+    }
+
+    It 'reports when Keystone says one is due, when -Hours have passed, or when the check-in fails' {
+        @{ server = 'https://keystone.example.org'; hours = 2 } | ConvertTo-Json | Set-Content $script:ConfigPath
+        [IO.File]::WriteAllBytes($script:TokenPath, [Text.Encoding]::UTF8.GetBytes('protected:kagt_test'))
+        $script:Due = $true
+        Set-Content -Path $script:LastReportPath -Value ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
+        Invoke-KeystoneRun
+        $script:Calls.Path | Should -Be @('checkin', 'report')
+
+        $script:Calls.Clear(); $script:Due = $false
+        Set-Content -Path $script:LastReportPath -Value ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - 3 * 3600)
+        Invoke-KeystoneRun
+        $script:Calls.Path | Should -Be @('checkin', 'report')  # more than 2 hours since the last report
+
+        $script:Calls.Clear()
+        Mock Send-KeystoneRequest {
+            $script:Calls.Add([pscustomobject]@{ Path = $Path })
+            if ($Path -eq 'checkin') { throw 'older server: no check-in endpoint' }
+            [pscustomobject]@{ accepted = 1 }
+        }
+        Set-Content -Path $script:LastReportPath -Value ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
+        Invoke-KeystoneRun
+        $script:Calls.Path | Should -Be @('checkin', 'report')
     }
 
     It 'refuses a reply without a well-formed token' {
@@ -253,6 +288,8 @@ Describe 'Custom checks in a run' {
         $script:ConfigPath = Join-Path $script:DataDir 'config.json'
         $script:TokenPath = Join-Path $script:DataDir 'token.bin'
         $script:LogPath = Join-Path $script:DataDir 'last-run.log'
+        $script:LastReportPath = Join-Path $script:DataDir 'last-report.txt'
+        Mock Get-AgentHash { $null }
         [IO.File]::WriteAllBytes($script:TokenPath, [Text.Encoding]::UTF8.GetBytes('kagt_x'))
         Mock Unprotect-Token { 'kagt_x' }
         Mock Get-KeystoneFact { [ordered]@{ uac_enabled = $true } }
@@ -284,5 +321,63 @@ Describe 'Custom checks in a run' {
         Mock Get-KeystoneCheckList { throw 'network down' }
         Invoke-KeystoneRun
         $script:Sent.facts['uac_enabled'] | Should -BeTrue
+    }
+}
+
+Describe 'Pinning' {
+    BeforeAll {
+        function New-TestCertificate([string]$Kind) {
+            $name = [Security.Cryptography.X509Certificates.X500DistinguishedName]::new('CN=keystone.example.org')
+            if ($Kind -eq 'rsa') {
+                $key = [Security.Cryptography.RSA]::Create(2048)
+                $req = [Security.Cryptography.X509Certificates.CertificateRequest]::new($name, $key, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)
+            } else {
+                $key = [Security.Cryptography.ECDsa]::Create([Security.Cryptography.ECCurve+NamedCurves]::nistP256)
+                $req = [Security.Cryptography.X509Certificates.CertificateRequest]::new($name, $key, [Security.Cryptography.HashAlgorithmName]::SHA256)
+            }
+            $req.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($false, $false, 0, $false))
+            $req.CreateSelfSigned([DateTimeOffset]::UtcNow.AddDays(-1), [DateTimeOffset]::UtcNow.AddDays(30))
+        }
+        function Get-ExpectedPin($Cert) {
+            $sha = [Security.Cryptography.SHA256]::Create()
+            'sha256//' + [Convert]::ToBase64String($sha.ComputeHash($Cert.PublicKey.ExportSubjectPublicKeyInfo()))
+        }
+    }
+
+    It 'computes the same pin as the public key export, for RSA and ECDSA' {
+        foreach ($kind in 'rsa', 'ecdsa') {
+            $cert = New-TestCertificate $kind
+            Get-KeystonePin $cert.RawData | Should -Be (Get-ExpectedPin $cert)
+        }
+    }
+
+    It 'accepts only a matching key, and never what normal validation refused' {
+        $cert = New-TestCertificate 'ecdsa'
+        $good = Get-ExpectedPin $cert
+        $other = Get-ExpectedPin (New-TestCertificate 'ecdsa')
+        Test-PinnedCertificate -Certificate $cert -PolicyErrors ([Net.Security.SslPolicyErrors]::None) -Pins @($good) | Should -BeTrue
+        Test-PinnedCertificate -Certificate $cert -PolicyErrors ([Net.Security.SslPolicyErrors]::None) -Pins @($other, $good) | Should -BeTrue
+        Test-PinnedCertificate -Certificate $cert -PolicyErrors ([Net.Security.SslPolicyErrors]::None) -Pins @($other) | Should -BeFalse
+        Test-PinnedCertificate -Certificate $cert -PolicyErrors ([Net.Security.SslPolicyErrors]::RemoteCertificateChainErrors) -Pins @($good) | Should -BeFalse
+        Test-PinnedCertificate -Certificate $cert -PolicyErrors ([Net.Security.SslPolicyErrors]::None) -Pins @() | Should -BeFalse
+    }
+
+    It 'refuses garbage instead of guessing' {
+        { Get-SubjectPublicKeyInfo ([byte[]](0x30, 0x82, 0xFF)) } | Should -Throw
+        { Get-SubjectPublicKeyInfo ([byte[]](0x04, 0x01, 0x00)) } | Should -Throw '*Not a certificate*'
+        $cert = New-TestCertificate 'rsa'
+        $cut = $cert.RawData[0..99]
+        { Get-SubjectPublicKeyInfo ([byte[]]$cut) } | Should -Throw
+    }
+
+    It 'checks the pin format, and refuses to pin where the check cannot run' {
+        Mock Invoke-RestMethod { throw 'must not be called' }
+        { Invoke-PinnedRequest -Pin 'sha256//short' -Request { Invoke-RestMethod -Uri 'https://x' } } | Should -Throw '*sha256//BASE64*'
+        if ($PSVersionTable.PSVersion.Major -ge 6) {
+            { Invoke-PinnedRequest -Pin ('sha256//' + 'A' * 43 + '=') -Request { Invoke-RestMethod -Uri 'https://x' } } | Should -Throw '*Windows PowerShell 5.1*'
+        }
+        Should -Invoke Invoke-RestMethod -Times 0
+        Mock Invoke-RestMethod { 'ok' }
+        Invoke-PinnedRequest -Pin '' -Request { Invoke-RestMethod -Uri 'https://x' } | Should -Be 'ok'
     }
 }

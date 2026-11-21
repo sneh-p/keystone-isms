@@ -12,6 +12,15 @@ class Outcome:
     details: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class PermissionReport:
+    """What the stored key can do beyond reading, as far as the tool tells its own key (Test connection)."""
+
+    result: str  # pass: read-only as far as can be seen | fail: more than needed | unknown: the tool doesn't say
+    summary: str
+    extra: list[str] = field(default_factory=list)
+
+
 @dataclass(frozen=True)
 class CheckDef:
     key: str
@@ -54,6 +63,10 @@ class Provider:
     def run(self, config: dict, secrets: dict, session=None) -> list[Outcome]:  # pragma: no cover - interface
         raise NotImplementedError
 
+    def permissions(self, config: dict, secrets: dict) -> PermissionReport | None:
+        """Override where the tool lets a key see its own permissions. None: Keystone can't check them."""
+        return None
+
     def check(self, key: str) -> CheckDef:
         return next(c for c in self.checks if c.key == key)
 
@@ -63,6 +76,7 @@ class Provider:
             "fields": [f.__dict__ for f in self.fields],
             "checks": [{"key": c.key, "title": c.title, "controls": list(c.controls)} for c in self.checks],
             "setup": [st.__dict__ for st in self.setup],
+            "checks_permissions": type(self).permissions is not Provider.permissions,
         }
 
 

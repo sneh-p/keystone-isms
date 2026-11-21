@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 
-from .base import CheckDef, ConfigField, Outcome, Provider, SetupStep
+from .base import CheckDef, ConfigField, Outcome, PermissionReport, Provider, SetupStep
 
+AUDIT_POLICIES = frozenset({"arn:aws:iam::aws:policy/SecurityAudit", "arn:aws:iam::aws:policy/job-function/ViewOnlyAccess"})
 REGION = re.compile(r"[a-z]{2}(?:-[a-z]+)+-\d{1,2}")
 
 
@@ -69,19 +70,48 @@ class AwsProvider(Provider):
             raise ValueError("Enter an AWS region such as eu-west-1.")
         return boto3.session.Session(aws_access_key_id=secrets["access_key_id"], aws_secret_access_key=secrets["secret_access_key"], region_name=region)
 
+    def _clients(self, config: dict, secrets: dict):
+        s = self._session(config, secrets)
+        if self.session_factory:
+            return s.client
+        from botocore.config import Config  # SC-ERR-004: explicit timeouts and bounded retries on every AWS call
+
+        boto_config = Config(connect_timeout=10, read_timeout=20, retries={"max_attempts": 3, "mode": "standard"})
+
+        def client(name: str, _s=s, _c=boto_config):
+            return _s.client(name, config=_c)
+        return client
+
+    def permissions(self, config: dict, secrets: dict) -> PermissionReport:
+        """For an IAM user: every policy and group attached, compared with SecurityAudit (or ViewOnlyAccess). SecurityAudit
+        itself allows these reads."""
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        client = self._clients(config, secrets)
+        try:
+            arn = client("sts").get_caller_identity()["Arn"]
+            if arn.endswith(":root"):
+                return PermissionReport("fail", "These are the account's root keys. Delete them and use a read-only IAM user.", ["root account"])
+            if ":user/" not in arn:
+                return PermissionReport("unknown", "Keystone checks IAM users' policies; for a role, check in the IAM console that only SecurityAudit is attached.")
+            user = arn.split(":user/", 1)[1].split("/")[-1]
+            iam = client("iam")
+            attached = [x["PolicyArn"] for x in iam.list_attached_user_policies(UserName=user)["AttachedPolicies"]]
+            inline = iam.list_user_policies(UserName=user)["PolicyNames"]
+            groups = [g["GroupName"] for g in iam.list_groups_for_user(UserName=user)["Groups"]]
+        except ClientError as e:
+            return PermissionReport("unknown", f"AWS: {e.response.get('Error', {}).get('Code', 'error')} while reading the user's policies")
+        except BotoCoreError as e:
+            return PermissionReport("unknown", f"AWS: {type(e).__name__}")
+        extra = [a.rsplit("/", 1)[-1] for a in attached if a not in AUDIT_POLICIES] + [f"inline policy {n}" for n in inline] + [f"group {g}" for g in groups]
+        if extra:
+            return PermissionReport("fail", f"The user {user} has more than SecurityAudit: {', '.join(extra)}.", extra)
+        return PermissionReport("pass", f"The user {user} has SecurityAudit only.")
+
     def run(self, config: dict, secrets: dict, session=None) -> list[Outcome]:
         from botocore.exceptions import BotoCoreError, ClientError
 
-        s = self._session(config, secrets)
-        if self.session_factory:
-            client = s.client
-        else:  # SC-ERR-004: explicit timeouts and bounded retries on every AWS call
-            from botocore.config import Config
-
-            boto_config = Config(connect_timeout=10, read_timeout=20, retries={"max_attempts": 3, "mode": "standard"})
-
-            def client(name: str, _s=s, _c=boto_config):
-                return _s.client(name, config=_c)
+        client = self._clients(config, secrets)
         out = []
 
         def attempt(key: str, fn):

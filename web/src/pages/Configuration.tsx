@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { AlertTriangle, BookPlus, Copy, Download, FileUp, KeyRound, Pencil, Plus, RotateCcw, ServerCog, ShieldOff, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, BookPlus, Copy, Download, FileUp, KeyRound, Pencil, Plus, Radar, RotateCcw, ServerCog, ShieldOff, Trash2, Upload } from "lucide-react";
 import { api, downloadUrl, upload } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -37,8 +37,23 @@ function Result({ s }: { s: string }) {
 
 function StateBadge({ t }: { t: any }) {
   const [label, tone] = STATE[t.state] ?? [t.state, "outline"];
-  return <span className="inline-flex flex-wrap gap-1"><Badge tone={tone}>{label}</Badge>{t.stale && t.state !== "revoked" && t.state !== "waiting" && <Badge tone="warning">Out of date</Badge>}</span>;
+  const a = t.agent ?? {};
+  const live = t.state !== "revoked";
+  return (
+    <span className="inline-flex flex-wrap gap-1"><Badge tone={tone}>{label}</Badge>
+      {t.stale && live && t.state !== "waiting" && <Badge tone="warning">Results out of date</Badge>}
+      {a.silent && live && <Badge tone="warning">Quiet</Badge>}
+      {a.integrity === "modified" && live && <Badge tone="critical">Modified agent</Badge>}
+      {a.outdated && live && <Badge tone="outline">Agent {t.agent_version}: update to {a.latest_version}</Badge>}
+    </span>
+  );
 }
+
+const INTEGRITY: Record<string, string> = {
+  ok: "A script Keystone handed out",
+  modified: "Not a script Keystone handed out: it was changed on the host",
+  unknown: "Not reported (agents before 1.2)",
+};
 
 function Tags({ tags }: { tags?: string[] | null }) {
   if (!tags?.length) return null;
@@ -64,13 +79,14 @@ export default function Configuration() {
   const go = (v: string) => setParams({ tab: v });
   return (
     <div className="animate-fade-in">
-      <PageHeader icon={ServerCog} title="Configuration" description="Set the required settings for Windows and Linux hosts and for firewalls, add your own checks, and scope baselines to groups of hosts. Agents on the hosts report their settings (they never change anything); firewall configurations are uploaded. Anything not reported counts as unknown, never as passing."
+      <PageHeader icon={ServerCog} title="Configuration" description="Set the required settings for Windows, macOS and Linux hosts and for firewalls, add your own checks, and scope baselines to groups of hosts. Agents on the hosts report their settings (they never change anything); firewall configurations are uploaded. Anything not reported counts as unknown, never as passing."
         actions={<a href={downloadUrl("/config/report.xlsx")}><Button variant="outline"><Download /> Compliance report</Button></a>} />
       <Tabs value={tab} onValueChange={go} tabs={[
         { value: "overview", label: "Overview", content: <Overview data={data} catalogue={catalogue} go={go} /> },
         { value: "targets", label: "Hosts and firewalls", content: <Targets catalogue={catalogue} /> },
         { value: "baselines", label: "Baselines", content: <Baselines catalogue={catalogue} /> },
         { value: "custom", label: "Custom checks", content: <CustomChecks catalogue={catalogue} /> },
+        { value: "coverage", label: "Coverage", content: <Coverage /> },
         ...(can("integration.manage") ? [
           { value: "agents", label: "Agents", content: <Agents /> },
           { value: "upload", label: "Upload firewall configuration", content: <UploadFirewall catalogue={catalogue} /> },
@@ -88,7 +104,7 @@ function Overview({ data, catalogue, go }: { data: any; catalogue: any; go: (t: 
     return (
       <Empty icon={ServerCog} title="Nothing checked yet"
         action={can("integration.manage") && <div className="flex flex-wrap justify-center gap-2"><Button onClick={() => go("agents")}>Install an agent</Button><Button variant="outline" onClick={() => go("upload")}>Upload a firewall configuration</Button></div>}>
-        Create a baseline for each platform (the recommended settings are filled in for you), then install the report-only agent on Windows and Linux hosts, or upload configuration exports from FortiGate, PAN-OS, Cisco and pfSense/OPNsense firewalls. Add your own checks under Custom checks.
+        Create a baseline for each platform (the recommended settings are filled in for you), then install the report-only agent on Windows, macOS and Linux hosts, or upload configuration exports from FortiGate, PAN-OS, Cisco and pfSense/OPNsense firewalls. Add your own checks under Custom checks.
       </Empty>
     );
   }
@@ -194,7 +210,11 @@ function TargetDrawer({ id, onClose, catalogue }: { id: number; onClose: () => v
           <KeyValue items={[
             ["Host name", t.hostname ?? "—"],
             ["Operating system", [t.os_name, t.os_version].filter(Boolean).join(" ") || "—"],
-            ...(t.kind === "agent" ? [["Agent", `${t.agent_version ?? "?"} · enrolled ${fmtDate(t.enrolled_at, true)}${t.last_ip ? ` from ${t.last_ip}` : ""}${t.custom_checks === "disabled" ? " · custom checks off" : ""}`] as [string, string]] : []),
+            ...(t.kind === "agent" ? [
+              ["Agent", `${t.agent_version ?? "?"}${t.agent?.outdated ? ` (${t.agent.latest_version} available)` : ""} · enrolled ${fmtDate(t.enrolled_at, true)}${t.last_ip ? ` from ${t.last_ip}` : ""}${t.custom_checks === "disabled" ? " · custom checks off" : ""}`],
+              ["Agent script", INTEGRITY[t.agent?.integrity ?? "unknown"]],
+              ["Last heard from", t.agent?.last_contact ? `${fmtDate(t.agent.last_contact, true)}${t.agent.checks_in ? " (checks in every hour)" : ""}` : "Not yet"],
+            ] as [string, string][] : []),
             ...(t.kind === "firewall" ? [["File", <span key="f">{t.source_filename}<span className="block break-all font-mono text-xs text-muted-foreground">SHA-256 {t.source_sha256}</span></span>] as [string, any]] : []),
             ["Last report", t.facts_at ? fmtDate(t.facts_at, true) : "Not yet"],
             ["Baselines", t.baselines.length ? t.baselines.map((b: any) => b.name).join(", ") : "None apply"],
@@ -219,6 +239,8 @@ function TargetDrawer({ id, onClose, catalogue }: { id: number; onClose: () => v
             ) : t.asset?.name ?? "Not linked"],
           ]} />
           {t.revoked_at && <p className="text-sm text-muted-foreground">The agent token was revoked on {fmtDate(t.revoked_at, true)}. These are its last results.</p>}
+          {t.agent?.integrity === "modified" && !t.revoked_at && <div className="flex items-start gap-2 rounded-lg border border-critical/30 bg-critical/5 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-critical" aria-hidden />
+            <div>The agent script on this host isn't one Keystone handed out. Check who changed it, then reinstall it from the Agents tab. Until then, treat this host's results with care: a changed agent can report anything.</div></div>}
           <Section title="Results">
             {t.results.length === 0 ? <p className="text-sm text-muted-foreground">{t.baselines.length ? "Waiting for the first report." : "No baseline applies. Create one for this platform, scope one to this host's tags, or pin one above."}</p> : (
               <ul className="divide-y rounded-lg border">
@@ -541,29 +563,42 @@ function CustomCheckDialog({ check, probes, catalogue, onClose }: { check: any; 
 
 // ---------------------------------------------------------------- agents
 
+const AGENT_PLATFORMS: { key: "windows" | "macos" | "linux"; title: string; about: string; install: string }[] = [
+  { key: "windows", title: "Windows", about: "PowerShell 5.1 or later. Installs a scheduled task that runs as SYSTEM at startup and every hour.", install: "Install from an elevated PowerShell prompt in the download folder" },
+  { key: "macos", title: "macOS", about: "macOS 12 or later, nothing to install first (sh and curl are built in). Installs a launchd service that runs every hour.", install: "Install with sudo in the download folder" },
+  { key: "linux", title: "Linux", about: "Any distribution with sh and curl. Installs a systemd timer, or a cron job where there's no systemd, that runs every hour.", install: "Install as root in the download folder" },
+];
+
 function Agents() {
   const { data } = useApi<any>("/config/agent");
+  const [limits, setLimits] = useState<{ days: string; uses: string } | null>(null);
   const rotate = useAction(() => api("/config/agent/rotate", { method: "POST" }), { success: "New enrolment key. Agents already installed keep working.", invalidate: ["/config/agent"] });
-  const hours = useAction((h: number) => api("/config/agent", { method: "PATCH", body: { report_hours: h } }), { success: "Saved. Installed agents keep their schedule until reinstalled.", invalidate: ["/config"] });
+  const hours = useAction((h: number) => api("/config/agent", { method: "PATCH", body: { report_hours: h } }), { success: "Saved. Agents 1.2 and later pick it up at their next hourly check-in.", invalidate: ["/config"] });
+  const saveLimits = useAction(() => api("/config/agent", { method: "PATCH", body: { set_key_limits: true, key_days: limits?.days ? Number(limits.days) : null, key_max_uses: limits?.uses ? Number(limits.uses) : null } }),
+    { success: "Enrolment key limits saved.", invalidate: ["/config/agent"], onSuccess: () => setLimits(null) });
   if (!data) return <Skeleton className="h-64" />;
+  const l = data.limits;
   return (
     <div className="max-w-4xl space-y-6">
       {!data.https && (
         <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-[#b07400]" />
           <div>Keystone's address is {data.server}. Agents only talk to HTTPS addresses (HTTP works for localhost testing only). Set KEYSTONE_PUBLIC_URL to the HTTPS address users reach Keystone on.</div></div>
       )}
-      <p className="text-sm text-muted-foreground">The agents only read settings and send them to Keystone. They never change the host or run commands. They also evaluate your custom checks (read-only, within limits built into the agent) unless installed with custom checks turned off. Each agent swaps the enrolment key for its own device token when it enrols, and the token can only fetch check definitions for that host and send its reports.</p>
-      {(["windows", "linux"] as const).map((p) => (
-        <Card key={p}>
-          <CardHeader title={p === "windows" ? "Windows" : "Linux"} description={p === "windows" ? "PowerShell 5.1 or later. Installs a scheduled task that runs as SYSTEM at startup and every few hours." : "Any distribution with sh and curl. Installs a systemd timer, or a cron job where there's no systemd."}
-            action={<a href={downloadUrl(`/config/agent/download/${p}`)}><Button size="sm" variant="outline"><Download /> {data.files[p].filename}</Button></a>} />
+      <p className="text-sm text-muted-foreground">The agents only read settings and send them to Keystone. They never change the host or run commands, and Keystone can't update them: you install new versions yourself. They also evaluate your custom checks (read-only, within limits built into the agent) unless installed with custom checks turned off. Each agent swaps the enrolment key for its own device token when it enrols, checks in every hour, and sends a full report when one is due. It also reports the SHA-256 of its own script, so a changed agent shows up as “Modified agent”.</p>
+      {AGENT_PLATFORMS.map((p) => (
+        <Card key={p.key}>
+          <CardHeader title={`${p.title} · agent ${data.files[p.key].version}`} description={p.about}
+            action={<a href={downloadUrl(`/config/agent/download/${p.key}`)}><Button size="sm" variant="outline"><Download /> {data.files[p.key].filename}</Button></a>} />
           <CardBody className="space-y-3 text-sm">
-            <div className="text-xs text-muted-foreground">SHA-256 <span className="break-all font-mono">{data.files[p].sha256}</span></div>
-            <Field label={p === "windows" ? "Install from an elevated PowerShell prompt in the download folder" : "Install as root in the download folder"}>
-              <div className="flex items-start gap-2"><code className="block min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 font-mono text-xs">{data.install[p]}</code><CopyButton text={data.install[p]} /></div>
+            <div className="text-xs text-muted-foreground">SHA-256 <span className="break-all font-mono">{data.files[p.key].sha256}</span>{data.files[p.key].signed && <Badge tone="good" className="ml-2">Signed (Authenticode)</Badge>}</div>
+            <Field label="Check the download before installing">
+              <div className="flex items-start gap-2"><code className="block min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 font-mono text-xs">{data.verify[p.key]}</code><CopyButton text={data.verify[p.key]} /></div>
             </Field>
-            <div className="text-xs text-muted-foreground">Options: <code className="font-mono">{data.options[p]}</code></div>
-            <div className="text-xs text-muted-foreground">To remove: <code className="font-mono">{data.uninstall[p]}</code></div>
+            <Field label={p.install}>
+              <div className="flex items-start gap-2"><code className="block min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 font-mono text-xs">{data.install[p.key]}</code><CopyButton text={data.install[p.key]} /></div>
+            </Field>
+            <div className="text-xs text-muted-foreground">Options: <code className="font-mono">{data.options[p.key]}</code></div>
+            <div className="text-xs text-muted-foreground">To remove: <code className="font-mono">{data.uninstall[p.key]}</code></div>
           </CardBody>
         </Card>
       ))}
@@ -572,10 +607,90 @@ function Agents() {
           action={<Button size="sm" variant="outline" loading={rotate.isPending} onClick={() => window.confirm("Create a new enrolment key? The current one stops working for new installs.") && rotate.mutate(undefined)}><RotateCcw /> New key</Button>} />
         <CardBody className="space-y-3 text-sm">
           <div className="flex items-center gap-2"><KeyRound className="size-4 text-muted-foreground" /><code className="break-all font-mono text-xs">{data.enrolment_key}</code><CopyButton text={data.enrolment_key} /></div>
+          {(l.expired || l.used_up) && <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-[#b07400]" aria-hidden />
+            {l.expired ? "This key has expired." : "This key has been used as many times as allowed."} Create a new key to install more agents.</div>}
           <p className="text-muted-foreground">Anyone with this key can enrol a device, so share it only with the people installing agents and replace it when they're done. Revoke a device's token from its page under Hosts and firewalls.</p>
-          <Field label="Report every"><Select ariaLabel="Report interval" value={String(data.report_hours)} onChange={(v) => v && hours.mutate(Number(v))} options={[1, 2, 4, 8, 12, 24].map((h) => ({ value: String(h), label: `${h} hour${h > 1 ? "s" : ""}` }))} className="w-40" /></Field>
+          <div className="rounded-lg border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span><span className="font-medium">Limits: </span>{l.expires_at ? `expires ${fmtDate(l.expires_at, true)}` : "never expires"} · {l.max_uses ? `${l.uses} of ${l.max_uses} enrolments used` : `${l.uses} enrolment(s), no limit`}</span>
+              {!limits && <Button size="sm" variant="outline" onClick={() => setLimits({ days: l.days ? String(l.days) : "", uses: l.max_uses ? String(l.max_uses) : "" })}>Change limits</Button>}
+            </div>
+            {limits && (
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <Field label="Expires after (days)" hint="Empty: never. Applies from now, and to each new key."><Input type="number" min={1} max={90} value={limits.days} onChange={(e) => setLimits({ ...limits, days: e.target.value })} className="w-32" /></Field>
+                <Field label="At most this many enrolments" hint="Empty: no limit"><Input type="number" min={1} max={10000} value={limits.uses} onChange={(e) => setLimits({ ...limits, uses: e.target.value })} className="w-32" /></Field>
+                <Button size="sm" loading={saveLimits.isPending} onClick={() => saveLimits.mutate(undefined)}>Save limits</Button>
+                <Button size="sm" variant="ghost" onClick={() => setLimits(null)}>Cancel</Button>
+              </div>
+            )}
+          </div>
+          <Field label="Report at least every"><Select ariaLabel="Report interval" value={String(data.report_hours)} onChange={(v) => v && hours.mutate(Number(v))} options={[1, 2, 4, 8, 12, 24].map((h) => ({ value: String(h), label: `${h} hour${h > 1 ? "s" : ""}` }))} className="w-40" /></Field>
         </CardBody>
       </Card>
+      <Card>
+        <CardHeader title="Pinning Keystone's key (optional)" description="For networks where TLS might be intercepted: the agent then accepts only a server whose public key matches, on top of the normal certificate checks." />
+        <CardBody className="space-y-3 text-sm">
+          <p className="text-muted-foreground">Get the pin of the key your server uses now, and add it at install with the --pin (Windows: -Pin) option. Many certificate renewals change the key: before renewing, either keep the key (for example certbot --reuse-key) or reinstall agents with two pins, the current key's and the next one's, separated by a semicolon. A wrong pin stops the agent reporting.</p>
+          <CodeBlockLine text={`openssl s_client -connect ${data.server.replace(/^https?:\/\//, "").replace(/\/.*$/, "")}:443 </dev/null 2>/dev/null | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64 | sed 's#^#sha256//#'`} />
+        </CardBody>
+      </Card>
+    </div>
+  );
+}
+
+function CodeBlockLine({ text }: { text: string }) {
+  return <div className="flex items-start gap-2"><code className="block min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 font-mono text-xs">{text}</code><CopyButton text={text} /></div>;
+}
+
+// ---------------------------------------------------------------- coverage
+
+const OS_LABEL: Record<string, string> = { windows: "Windows", macos: "macOS", linux: "Linux" };
+const TOOL_LABEL: Record<string, string> = { rmm: "Remote management", edr: "Endpoint security", vuln: "Vulnerability scanner", mdm: "Device management", manual: "Imported list" };
+
+function Coverage() {
+  const { data } = useApi<any>("/config/coverage");
+  const [, setParams] = useSearchParams();
+  if (!data) return <Skeleton className="h-64" />;
+  const openTarget = (t: any) => setParams({ tab: "targets", target: String(t.id) });
+  return (
+    <div className="space-y-6">
+      <p className="max-w-3xl text-sm text-muted-foreground">Compares the hosts running a Keystone agent with the workstations and servers your other tools (Attack surface sources) reported in the last {data.days} days, matched by host name.</p>
+      {data.devices === 0 && data.not_in_tools.length === 0 ? (
+        <Empty icon={Radar} title="Nothing to compare yet">Connect a remote management, endpoint security or device management tool under Integrations, then come back to see which devices have no agent.</Empty>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            <Stat label="Devices your tools know" value={data.devices} />
+            <Stat label="With a Keystone agent" value={data.percent === null ? "—" : `${data.percent}%`} hint={`${data.with_agent} of ${data.devices}`} tone={data.percent === 100 ? "good" : undefined} />
+            <Stat label="No agent" value={data.no_agent_count} tone={data.no_agent_count ? "warning" : undefined} />
+            <Stat label="Agent but no endpoint security" value={data.edr_source ? data.no_edr.length : "—"} hint={data.edr_source ? undefined : "No endpoint security tool connected"} tone={data.no_edr.length ? "critical" : undefined} />
+          </div>
+          <Section title="Devices without an agent" level={2}>
+            <DataTable rows={data.no_agent} rowKey={(d: any) => d.id} exportName="devices-without-agent" empty="Every device your tools know has an agent." search={(d: any) => `${d.name} ${d.os ?? ""}`}
+              columns={[
+                { key: "n", header: "Device", cell: (d: any) => <span><span className="font-medium">{d.name}</span><span className="block text-xs text-muted-foreground">{d.os ?? ""}</span></span> },
+                { key: "t", header: "Type", cell: (d: any) => titleCase(d.type) },
+                { key: "s", header: "Seen by", cell: (d: any) => d.tools.map((c: string) => TOOL_LABEL[c] ?? c).join(", ") || "—" },
+                { key: "l", header: "Last seen", cell: (d: any) => (d.last_seen ? fmtDate(d.last_seen, true) : "—") },
+              ]} />
+          </Section>
+          {data.edr_source && (
+            <Section title="Agents on hosts without endpoint security" level={2}>
+              <DataTable rows={data.no_edr} rowKey={(t: any) => t.id} onRowClick={openTarget} empty="Every agent host also has endpoint security." columns={[
+                { key: "n", header: "Host", cell: (t: any) => <span className="font-medium">{t.name}</span> },
+                { key: "p", header: "Platform", cell: (t: any) => OS_LABEL[t.platform] ?? t.platform },
+              ]} />
+            </Section>
+          )}
+          <Section title="Agent hosts your other tools don't know" level={2}>
+            <p className="mb-2 text-xs text-muted-foreground">Either the host name differs between tools, or the host isn't managed by them.</p>
+            <DataTable rows={data.not_in_tools} rowKey={(t: any) => t.id} onRowClick={openTarget} empty="Every agent host is known to your other tools." columns={[
+              { key: "n", header: "Host", cell: (t: any) => <span className="font-medium">{t.name}</span> },
+              { key: "p", header: "Platform", cell: (t: any) => OS_LABEL[t.platform] ?? t.platform },
+            ]} />
+          </Section>
+        </>
+      )}
     </div>
   );
 }

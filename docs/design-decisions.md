@@ -415,3 +415,37 @@ All new connections and the upload below were approved with the request (SC-AGT-
   decompressing, so a zip bomb stops early), .xml entries only, parsed with defusedxml with DTDs forbidden. Only the
   figures are stored; the file isn't kept. Upload needs integration.manage.
 
+## Integrations and agents, batch A (round 9)
+
+Approved with the request: the macOS agent, the hourly check-in endpoint, agent hashes, enrolment key limits, optional
+key pinning, the signed Windows agent, and asking tools what a key may do (SC-AGT-006).
+
+- **Raw results as evidence.** A passing check's outcome (summary and details, never settings or credentials) is
+  filed as a JSON attachment on its evidence, at most once a day per check, through the normal attachment store
+  (content-addressed, SHA-256 checked on read). Old files stay linked to the evidence as its history.
+- **Change alerts.** A check that passed and now fails opens one task for its control's owner (or notifies the people
+  who manage integrations when no control has an owner). A check that changed between pass and fail four or more
+  times in its last ten results is "flapping": it gets a note instead of a new task each time.
+- **Health.** Failed runs in a row and the last successful run are kept on the integration. After three failures in a
+  row the ISMS managers (org.write) are told; credential expiry dates are entered by hand (no tool reports them
+  reliably) and reminded two weeks ahead.
+- **Is the key read-only?** Asked of the tool only where it tells a key about itself: GitHub's scope header (classic
+  tokens), the IAM user's attached policies (SecurityAudit allows reading them), and the application roles in a
+  Microsoft access token. The token's claims are read for display only; nothing is authorised by them. Anything
+  else is "unknown", never "read-only".
+- **Agents still receive no code.** The new check-in answers only "is a report due". Keystone does not update agents:
+  a server that could push code to root-level agents would turn a Keystone compromise into a fleet compromise.
+- **Integrity is a tripwire, not a guarantee.** The agent's self-reported hash catches changed scripts, not a
+  determined administrator on the host, who could fake it; the documentation says so.
+- **Signed Windows agent.** A signed copy in the data directory is served only when, without its signature block, it
+  equals the shipped script, so the signing route can't be used to hand out a different agent.
+- **Pinning** is optional and always in addition to normal TLS validation (SC-CRY-004). Linux and macOS use curl's
+  `--pinnedpubkey`; Windows PowerShell 5.1 has no call that returns a certificate's SubjectPublicKeyInfo, so the agent
+  walks the certificate's DER fields to find it. The walk is tested against .NET's own export for RSA and ECDSA keys,
+  and any parsing error rejects the connection. PowerShell 7 refuses to pin rather than silently not pinning.
+- **macOS agent** mirrors the Linux agent's limits. Its deny list adds the local directory (password hashes),
+  keychains and home folders; a test fails if the server refuses a path an agent doesn't.
+- **Coverage** matches agent hosts to attack surface devices by short host name. Assets are linked automatically only
+  when exactly one asset has the name, and only on a host's first report (or its first from agent 1.2), so a link an
+  administrator removed isn't put back.
+

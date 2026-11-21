@@ -19,7 +19,7 @@ STAFF_ROUTES = ["/", "/frameworks", "/controls", "/soa", "/evidence", "/risks", 
                 # configuration baselines
                 "/configuration", "/configuration?tab=targets", "/configuration?tab=baselines", "/configuration?tab=agents", "/configuration?tab=upload",
                 # round 4
-                "/configuration?tab=custom", "/people?tab=training",
+                "/configuration?tab=custom", "/configuration?tab=coverage", "/people?tab=training",
                 # round 6: in-app help
                 "/help", "/help#risk-register",
                 # round 8: security expansion, batch 1

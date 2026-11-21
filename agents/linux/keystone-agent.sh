@@ -2,8 +2,9 @@
 # Keystone configuration agent for Linux. Report-only: it reads security settings and sends them to Keystone over
 # HTTPS. It never changes the host and never runs commands it is sent.
 #
-#   sudo KEYSTONE_ENROLMENT_KEY="kenr_..." sh keystone-agent.sh install --server https://keystone.example.org [--tags web,dmz] [--hours 4] [--no-custom-checks]
-#   sudo sh keystone-agent.sh run         # collect and report now (the timer does this every few hours)
+#   sudo KEYSTONE_ENROLMENT_KEY="kenr_..." sh keystone-agent.sh install --server https://keystone.example.org [--tags web,dmz] [--hours 4] [--no-custom-checks] [--pin sha256//...]
+#   sudo sh keystone-agent.sh run         # check in, and report if one is due (the timer does this every hour)
+#   sudo sh keystone-agent.sh report      # collect and report now
 #   sh keystone-agent.sh collect          # print the built-in settings as JSON; sends nothing
 #   sh keystone-agent.sh collect-custom FILE   # evaluate custom check definitions from FILE (tab-separated); sends nothing
 #   sudo sh keystone-agent.sh status
@@ -18,21 +19,27 @@
 #   - at most 100 checks; values capped at 200 characters
 # Install with --no-custom-checks to turn them off on this host; Keystone then shows them as unknown.
 #
+# --pin sha256//BASE64[;sha256//BASE64]: accept only a server whose public key has this hash (in addition to the
+# normal certificate checks, never instead of them). Give a second pin for the next key before renewing a certificate.
+#
 # Files: /usr/local/lib/keystone-agent/keystone-agent.sh (this script), /etc/keystone-agent/agent.conf (server address
 # and options, mode 600) and /etc/keystone-agent/token (this device's token, mode 600, readable by root only). The
 # enrolment key is used once, at install, and is not kept. Needs: sh, curl. Runs as root so it can read sshd, sudoers
 # and firewall state.
 set -u
 
-AGENT_VERSION="1.1.0"
+AGENT_VERSION="1.2.0"
 CONF_DIR="${KEYSTONE_AGENT_CONF_DIR:-/etc/keystone-agent}"
 LIB_DIR="${KEYSTONE_AGENT_LIB_DIR:-/usr/local/lib/keystone-agent}"
 UNIT_DIR="${KEYSTONE_AGENT_UNIT_DIR:-/etc/systemd/system}"
 CRON_FILE="${KEYSTONE_AGENT_CRON_FILE:-/etc/cron.d/keystone-agent}"
 CONF="$CONF_DIR/agent.conf"
 TOKEN_FILE="$CONF_DIR/token"
+STATE_FILE="$CONF_DIR/last_report"
 MAX_CHECKS=100
 CUSTOM_CHECKS=1
+HOURS=4
+PIN=""
 umask 077
 
 die() { printf 'keystone-agent: %s\n' "$*" >&2; exit 1; }
@@ -187,7 +194,8 @@ collect_builtin() {
 deny_path() {  # true when a content-reading probe must not read this file. Mirrors keystone/configcheck/custom.py.
   lp=$(printf '%s' "$1" | tr 'A-Z' 'a-z')
   case "$lp" in
-    /etc/shadow*|/etc/gshadow*|/etc/security/opasswd*|/etc/ssl/private/*|/root/*|/home/*|*/.ssh/*|/proc/*/environ|/proc/*/mem|*.key|*.pem|*.p12|*.pfx|*.keytab|/var/lib/sss/*) return 0 ;;
+    /etc/shadow*|/etc/gshadow*|/etc/security/opasswd*|/etc/ssl/private/*|/root/*|/home/*|*/.ssh/*|/proc/*/environ|/proc/*/mem|*.key|*.pem|*.p12|*.pfx|*.keytab|*/krb5.keytab|/var/lib/sss/*) return 0 ;;
+    /users/*|/var/root/*|/private/var/root/*|/var/db/dslocal/*|/private/var/db/dslocal/*|*/keychains/*|*.keychain*|/etc/master.passwd|/private/etc/master.passwd) return 0 ;;
   esac
   return 1
 }
@@ -313,12 +321,14 @@ run_custom() {  # run_custom FILE: evaluate tab-separated definitions (key, prob
   set +f
 }
 
+self_sha() { if have sha256sum; then sha256sum "$0" 2>/dev/null | cut -d' ' -f1; fi; }
+
 report_json() {
   host=$(hostname 2>/dev/null || uname -n)
   extra=""
   [ "$CUSTOM_CHECKS" = 1 ] || extra=',"custom_checks":"disabled"'
-  printf '{"hostname":%s,"os_name":%s,"os_version":%s,"agent_version":"%s","facts":{%s},"check_errors":{%s}%s}\n' \
-    "$(json_str "$host")" "$(json_str "$(os_field PRETTY_NAME)")" "$(json_str "$(os_field VERSION_ID) $(uname -r)")" "$AGENT_VERSION" "$FACTS" "$CHECK_ERRS" "$extra"
+  printf '{"hostname":%s,"os_name":%s,"os_version":%s,"agent_version":"%s","agent_sha256":"%s","facts":{%s},"check_errors":{%s}%s}\n' \
+    "$(json_str "$host")" "$(json_str "$(os_field PRETTY_NAME)")" "$(json_str "$(os_field VERSION_ID) $(uname -r)")" "$AGENT_VERSION" "$(self_sha)" "$FACTS" "$CHECK_ERRS" "$extra"
 }
 
 # ------------------------------------------------------------------------------------------------ transport
@@ -331,6 +341,21 @@ check_server() {
   esac
 }
 
+check_pin() {  # one or two sha256//BASE64 pins separated by ";"
+  [ -n "$1" ] || return 0
+  old_ifs=$IFS; IFS=";"; set -f
+  n=0
+  for p in $1; do
+    n=$((n + 1))
+    case "$p" in sha256//*) ;; *) die "--pin: give sha256//BASE64 (the base64 SHA-256 of the server's public key)" ;; esac
+    b=${p#sha256//}
+    case "$b" in *[!A-Za-z0-9+/=]*) die "--pin: not base64" ;; esac
+    [ ${#b} = 44 ] || die "--pin: a SHA-256 in base64 is 44 characters"
+  done
+  set +f; IFS=$old_ifs
+  [ "$n" -le 2 ] || die "--pin: at most two pins (the current key and the next one)"
+}
+
 headers() {  # headers [TOKENFILE]: a curl header file. The token never goes on the command line (visible in ps).
   hdr="$WORK/headers"
   printf 'Content-Type: application/json\n' >"$hdr"
@@ -338,7 +363,13 @@ headers() {  # headers [TOKENFILE]: a curl header file. The token never goes on 
   echo "$hdr"
 }
 
-kcurl() { curl -fsS --max-time 60 --proto '=https,http' --proto-redir '=https' --tlsv1.2 "$@"; }  # HTTP only for localhost (check_server)
+kcurl() {  # HTTP only for localhost (check_server); a pin is checked on top of the normal certificate checks
+  if [ -n "$PIN" ]; then
+    curl -fsS --max-time 60 --proto '=https,http' --proto-redir '=https' --tlsv1.2 --pinnedpubkey "$PIN" "$@"
+  else
+    curl -fsS --max-time 60 --proto '=https,http' --proto-redir '=https' --tlsv1.2 "$@"
+  fi
+}
 
 post() {  # post PATH BODYFILE [TOKENFILE] ; prints the response body
   kcurl -H "@$(headers "${3:-}")" --data-binary "@$2" "$SERVER/api/agent/v1/$1"
@@ -348,12 +379,17 @@ get_checks() {  # the custom check definitions for this host, tab-separated, cap
   kcurl --max-filesize 65536 -H "@$(headers "$TOKEN_FILE")" "$SERVER/api/agent/v1/checks?format=lines"
 }
 
+conf_value() { sed -n "s/^$1=//p" "$CONF" | head -n1; }
+
 load_conf() {
   [ -r "$CONF" ] || die "not installed (no $CONF). Run: sudo sh keystone-agent.sh install --server https://..."
-  SERVER=$(sed -n 's/^SERVER=//p' "$CONF" | head -n1)
+  SERVER=$(conf_value SERVER)
   [ -n "$SERVER" ] || die "no SERVER in $CONF"
   check_server "$SERVER"
-  case "$(sed -n 's/^CUSTOM_CHECKS=//p' "$CONF" | head -n1)" in 0) CUSTOM_CHECKS=0 ;; *) CUSTOM_CHECKS=1 ;; esac
+  case "$(conf_value CUSTOM_CHECKS)" in 0) CUSTOM_CHECKS=0 ;; *) CUSTOM_CHECKS=1 ;; esac
+  case "$(conf_value HOURS)" in 1|2|4|8|12|24) HOURS=$(conf_value HOURS) ;; *) HOURS=4 ;; esac
+  PIN=$(conf_value PIN)
+  check_pin "$PIN"
 }
 
 tags_json() {  # tags_json "a,b": validated JSON list
@@ -392,18 +428,34 @@ run_report() {
   fi
   report_json >"$WORK/report.json"
   post report "$WORK/report.json" "$TOKEN_FILE" >/dev/null || die "the report was not accepted"
+  date +%s >"$STATE_FILE" 2>/dev/null || true
   say "report sent"
+}
+
+run_agent() {  # the hourly entry point: check in, and report when Keystone says one is due or --hours has passed
+  load_conf
+  [ -s "$TOKEN_FILE" ] || die "not enrolled (no $TOKEN_FILE). Reinstall with an enrolment key."
+  printf '{"agent_version":"%s","agent_sha256":"%s"}' "$AGENT_VERSION" "$(self_sha)" >"$WORK/checkin.json"
+  due=1
+  if resp=$(post checkin "$WORK/checkin.json" "$TOKEN_FILE" 2>/dev/null); then
+    case "$resp" in *'"report_due":false'*|*'"report_due": false'*) due=0 ;; esac
+  fi
+  last=$(cat "$STATE_FILE" 2>/dev/null || echo 0)
+  case "$last" in ''|*[!0-9]*) last=0 ;; esac
+  [ $(( $(date +%s) - last )) -ge $(( HOURS * 3600 - 600 )) ] && due=1
+  if [ "$due" = 1 ]; then run_report; fi
 }
 
 # ------------------------------------------------------------------------------------------------ install
 
 install_agent() {
-  server="" hours=4 tags="" custom=1
+  server="" hours=4 tags="" custom=1 pin=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --server) server="${2:-}"; shift 2 ;;
       --hours) hours="${2:-4}"; shift 2 ;;
       --tags) tags="${2:-}"; shift 2 ;;
+      --pin) pin="${2:-}"; shift 2 ;;
       --no-custom-checks) custom=0; shift ;;
       *) die "unknown option $1" ;;
     esac
@@ -412,6 +464,7 @@ install_agent() {
   [ -n "$server" ] || die "give --server https://your-keystone-address"
   server=${server%/}
   check_server "$server"
+  check_pin "$pin"
   have curl || die "curl is required"
   case "$hours" in 1|2|4|8|12|24) ;; *) die "--hours must be 1, 2, 4, 8, 12 or 24" ;; esac
   tags_json "$tags" >/dev/null
@@ -422,8 +475,8 @@ install_agent() {
   [ -n "$key" ] || die "set KEYSTONE_ENROLMENT_KEY (shown in Keystone under Configuration > Agents)"
   mkdir -p "$CONF_DIR" "$LIB_DIR" && chmod 700 "$CONF_DIR"
   cp "$0" "$LIB_DIR/keystone-agent.sh" && chmod 755 "$LIB_DIR/keystone-agent.sh"
-  printf 'SERVER=%s\nCUSTOM_CHECKS=%s\n' "$server" "$custom" >"$CONF" && chmod 600 "$CONF"
-  SERVER="$server"
+  printf 'SERVER=%s\nCUSTOM_CHECKS=%s\nHOURS=%s\nPIN=%s\n' "$server" "$custom" "$hours" "$pin" >"$CONF" && chmod 600 "$CONF"
+  SERVER="$server" PIN="$pin"
   enrol "$key" "$tags"
   if have systemctl && [ -d /run/systemd/system ]; then
     cat >"$UNIT_DIR/keystone-agent.service" <<EOF
@@ -442,25 +495,25 @@ PrivateTmp=yes
 EOF
     cat >"$UNIT_DIR/keystone-agent.timer" <<EOF
 [Unit]
-Description=Run the Keystone configuration agent every $hours hour(s)
+Description=Check in with Keystone every hour (reports at least every $hours hour(s))
 
 [Timer]
 OnBootSec=5min
-OnUnitActiveSec=${hours}h
-RandomizedDelaySec=10min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
 Persistent=true
 
 [Install]
 WantedBy=timers.target
 EOF
     systemctl daemon-reload && systemctl enable --now keystone-agent.timer >/dev/null 2>&1 || die "could not enable the systemd timer"
-    say "installed: systemd timer every $hours hour(s)"
+    say "installed: systemd timer, checks in every hour and reports at least every $hours hour(s)"
   else
     m=$(awk 'BEGIN {srand(); print int(rand()*60)}')
-    printf '# Keystone configuration agent (report-only)\n%s */%s * * * root /bin/sh %s/keystone-agent.sh run >/dev/null 2>&1\n@reboot root sleep 300 && /bin/sh %s/keystone-agent.sh run >/dev/null 2>&1\n' \
-      "$m" "$hours" "$LIB_DIR" "$LIB_DIR" >"$CRON_FILE"
+    printf '# Keystone configuration agent (report-only)\n%s * * * * root /bin/sh %s/keystone-agent.sh run >/dev/null 2>&1\n@reboot root sleep 300 && /bin/sh %s/keystone-agent.sh run >/dev/null 2>&1\n' \
+      "$m" "$LIB_DIR" "$LIB_DIR" >"$CRON_FILE"
     chmod 644 "$CRON_FILE"
-    say "installed: cron every $hours hour(s) (no systemd found)"
+    say "installed: cron, checks in every hour and reports at least every $hours hour(s) (no systemd found)"
   fi
   [ "$custom" = 1 ] || say "custom checks are turned off on this host"
   run_report || say "first report failed; the schedule will retry"
@@ -480,7 +533,8 @@ uninstall_agent() {
 
 status_agent() {
   load_conf
-  printf 'server: %s\nenrolled: %s\ncustom checks: %s\n' "$SERVER" "$([ -s "$TOKEN_FILE" ] && echo yes || echo no)" "$([ "$CUSTOM_CHECKS" = 1 ] && echo on || echo off)"
+  printf 'server: %s\nenrolled: %s\ncustom checks: %s\nreports at least every: %s hour(s)\npinned: %s\nversion: %s\n' "$SERVER" "$([ -s "$TOKEN_FILE" ] && echo yes || echo no)" \
+    "$([ "$CUSTOM_CHECKS" = 1 ] && echo on || echo off)" "$HOURS" "$([ -n "$PIN" ] && echo yes || echo no)" "$AGENT_VERSION"
   if have systemctl && [ -f "$UNIT_DIR/keystone-agent.timer" ]; then systemctl list-timers keystone-agent.timer --no-pager 2>/dev/null | head -n2; fi
   [ -f "$CRON_FILE" ] && printf 'schedule: %s\n' "$CRON_FILE"
   return 0
@@ -493,11 +547,12 @@ cmd="${1:-}"
 [ $# -gt 0 ] && shift
 case "$cmd" in
   install) install_agent "$@" ;;
-  run) [ "$(id -u)" = 0 ] || say "not running as root: some settings can't be read and will show as unknown"; run_report ;;
+  run) [ "$(id -u)" = 0 ] || say "not running as root: some settings can't be read and will show as unknown"; run_agent ;;
+  report) run_report ;;
   collect) collect_builtin; report_json ;;
   collect-custom) [ -n "${1:-}" ] || die "give a file of check definitions"; collect_builtin; FACTS=""; run_custom "$1"; report_json ;;
   status) status_agent ;;
   uninstall) uninstall_agent ;;
   version) echo "$AGENT_VERSION" ;;
-  *) printf 'usage: %s install --server URL [--tags a,b] [--hours N] [--no-custom-checks] | run | collect | collect-custom FILE | status | uninstall | version\n' "$0" >&2; exit 2 ;;
+  *) printf 'usage: %s install --server URL [--tags a,b] [--hours N] [--no-custom-checks] [--pin sha256//...] | run | report | collect | collect-custom FILE | status | uninstall | version\n' "$0" >&2; exit 2 ;;
 esac
