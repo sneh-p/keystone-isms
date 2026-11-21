@@ -11,12 +11,13 @@ from __future__ import annotations
 import base64
 import json
 import re
+from urllib.parse import quote
 
 from keystone.asm.vocabulary import DeviceObs, IdentityObs, Inventory, SettingObs, VulnObs, as_bool, device_type_from, parse_time, severity_from
 
 from ..http import Api, ConnectorError, HostPolicy, fields_of
 from .asm_mdm import FLEET_CHECKS, fleet_checks
-from .base import CheckDef, ConfigField, InventoryProvider, Outcome, PermissionReport, SetupStep
+from .base import CheckDef, ConfigField, InventoryProvider, Outcome, PermissionReport, SetupStep, alert_severity, pull_alerts_field
 
 LOGIN, GRAPH, MDE = "https://login.microsoftonline.com", "https://graph.microsoft.com", "https://api.securitycenter.microsoft.com"
 POLICY = HostPolicy(hosts=frozenset({"login.microsoftonline.com", "graph.microsoft.com", "api.securitycenter.microsoft.com"}))
@@ -69,7 +70,9 @@ class MicrosoftProvider(InventoryProvider):
         ConfigField("tenant_id", "Directory (tenant) ID", help="A GUID from Entra ID > Overview.", example="00000000-0000-0000-0000-000000000000"),
         ConfigField("client_id", "Application (client) ID", help="From the app registration's Overview."),
         ConfigField("client_secret", "Client secret", secret=True, help="Certificates & secrets > New client secret. Note its expiry."),
+        pull_alerts_field("WindowsDefenderATP Alert.Read.All"),
     )
+    pulls_alerts = True
     setup = (
         SetupStep("Register an app", "In Entra ID > App registrations > New registration, name it “Keystone (read-only)”, single tenant, no redirect URI.",
                   link="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade", link_label="Open App registrations"),
@@ -108,6 +111,18 @@ class MicrosoftProvider(InventoryProvider):
 
     def assess(self, inventory) -> list[Outcome]:
         return assess(inventory)
+
+    def fetch_alerts(self, config: dict, secrets: dict, since) -> list[dict]:
+        """Defender for Endpoint alerts created since `since`."""
+        api = Api(POLICY)
+        tok = self._token(api, config, secrets, f"{MDE}/.default")
+        flt = quote(f"alertCreationTime ge {since:%Y-%m-%dT%H:%M:%SZ}", safe="")
+        rows = api.json("GET", f"{MDE}/api/alerts?$filter={flt}&$top=500", headers={"Authorization": f"Bearer {tok}"}).get("value") or []
+        cat = {"ransomware": "ransomware", "malware": "malware", "credentialaccess": "account_compromise", "initialaccess": "unauthorised_access", "exfiltration": "data_breach"}
+        return [{"external_id": a.get("id"), "title": a.get("title") or "Defender alert", "severity": alert_severity(a.get("severity")),
+                 "category": cat.get(str(a.get("category") or "").lower(), "other"), "host": a.get("computerDnsName"),
+                 "account": (a.get("relatedUser") or {}).get("userName") if isinstance(a.get("relatedUser"), dict) else None,
+                 "description": a.get("description"), "occurred_at": parse_time(a.get("alertCreationTime"))} for a in rows]
 
     def _pages(self, api: Api, start: str, token: str, preview: bool, limit: int = 100_000) -> list[dict]:
         out: list[dict] = []

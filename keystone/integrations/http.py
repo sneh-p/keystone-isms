@@ -86,6 +86,24 @@ def _resolve(host: str) -> str:
     return str(next((a for a in ok if a.version == 4), ok[0]))
 
 
+def tls_verify():
+    """What connectors verify server certificates against: the public authorities, plus KEYSTONE_EXTRA_CA_FILE when set.
+    Verification is never turned off."""
+    import ssl
+
+    from keystone.core.settings import get_settings
+
+    extra = get_settings().extra_ca_file
+    if not extra:
+        return True
+    ctx = httpx.create_ssl_context()  # httpx's own default: the bundled public authorities, hostname checking on
+    try:
+        ctx.load_verify_locations(cafile=extra)
+    except (OSError, ssl.SSLError):
+        raise ConnectorError("KEYSTONE_EXTRA_CA_FILE couldn't be read as PEM certificates.") from None
+    return ctx
+
+
 class Api:
     """A small client bound to a host policy. Use one per connector run."""
 
@@ -121,7 +139,7 @@ class Api:
                 ip = self._ips.get(host) or self._ips.setdefault(host, _resolve(host))
                 target, host_header, ext = _pinned(url, ip)
                 h = {**h, **host_header}
-                client = httpx.Client(timeout=TIMEOUT, follow_redirects=False)
+                client = httpx.Client(timeout=TIMEOUT, follow_redirects=False, verify=tls_verify())
             try:
                 with client, client.stream(method, target, headers=h, extensions=ext, **kw) as r:
                     size, chunks = 0, []
@@ -172,7 +190,7 @@ class Api:
             ip = self._ips.get(host) or self._ips.setdefault(host, _resolve(host))
             target, host_header, ext = _pinned(url, ip)
             h = {**h, **host_header}
-            client = httpx.Client(timeout=TIMEOUT, follow_redirects=False)
+            client = httpx.Client(timeout=TIMEOUT, follow_redirects=False, verify=tls_verify())
         dest = Path(dest)
         tmp = dest.with_name(dest.name + ".part")
         try:

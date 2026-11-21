@@ -19,6 +19,9 @@ class Settings:
     # Public base URL for links Keystone hands out (invitations, Trust Center access). Never derived from the
     # request's Host header (SC-CFG-006). When unset, the API returns paths and the browser adds its own origin.
     public_url: str = field(default_factory=lambda: os.environ.get("KEYSTONE_PUBLIC_URL", "").strip().rstrip("/"))
+    # A PEM file of extra certificate authorities that connectors trust, on top of the public ones: for internal servers
+    # such as firewalls with certificates from your own CA. Certificates are always verified (SC-CRY-004).
+    extra_ca_file: str = field(default_factory=lambda: os.environ.get("KEYSTONE_EXTRA_CA_FILE", "").strip())
     min_password_length: int = 12
     max_failed_logins: int = 5
     lockout_minutes: int = 15

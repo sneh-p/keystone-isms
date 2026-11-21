@@ -871,9 +871,20 @@ def expire_exceptions(session: Session) -> int:
 def upload_firewall(session: Session, actor, *, platform: str, filename: str, data: bytes, target_id: int | None = None, name: str | None = None) -> tuple[ConfigTarget, dict, list[str]]:
     """Parse a configuration export, keep only the facts (never the file, which holds secrets), run the platform's
     custom checks on it, and evaluate."""
+    authorize(session, actor, "integration.manage")
+    return _store_firewall(session, actor, platform=platform, filename=filename, data=data, target_id=target_id, name=name)
+
+
+def fetched_firewall(session: Session, *, platform: str, source: str, data: bytes, name: str | None = None) -> tuple[ConfigTarget, dict, list[str]]:
+    """A configuration an integration read from the firewall's API (round 9): handled like an upload, and kept on the
+    same target each time (found by its source, e.g. "API: fw1.example.org")."""
+    t = session.scalar(select(ConfigTarget).where(ConfigTarget.kind == "firewall", ConfigTarget.platform == platform, ConfigTarget.source_filename == source[:200]))
+    return _store_firewall(session, None, platform=platform, filename=source, data=data, target_id=t.id if t else None, name=name)
+
+
+def _store_firewall(session: Session, actor, *, platform: str, filename: str, data: bytes, target_id: int | None = None, name: str | None = None) -> tuple[ConfigTarget, dict, list[str]]:
     from keystone.core.attachments import safe_filename
 
-    authorize(session, actor, "integration.manage")
     if platform not in cat.FIREWALL_PLATFORMS:
         raise ValueError("Choose FortiGate, PAN-OS, Cisco or pfSense/OPNsense.")
     parsed = parsers.parse(platform, data)
@@ -900,7 +911,8 @@ def upload_firewall(session: Session, actor, *, platform: str, filename: str, da
         session.add(t)
     t.hostname = (parsed.hostname or t.hostname or "")[:253] or None
     t.os_name, t.os_version = cat.PLATFORM_LABEL[platform], (parsed.version or "")[:100] or None
-    t.source_filename, t.source_sha256 = safe_filename(filename), hashlib.sha256(data).hexdigest()
+    t.source_filename = filename[:200] if filename.startswith("API: ") else safe_filename(filename)
+    t.source_sha256 = hashlib.sha256(data).hexdigest()
     t.facts, t.facts_at, t.check_errors = facts, utcnow(), errors or None
     session.flush()
     result = evaluate_target(session, t, source="upload")

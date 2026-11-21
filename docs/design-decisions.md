@@ -477,3 +477,31 @@ key pinning, the signed Windows agent, and asking tools what a key may do (SC-AG
 - **Report size.** Agent reports may be up to 1 MB (was 256 KB) to fit a software list of up to 5,000 entries; entries
   are validated and anything malformed is dropped, not stored.
 
+## Integrations and agents, batch C (round 9)
+
+- **Okta and Google Workspace** are control checks with read-only credentials: an Okta token inherits its creator's
+  rights, so it is created by a Read-only Administrator; the Workspace service account gets domain-wide delegation for
+  two read-only scopes only, and the token endpoint is fixed (a `token_uri` in the key file is ignored, SC-SSRF-003).
+  Okta's MFA check needs one call per user, so above 1,000 active users it reports "unknown" instead of hammering the
+  API. Drive's external sharing policy field is from Google's Cloud Identity Policy API documentation; anything not
+  returned is "unknown".
+- **Cloud posture checks** come from what the posture sources already collect, plus one read that Security Reader
+  allows (Defender plans). Security Command Center only lists failures, so "pass" says Security Health Analytics must be
+  enabled for the result to mean anything.
+- **Pulled alerts** are opt-in per integration and need one extra read scope at most. They come through a source of
+  their own whose stored hash belongs to a random value nobody holds; the inbound endpoint also refuses any source tied
+  to an integration, and such a source can't be given a token. Alerts already in the inbox (same id) aren't counted
+  again, and a failure to read alerts never fails the inventory run.
+- **Check-ins** reuse the per-tool tokens. A backup source may record only "successful backup" and "failure" on backup
+  jobs (an allowlist in the register service: steps without segregation-of-duties rules or required fields); a CI
+  source may only append scan results to an open release sign-off. Neither can sign anything off or record restore
+  tests: those stay with people.
+- **Firewalls by API** read the configuration with read-only administrators (FortiGate REST backup, GET with the POST
+  fallback newer firmware needs; PAN-OS `type=config&action=show` with the key in the `X-PAN-KEY` header, never in the
+  URL) and hand it to the same parser and evaluation as an upload. Nothing but the checked values and the SHA-256 is
+  kept. Test connection parses and stores nothing. Internal addresses need the operator's allowlist; internal
+  certificates need `KEYSTONE_EXTRA_CA_FILE`, which adds trust anchors and never disables verification (SC-CRY-004).
+- **Rollout snippets** keep the enrolment key in each tool's secret store where it has one (Ansible Vault, Jamf
+  parameters, RMM secure fields). Where a tool has none (Kandji's custom scripts, a Group Policy share) the guide says
+  to limit the key and replace it after the rollout.
+

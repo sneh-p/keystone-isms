@@ -25,15 +25,23 @@ from .providers.asm_microsoft import MicrosoftProvider
 from .providers.asm_rmm import ConnectWiseAutomateProvider, DattoRmmProvider, NCentralProvider, NinjaOneProvider
 from .providers.asm_vuln import QualysProvider, Rapid7Provider, TenableProvider
 from .providers.aws import AwsProvider
+from .http import ConnectorError
 from .providers.base import InventoryProvider, Outcome, Provider
 from .providers.hr import HR_PROVIDERS, HrProvider
 from .providers.ticketing import TICKET_PROVIDERS, TicketProvider
 from .providers.entra import EntraProvider
+from .providers.firewall_api import FortiGateApiProvider, PanOsApiProvider
 from .providers.github import GitHubProvider
+from .providers.google_workspace import GoogleWorkspaceProvider
+from .providers.okta import OktaProvider
 from .providers.website import WebsiteProvider
 
 PROVIDERS: dict[str, Provider] = {p.key: p for p in (
     WebsiteProvider(), GitHubProvider(), AwsProvider(), EntraProvider(),
+    # identity providers (round 9): read-only control checks
+    OktaProvider(), GoogleWorkspaceProvider(),
+    # firewall configurations read over the firewall's read-only API (round 9)
+    FortiGateApiProvider(), PanOsApiProvider(),
     # attack surface sources (keystone/asm): read-only inventory, decision 2026-11-16
     MicrosoftProvider(), CrowdStrikeProvider(), SentinelOneProvider(), SophosProvider(),
     NinjaOneProvider(), DattoRmmProvider(), NCentralProvider(), ConnectWiseAutomateProvider(),
@@ -116,6 +124,7 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
     i = get_or_404(session, Integration, integration_id)
     p = provider(i.provider)
     now = utcnow()
+    previous_success = i.last_success_at
     inventory = None
     try:
         secrets = json.loads(crypto.decrypt(i.secret_enc)) if i.secret_enc else {}
@@ -179,12 +188,30 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
                    f"{counts['identities']} identit(ies), {counts['settings']} setting(s); {evaluation['new_findings']} new finding(s)")
         if inventory.notes:
             summary += ". " + "; ".join(inventory.notes)[:400]
+        if isinstance(p, InventoryProvider) and p.pulls_alerts and (i.config or {}).get("pull_alerts") == "on":
+            summary += ". " + _pull_alerts(session, i, p, secrets, previous_success, now)
         r = CheckResult(integration_id=i.id, check_key="inventory", title="Data collected", result="pass", summary=summary[:2000], details=counts, controls=[], run_at=now)
         session.add(r)
         results.append(r)
     log_event(session, actor, "integration_run", "Integration", i.id, f"{i.name}: " + ", ".join(f"{r.check_key}={r.result}" for r in results))
     session.flush()
     return results
+
+
+ALERT_LOOKBACK = timedelta(days=7)
+
+
+def _pull_alerts(session: Session, i: Integration, p: InventoryProvider, secrets: dict, previous_success, now) -> str:
+    """Bring the tool's alerts raised since the last good run (at most a week back) into the Alert inbox. A failure here
+    is reported in the run summary; it doesn't fail the inventory."""
+    from keystone.alerts.service import receive_pulled
+
+    since = max((previous_success or now - timedelta(days=1)) - timedelta(minutes=15), now - ALERT_LOOKBACK)
+    try:
+        items = p.fetch_alerts(i.config or {}, secrets, since)
+    except ConnectorError as e:
+        return f"Alerts not read: {str(e)[:200]}"
+    return f"{receive_pulled(session, i, items)} new alert(s) in the inbox"
 
 
 # ---- raw results as evidence, and alerts when a check changes ---------------------------------------------------------
@@ -319,7 +346,7 @@ def test(session: Session, actor, provider_key: str | None = None, values: dict 
             inventory = p.collect_in(session, config, secrets, preview=True) if p.needs_session else p.collect(config, secrets, preview=True)
             outcomes = []
         else:
-            outcomes = p.run(config, secrets, session)
+            outcomes = p.run(config, secrets, None if p.stores_results else session)  # a dry run stores nothing
     except Exception as e:  # noqa: BLE001 - report, never pass
         msg = str(e)[:500] if isinstance(e, ValueError) else f"{type(e).__name__}: test failed"
         from .providers.base import Outcome

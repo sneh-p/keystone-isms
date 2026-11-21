@@ -119,15 +119,15 @@ function Sources() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-3xl text-sm text-muted-foreground">Each tool gets its own token, shown once and stored only as a hash. Tools post JSON to <code>{url}</code> with <code>Authorization: Bearer &lt;token&gt;</code>. Keystone never sends anything back to them.</p>
+        <p className="max-w-3xl text-sm text-muted-foreground">Each tool gets its own token, shown once and stored only as a hash. Tools post JSON to <code>{url}</code> with <code>Authorization: Bearer &lt;token&gt;</code>. Keystone never sends anything back to them. Backup and CI sources can also report backup results and release scans to <code>{`${window.location.origin}/api/inbound/checkin`}</code>.</p>
         <Button onClick={() => setAdding({ name: "", kind: null })}><Plus /> Add a source</Button>
       </div>
       <DataTable rows={data.sources} rowKey={(s: any) => s.id} empty="No sources yet." columns={[
-        { key: "n", header: "Source", cell: (s: any) => <span><span className="font-medium">{s.name}</span><span className="block text-xs text-muted-foreground">{data.kinds[s.kind]}</span></span> },
+        { key: "n", header: "Source", cell: (s: any) => <span><span className="font-medium">{s.name}</span><span className="block text-xs text-muted-foreground">{s.integration_id ? "Pulled by an integration" : data.kinds[s.kind]}</span></span> },
         { key: "r", header: "Alerts received", cell: (s: any) => <span className="tabular-nums">{s.received}</span> },
         { key: "l", header: "Last alert", cell: (s: any) => (s.last_received_at ? fmtDate(s.last_received_at) : "Never") },
         { key: "e", header: "On", cell: (s: any) => <Switch checked={s.enabled} onChange={() => enable.mutate(s)} label={<span className="sr-only">{s.enabled ? `Turn off ${s.name}` : `Turn on ${s.name}`}</span>} /> },
-        { key: "t", header: "", cell: (s: any) => <Button size="sm" variant="ghost" onClick={() => { if (window.confirm(`Make a new token for ${s.name}? The current one stops working at once.`)) rotate.mutate(s.id); }}><KeyRound /> New token</Button> },
+        { key: "t", header: "", cell: (s: any) => (s.integration_id ? null : <Button size="sm" variant="ghost" onClick={() => { if (window.confirm(`Make a new token for ${s.name}? The current one stops working at once.`)) rotate.mutate(s.id); }}><KeyRound /> New token</Button>) },
       ]} />
       {adding && (
         <Dialog open onOpenChange={(o) => !o && setAdding(null)} title="Add a source" footer={<Button disabled={!adding.name.trim() || !adding.kind} loading={create.isPending} onClick={() => create.mutate(undefined)}>Add source</Button>}>

@@ -119,7 +119,8 @@ plain HTTP for evaluation on a private network only.
 | `KEYSTONE_API_DOCS` | unset | Set to `1` to serve the interactive API docs and OpenAPI schema (development only) |
 | `KEYSTONE_SMTP_PRIVATE_HOSTS` | unset | Comma-separated host names of internal SMTP relays Keystone may connect to. Without it, only relays with public addresses are allowed |
 | `KEYSTONE_CLAMD_SOCKET` | `/var/run/clamav/clamd.ctl` | ClamAV daemon socket used to scan vendor uploads |
-| `KEYSTONE_INTEGRATION_PRIVATE_HOSTS` | unset | Comma-separated host names of self-hosted tools inside your network (N-central, ConnectWise Automate) that attack surface connectors may reach. Without it, only public addresses are allowed |
+| `KEYSTONE_INTEGRATION_PRIVATE_HOSTS` | unset | Comma-separated host names of self-hosted tools inside your network (N-central, ConnectWise Automate, Jamf Pro, firewalls read over their API) that connectors may reach. Without it, only public addresses are allowed |
+| `KEYSTONE_EXTRA_CA_FILE` | unset | A PEM file of your own certificate authorities that connectors trust in addition to the public ones, for internal servers such as firewalls. Certificates are always verified; there is no way to turn verification off |
 | `KEYSTONE_CLAMD_TCP` | unset | `host:port` of a ClamAV daemon (for example a ClamAV container), used instead of the socket |
 
 Don't put secrets in the repository. Pass database credentials through the environment.
@@ -366,6 +367,9 @@ each one the narrowest read-only credential:
 | GitHub | Fine-grained token: repository *Administration*, *Code scanning alerts* and *Metadata* read-only; organisation *Administration* and *Members* read-only. Without *Members*, the collaborator and owner checks show as unknown |
 | AWS | An IAM user or role with the AWS-managed `SecurityAudit` policy (it covers every check, including the credential report, EBS, RDS, VPC flow logs and AWS Config) |
 | Microsoft Entra ID | None. It reads the latest imported exposure snapshot and doesn't call Microsoft Graph. (The separate **Microsoft 365** attack surface source does call Microsoft's APIs, read-only; see below.) |
+| Okta | An API token created while signed in as a dedicated user with only the Read-only Administrator role |
+| Google Workspace | A service account with domain-wide delegation for exactly `admin.directory.user.readonly` and `cloud-identity.policies.readonly`, acting as an administrator with read access to users |
+| FortiGate / PAN-OS (configuration by API) | FortiGate: a REST API administrator with a read-only profile and trusted hosts set to Keystone. PAN-OS: an administrator whose role allows only the XML API's Configuration. The firewall's name in `KEYSTONE_INTEGRATION_PRIVATE_HOSTS`, and its CA in `KEYSTONE_EXTRA_CA_FILE` if the certificate isn't public |
 
 Each Connect dialog has a setup guide with copyable commands, filled in with the values you
 type, to create the credential and then verify it: for AWS, that the user has only
@@ -407,7 +411,7 @@ vulnerabilities; **Attack surface** shows the merged picture and the gaps agains
 | Qualys VMDR | Hosts with severity 3-5 detections | Reader user with API access |
 | Rapid7 InsightVM | Assets with critical and severe vulnerabilities | API key of a read-only user |
 | AWS Security Hub | Control results per region (resources passing and failing each control) | IAM user with only AWSSecurityHubReadOnlyAccess |
-| Microsoft Defender for Cloud | Security recommendations per Azure subscription (healthy and unhealthy resources) | App registration with the Security Reader role on each subscription (no API permissions) |
+| Microsoft Defender for Cloud | Security recommendations per Azure subscription (healthy and unhealthy resources); checks for high-severity recommendations and Defender plans for servers, storage and SQL | App registration with the Security Reader role on each subscription (no API permissions) |
 | Google Security Command Center | Active misconfiguration findings for the organisation, by category | Service account with only Security Center Findings Viewer; JSON key |
 
 How it works: each run reads the source (read-only), matches devices across tools (serial number, then Entra device
@@ -423,6 +427,34 @@ have public addresses unless listed in `KEYSTONE_INTEGRATION_PRIVATE_HOSTS`, and
 server address changes; redirects are refused; responses are size-capped. **Test connection** reads one page per
 source, saves nothing, and lists the field names the API returned, so a field mapping can be confirmed against your
 tenant. Devices without an API can be imported from CSV (Attack surface → Import CSV).
+
+### Alerts pulled from endpoint security tools
+
+CrowdStrike Falcon, SentinelOne, Sophos Central and Microsoft 365 (Defender for Endpoint) can also bring their alerts
+into **Operations → Alert inbox**: edit the integration and set *Bring alerts into the Alert inbox* to Yes. Each run
+then reads the alerts raised since the last good run (at most a week back) and adds new ones; an alert already in the
+inbox isn't counted again. Extra read permission needed: CrowdStrike *Alerts: Read*; Microsoft *WindowsDefenderATP
+Alert.Read.All*; SentinelOne's Viewer and Sophos's ReadOnly roles already allow it. If reading alerts fails, the run
+says so but the device inventory is still updated. Pulled alerts arrive through a source of their own (named after the
+integration), which has no token and accepts nothing posted to it.
+
+### Check-ins from backup jobs and CI
+
+Sources of kind **Backup** and **CI** (Alert inbox → Sources) can also report results to `POST /api/inbound/checkin`
+with their token:
+
+```sh
+# A backup job's result: by its reference (BAK-0001) or exact name in Business continuity → Backup jobs
+curl -s -X POST "$KEYSTONE/api/inbound/checkin" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"kind":"backup","job":"BAK-0001","status":"success"}'          # or "failure" with "note": "why"
+
+# A security scan of a release, added to the open release sign-off for that application and version
+curl -s -X POST "$KEYSTONE/api/inbound/checkin" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"kind":"release_scan","application":"Booking platform","version":"4.3","tool":"semgrep","result":"pass","summary":"0 findings"}'
+```
+
+A backup check-in records "successful backup" or "failure" on the job, signed with the source's name; restore tests stay
+with people. A release scan only adds a line to *Security testing done*: a person still signs the release off.
 
 ### Vulnerabilities from installed software (Keystone agents)
 

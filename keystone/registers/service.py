@@ -226,6 +226,28 @@ def move(session: Session, actor, entry_id: int, to: str, note: str | None = Non
     return e
 
 
+# Steps a machine may record without a person (POST /api/inbound/checkin with a backup tool's token). Only steps with no
+# segregation-of-duties rule and nothing to fill in; everything else needs a signed-in user.
+SYSTEM_MOVES = {("backups", "success"), ("backups", "failure")}
+
+
+def system_move(session: Session, e: RegisterEntry, key: str, by: str, note: str | None = None) -> RegisterEntry:
+    """Record an allowed step reported by a tool (see SYSTEM_MOVES). The decision names the tool, not a person."""
+    r = spec(e.register)
+    m = next((m for m in r.moves if m.id == key and e.status in m.frm), None)
+    if (e.register, key) not in SYSTEM_MOVES or m is None or m.sod or m.sod_last or m.needs:
+        raise ValueError("That step can't be recorded by a tool.")
+    data = e.data or {}
+    if m.sets:
+        e.data = {**data, m.sets: today().isoformat()}
+        _derive(r, e)
+    e.decisions = [*(e.decisions or []), {"at": utcnow().isoformat(timespec="seconds"), "by": by[:120], "from": e.status, "to": m.to, "step": m.label,
+                                          "note": (note or "").strip()[:2000] or None}]
+    e.status = m.to
+    session.flush()
+    return e
+
+
 def delete(session: Session, actor, entry_id: int) -> None:
     """Delete a record created by mistake: only while it is still in its first status and no decision was recorded."""
     e = get_or_404(session, RegisterEntry, entry_id)

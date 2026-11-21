@@ -25,11 +25,13 @@ class AlertSource(Audited, OwnedMixin, TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    kind: Mapped[str] = mapped_column(String(30), nullable=False)  # edr | siem | email | cloud | backup | identity | other
+    kind: Mapped[str] = mapped_column(String(30), nullable=False)  # edr | siem | email | cloud | backup | identity | ci | other
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_received_at: Mapped[datetime | None] = mapped_column(DateTime)
     received: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Alerts pulled by an integration (round 9) come through a source of their own, which has no usable token.
+    integration_id: Mapped[int | None] = mapped_column(Integer)  # plain add_column
 
 
 class Alert(Audited, TimestampMixin, Base):

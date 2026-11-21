@@ -4,7 +4,7 @@ integration managers for the sources)."""
 
 import json
 from datetime import datetime
-from typing import Literal
+from typing import Literal, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -22,7 +22,7 @@ from .common import In
 router = APIRouter(tags=["alerts"])
 inbound_router = APIRouter(prefix="/inbound", tags=["alerts (inbound)"])
 MAX_ALERT_BYTES = 64 * 1024
-SOURCE = ("id", "name", "kind", "enabled", "last_received_at", "received", "created_at")
+SOURCE = ("id", "name", "kind", "enabled", "last_received_at", "received", "created_at", "integration_id")
 ALERT = ("id", "source_id", "external_id", "title", "severity", "category", "host", "account", "description", "link", "first_seen", "last_seen", "count",
          "status", "asset_id", "owner_id", "incident_id", "close_reason", "note", "handled_by_id", "handled_at")
 
@@ -48,6 +48,13 @@ def _ip(request: Request) -> str:
 
 
 async def _body(request: Request) -> AlertIn:
+    return await _read(request, AlertIn)
+
+
+B = TypeVar("B", bound=In)
+
+
+async def _read(request: Request, model: type[B]) -> B:
     declared = request.headers.get("content-length", "")
     if declared.isdigit() and int(declared) > MAX_ALERT_BYTES:
         raise HTTPException(413, "Alert too large.")
@@ -58,7 +65,7 @@ async def _body(request: Request) -> AlertIn:
             raise HTTPException(413, "Alert too large.")
         chunks.append(chunk)
     try:
-        return AlertIn.model_validate(json.loads(b"".join(chunks) or b"{}"))
+        return model.model_validate(json.loads(b"".join(chunks) or b"{}"))
     except (ValueError, ValidationError) as e:
         errors = e.errors(include_input=False, include_url=False) if isinstance(e, ValidationError) else "Invalid JSON."
         raise HTTPException(422, errors) from None
@@ -80,6 +87,39 @@ async def receive_alert(request: Request, db: Session = Depends(get_db)):
     return {"id": a.id, "ref": a.ref, "new": new, "count": a.count}
 
 
+class CheckinIn(In):
+    kind: Literal["backup", "release_scan"]
+    job: str | None = Field(None, max_length=300)
+    status: Literal["success", "failure"] | None = None
+    note: str | None = Field(None, max_length=2000)
+    application: str | None = Field(None, max_length=300)
+    version: str | None = Field(None, max_length=60)
+    tool: str | None = Field(None, max_length=100)
+    result: Literal["pass", "fail"] | None = None
+    summary: str | None = Field(None, max_length=2000)
+
+
+@inbound_router.post("/checkin")
+async def checkin(request: Request, db: Session = Depends(get_db)):
+    """A backup job's result (from a Backup source) or a release scan (from a CI source). Authorization: Bearer <source token>."""
+    from keystone.alerts.checkins import CheckinRefused
+    from keystone.alerts.checkins import checkin as record
+
+    try:
+        rate_limit(f"alerts-ip:{_ip(request)}", limit=6000, window=3600)
+        source = al.resolve_source(db, request.headers.get("authorization"))
+        rate_limit(f"checkin-source:{source.id}", limit=600, window=3600)
+    except PermissionError:
+        return JSONResponse({"detail": "Too many requests."}, status_code=429)
+    except al.SourceRejected as e:
+        return JSONResponse({"detail": str(e)}, status_code=401)
+    body = await _read(request, CheckinIn)
+    try:
+        return record(db, source, **body.model_dump())
+    except CheckinRefused as e:
+        return JSONResponse({"detail": e.detail}, status_code=e.status)
+
+
 # ---- sources (integration.manage) ------------------------------------------------------------------------------------
 
 @router.get("/alert-sources")
@@ -89,7 +129,7 @@ def alert_sources(user=Depends(perm("integration.manage")), db: Session = Depend
 
 class SourceIn(In):
     name: str = Field(min_length=1, max_length=100)
-    kind: Literal["edr", "siem", "email", "cloud", "identity", "backup", "other"]
+    kind: Literal["edr", "siem", "email", "cloud", "identity", "backup", "ci", "other"]
 
 
 @router.post("/alert-sources")

@@ -16,12 +16,36 @@ from urllib.parse import quote, urlencode
 from keystone.asm.vocabulary import Inventory, SettingObs
 
 from ..http import Api, ConnectorError, HostPolicy, fields_of
-from .base import ConfigField, InventoryProvider, SetupStep
+from .base import CheckDef, ConfigField, InventoryProvider, Outcome, SetupStep
 
 GUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 REGION = re.compile(r"[a-z]{2}(?:-[a-z]+)+-\d{1,2}")
 MAX_ITEMS = 50_000
 DOC_NOTE = "Field names from the vendor's API documentation; not yet validated against a live account."
+
+
+SEVERE = ("critical", "high")
+
+
+def severe_failing(inv: Inventory, source: str) -> Outcome:
+    """No failing control or recommendation rated high or critical (recorded per setting in inv.facts["severity"])."""
+    if "settings" not in inv.complete:
+        return Outcome("no_severe_findings", "unknown", f"{source} wasn't fully read")
+    sev = inv.facts.get("severity") or {}
+    bad = sorted(s.title for s in inv.settings if s.compliant is False and (sev.get(s.key) or "").lower() in SEVERE)
+    return Outcome("no_severe_findings", "fail" if bad else "pass", f"{len(bad)} high or critical: {'; '.join(bad[:6])}" if bad else f"No high or critical findings in {source}",
+                   {"failing": bad[:500]})
+
+
+RANKS = {"informational": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+
+
+def _rank(label: str | None) -> int:
+    return RANKS.get((label or "").lower(), -1)
+
+
+def pick_label(f: dict) -> str | None:
+    return (f.get("Severity") or {}).get("Label")
 
 
 def _setting(key: str, title: str, total: int, failing: int, category: str | None) -> SettingObs:
@@ -38,6 +62,10 @@ class AwsSecurityHubProvider(InventoryProvider):
     category = "posture"
     categories = ("posture",)
     mapping_note = DOC_NOTE
+    checks = (CheckDef("no_severe_findings", "No failing high or critical Security Hub controls", ("KC-TEC-09", "KC-ORG-23")),)
+
+    def assess(self, inventory) -> list[Outcome]:
+        return [severe_failing(inventory, "AWS Security Hub")]
     fields = (
         ConfigField("region", "Region", help="The Security Hub home or aggregation region, e.g. eu-west-1", example="eu-west-1"),
         ConfigField("access_key_id", "Access key ID", secret=True, help="An IAM user with only the AWS managed AWSSecurityHubReadOnlyAccess (or SecurityAudit) policy."),
@@ -94,7 +122,10 @@ class AwsSecurityHubProvider(InventoryProvider):
                     cid = comp.get("SecurityControlId") or f.get("GeneratorId") or f.get("Id")
                     if not cid:
                         continue
-                    c = per.setdefault(cid, {"title": f.get("Title") or cid, "total": set(), "failing": set(), "category": None})
+                    c = per.setdefault(cid, {"title": f.get("Title") or cid, "total": set(), "failing": set(), "category": None, "severity": None})
+                    label = str(pick_label(f) or "").lower()
+                    if comp.get("Status") == "FAILED" and _rank(label) > _rank(c["severity"]):
+                        c["severity"] = label
                     res = ",".join(r.get("Id", "") for r in (f.get("Resources") or [])[:3]) or f.get("Id")
                     c["total"].add(res)
                     if comp.get("Status") == "FAILED":
@@ -116,6 +147,7 @@ class AwsSecurityHubProvider(InventoryProvider):
             raise ConnectorError(f"Couldn't reach AWS ({type(e).__name__}).") from None
         for cid, c in per.items():
             inv.settings.append(_setting(f"aws:{cid}", f"{cid} {c['title']}", len(c["total"]), len(c["failing"]), c["category"] or "AWS"))
+            inv.facts.setdefault("severity", {})[f"aws:{cid}"[:200]] = c["severity"]
         if not preview and seen < MAX_ITEMS:
             inv.complete.add("settings")
         if seen >= MAX_ITEMS:
@@ -126,6 +158,7 @@ class AwsSecurityHubProvider(InventoryProvider):
 # ---- Microsoft Defender for Cloud ----------------------------------------------------------------------------------
 
 AZ_LOGIN, ARM = "https://login.microsoftonline.com", "https://management.azure.com"
+PLANS = ("VirtualMachines", "StorageAccounts", "SqlServers")  # Defender for Servers, Storage and SQL
 AZ_POLICY = HostPolicy(hosts=frozenset({"login.microsoftonline.com", "management.azure.com"}))
 
 
@@ -136,6 +169,20 @@ class DefenderForCloudProvider(InventoryProvider):
     category = "posture"
     categories = ("posture",)
     mapping_note = DOC_NOTE
+    checks = (
+        CheckDef("no_severe_findings", "No unhealthy high-severity Defender for Cloud recommendations", ("KC-TEC-09", "KC-ORG-23")),
+        CheckDef("defender_plans", "Defender plans on for servers, storage and SQL", ("KC-TEC-07", "KC-TEC-16")),
+    )
+
+    def assess(self, inventory) -> list[Outcome]:
+        out = [severe_failing(inventory, "Defender for Cloud")]
+        plans = inventory.facts.get("plans")
+        if plans is None:
+            out.append(Outcome("defender_plans", "unknown", "Defender plans couldn't be read"))
+        else:
+            off = sorted(f"{sub[:8]}…: {name}" for sub, p in plans.items() for name in PLANS if p.get(name) != "Standard")
+            out.append(Outcome("defender_plans", "fail" if off else "pass", f"Off: {', '.join(off[:8])}" if off else "On for servers, storage and SQL in every subscription", {"off": off}))
+        return out
     fields = (
         ConfigField("tenant_id", "Directory (tenant) ID", example="00000000-0000-0000-0000-000000000000"),
         ConfigField("client_id", "Application (client) ID"),
@@ -180,13 +227,24 @@ class DefenderForCloudProvider(InventoryProvider):
                     if not name:
                         continue
                     c = per.setdefault(name, {"title": props.get("displayName") or name, "total": 0, "failing": 0,
-                                              "category": ", ".join((props.get("metadata") or {}).get("categories") or []) or "Azure"})
+                                              "category": ", ".join((props.get("metadata") or {}).get("categories") or []) or "Azure",
+                                              "severity": (props.get("metadata") or {}).get("severity")})
                     c["total"] += 1
                     c["failing"] += code == "Unhealthy"
                 seen += len(rows)
                 url = None if preview or seen >= MAX_ITEMS else body.get("nextLink")
         for name, c in per.items():
             inv.settings.append(_setting(f"mdc:{name}", c["title"], c["total"], c["failing"], c["category"]))
+            inv.facts.setdefault("severity", {})[f"mdc:{name}"[:200]] = c["severity"]
+        if not preview:
+            plans: dict[str, dict] = {}
+            try:
+                for sub in subs:
+                    body = api.json("GET", f"{ARM}/subscriptions/{sub}/providers/Microsoft.Security/pricings?api-version=2024-01-01", headers=auth)
+                    plans[sub] = {p.get("name"): (p.get("properties") or {}).get("pricingTier") for p in body.get("value") or []}
+                inv.facts["plans"] = plans
+            except ConnectorError as e:
+                inv.notes.append(f"Defender plans not read ({e})")
         if not preview and seen < MAX_ITEMS:
             inv.complete.add("settings")
         return inv
@@ -195,6 +253,11 @@ class DefenderForCloudProvider(InventoryProvider):
 # ---- Google Security Command Center ------------------------------------------------------------------------------
 
 G_TOKEN, SCC = "https://oauth2.googleapis.com/token", "https://securitycenter.googleapis.com"
+SCC_CHECKS = {  # Security Health Analytics finding categories behind each check
+    "no_public_data": ("PUBLIC_BUCKET_ACL", "PUBLIC_DATASET", "PUBLIC_SQL_INSTANCE"),
+    "no_open_admin_ports": ("OPEN_SSH_PORT", "OPEN_RDP_PORT"),
+    "mfa_enforced": ("MFA_NOT_ENFORCED",),
+}
 G_POLICY = HostPolicy(hosts=frozenset({"oauth2.googleapis.com", "securitycenter.googleapis.com"}))
 
 
@@ -205,6 +268,22 @@ class GoogleSccProvider(InventoryProvider):
     category = "posture"
     categories = ("posture",)
     mapping_note = DOC_NOTE
+    checks = (
+        CheckDef("no_severe_findings", "No active high or critical misconfigurations", ("KC-TEC-09", "KC-ORG-23")),
+        CheckDef("no_public_data", "No public storage buckets, datasets or databases", ("KC-TEC-03", "KC-TEC-12")),
+        CheckDef("no_open_admin_ports", "No firewall rules open SSH or RDP to the internet", ("KC-TEC-20", "KC-TEC-22")),
+        CheckDef("mfa_enforced", "MFA enforced (Security Health Analytics)", ("KC-TEC-05",)),
+    )
+
+    def assess(self, inventory) -> list[Outcome]:
+        out = [severe_failing(inventory, "Security Command Center")]
+        if "settings" not in inventory.complete:
+            return out + [Outcome(k, "unknown", "Security Command Center wasn't fully read") for k in ("no_public_data", "no_open_admin_ports", "mfa_enforced")]
+        failing = {s.key.removeprefix("scc:"): s.detail for s in inventory.settings}
+        for key, cats in SCC_CHECKS.items():
+            hit = [f"{c} ({failing[c]})" for c in cats if c in failing]
+            out.append(Outcome(key, "fail" if hit else "pass", "; ".join(hit) if hit else "None reported by Security Health Analytics (it must be enabled)", {"categories": hit}))
+        return out
     fields = (
         ConfigField("organization_id", "Organization ID", help="Numbers only, from IAM & Admin > Settings.", example="123456789012"),
         ConfigField("service_account_json", "Service account key (JSON)", secret=True, help="The JSON key of a service account with only Security Center Findings Viewer."),
@@ -270,6 +349,7 @@ class GoogleSccProvider(InventoryProvider):
             title = cat.replace("_", " ").capitalize()
             inv.settings.append(SettingObs(key=f"scc:{cat}"[:200], title=title[:500], compliant=False, category=f"Google Cloud ({(c['severity'] or 'unknown').lower()})",
                                            detail=f"{n} resource(s) affected"))
+            inv.facts.setdefault("severity", {})[f"scc:{cat}"[:200]] = (c["severity"] or "").lower()
         # SCC lists only what is failing, so a category that disappears has been fixed.
         if not preview and seen < MAX_ITEMS:
             inv.complete.add("settings")

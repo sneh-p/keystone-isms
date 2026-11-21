@@ -603,6 +603,9 @@ product and see which hosts have which version. Each host's page also lists its 
 last 30 days: devices without an agent, agent hosts without endpoint security, and agent hosts your other tools don't
 know (usually a different host name).
 
+**Install on many hosts** (on the Agents tab) has ready-made steps for Group Policy, Intune, RMM tools, Jamf Pro and
+other Mac MDMs, and Ansible, filled in with your Keystone's address.
+
 **Upload firewall configuration** checks a configuration export. Keystone keeps only the values it checks and the
 file's SHA-256, never the file, because exports contain password hashes and keys.
 
@@ -916,8 +919,8 @@ Answer the security questionnaires customers send you.
 
 Integrations connect Keystone to your tools, read-only.
 
-- **Control checks** (website and TLS, GitHub, AWS, Entra ID, and from attack surface sources: Microsoft 365, Jamf Pro,
-  Kandji) run on a schedule. For example: MFA for every account, phishing-resistant MFA for administrators, legacy
+- **Control checks** (website and TLS, GitHub, AWS, Entra ID, Okta, Google Workspace, and from attack surface sources:
+  Microsoft 365, Jamf Pro, Kandji, AWS Security Hub, Defender for Cloud, Google Security Command Center) run on a schedule. For example: MFA for every account, phishing-resistant MFA for administrators, legacy
   sign-in blocked, old AWS access keys and unused users, encrypted disks and databases, VPC flow logs, signed commits,
   code scanning and code owners on every repository, outside collaborators, every managed computer encrypted and
   checking in. Passing checks become evidence on
@@ -931,6 +934,10 @@ Integrations connect Keystone to your tools, read-only.
   After three failed runs in a row the ISMS managers are told too. Enter **Key or secret expires on** when you connect,
   and you're reminded two weeks before.
 - **Attack surface sources** (Microsoft 365, EDR, RMM and vulnerability scanners) feed [Attack surface](#attack-surface).
+  Endpoint security tools (CrowdStrike, SentinelOne, Sophos, Defender) can also bring their alerts into the
+  [Alert inbox](#alert-inbox): set *Bring alerts into the Alert inbox* when you connect or edit one.
+- **Firewalls**: FortiGate and PAN-OS configurations can be read over the firewall's own read-only API every day,
+  instead of uploading exports by hand, and are checked against your [configuration baselines](#configuration).
 - **Connect** shows a setup guide with commands to create a read-only credential. **Test connection** tries the
   settings without saving anything. For GitHub, AWS and Microsoft 365 it also asks the tool what the key may do, and
   warns if it can change anything (*Key is read-only*). For other tools, the guide's last step shows how to check.
@@ -968,6 +975,9 @@ The reporter sees the outcome and your reply in their portal, but not the incide
   when nobody owns it). They can also go to Slack, Teams or a webhook (Settings → Chat and webhooks).
 - Open an alert to **Open an incident** (with its details), **Acknowledge** it, or **Close** it as benign, a false
   positive, resolved or a duplicate, with a note.
+- Alerts pulled by an integration come from a source named after it, marked *Pulled by an integration*.
+- Sources of kind **Backup** and **CI** can also check in: a backup tool reports each job's result to its backup job,
+  and a CI pipeline adds its security scan results to the release sign-off (the admin guide has the details).
 
 ### Incidents
 

@@ -22,7 +22,7 @@ PUBLIC = {"/auth/status", "/auth/bootstrap", "/auth/login", "/public/invite", "/
           # Configuration agents (reviewed design, configuration baselines): no session. Enrolment needs the
           # organisation's enrolment key; reports need a per-device token (hashed), checked in
           # keystone/configcheck/service.py. Both are rate-limited and size-capped (tested in test_configcheck.py).
-          "/agent/v1/enrol", "/agent/v1/report", "/agent/v1/checks", "/agent/v1/checkin", "/inbound/alerts", "/public/phish"}
+          "/agent/v1/enrol", "/agent/v1/report", "/agent/v1/checks", "/agent/v1/checkin", "/inbound/alerts", "/inbound/checkin", "/public/phish"}
 
 
 def all_routes():

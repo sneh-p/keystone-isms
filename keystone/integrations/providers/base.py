@@ -39,6 +39,19 @@ class ConfigField:
     options: tuple[tuple[str, str], ...] = ()  # (value, label): shown as a choice; any other value is refused
 
 
+def pull_alerts_field(permission: str) -> ConfigField:
+    return ConfigField("pull_alerts", "Bring alerts into the Alert inbox", required=False, options=(("", "No"), ("on", "Yes")),
+                       help=f"Off by default. When on, each run also reads the tool's new alerts (needs {permission}, read-only) into Operations → Alert inbox.")
+
+
+def alert_severity(value) -> str:
+    """A tool's alert severity (a word, or a 0-100 score) as the inbox's info/low/medium/high/critical."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return "critical" if value >= 90 else "high" if value >= 70 else "medium" if value >= 40 else "low"
+    word = str(value or "").strip().lower()
+    return {"critical": "critical", "high": "high", "medium": "medium", "moderate": "medium", "low": "low", "informational": "info", "info": "info"}.get(word, "medium")
+
+
 @dataclass(frozen=True)
 class SetupStep:
     """One step of the setup guide. `code` may use {field} placeholders for non-secret fields
@@ -59,6 +72,7 @@ class Provider:
     fields: tuple[ConfigField, ...] = ()
     checks: tuple[CheckDef, ...] = ()
     setup: tuple[SetupStep, ...] = ()
+    stores_results: bool = False  # run() writes records itself when given a session: Test connection then passes none
 
     def run(self, config: dict, secrets: dict, session=None) -> list[Outcome]:  # pragma: no cover - interface
         raise NotImplementedError
@@ -94,6 +108,12 @@ class InventoryProvider(Provider):
         raise NotImplementedError
 
     needs_session: bool = False  # sources inside Keystone (its own agents) read the database: they implement collect_in
+    pulls_alerts: bool = False  # can also bring the tool's alerts into the Alert inbox (when the integration turns it on)
+
+    def fetch_alerts(self, config: dict, secrets: dict, since) -> list[dict]:  # pragma: no cover - interface
+        """Alerts raised since `since`: dicts with external_id, title, severity, category, host, account, description,
+        link and occurred_at. Read-only."""
+        raise NotImplementedError
 
     def collect_in(self, session, config: dict, secrets: dict, preview: bool = False):  # pragma: no cover - interface
         raise NotImplementedError

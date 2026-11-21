@@ -17,6 +17,7 @@ import { DataTable } from "@/components/ui/table";
 import { DateInput } from "@/components/forms";
 import { Comments } from "@/components/Comments";
 import { CopyButton } from "@/components/CopyButton";
+import { AgentRollout } from "@/components/AgentRollout";
 import { allowedTypes, describeExpected, expectedFromInput, expectedToInput, parseList, parseTags, resultLabel, type Probe, type Setting } from "@/lib/configcheck";
 
 const SEV_TONE: Record<string, Tone> = { critical: "critical", high: "serious", medium: "warning", low: "outline" };
@@ -629,6 +630,7 @@ function Agents() {
           <Field label="Report at least every"><Select ariaLabel="Report interval" value={String(data.report_hours)} onChange={(v) => v && hours.mutate(Number(v))} options={[1, 2, 4, 8, 12, 24].map((h) => ({ value: String(h), label: `${h} hour${h > 1 ? "s" : ""}` }))} className="w-40" /></Field>
         </CardBody>
       </Card>
+      <AgentRollout server={data.server} enrolmentKey={data.enrolment_key} />
       <Card>
         <CardHeader title="Pinning Keystone's key (optional)" description="For networks where TLS might be intercepted: the agent then accepts only a server whose public key matches, on top of the normal certificate checks." />
         <CardBody className="space-y-3 text-sm">

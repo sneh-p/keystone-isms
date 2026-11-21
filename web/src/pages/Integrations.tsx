@@ -46,7 +46,8 @@ export default function Integrations() {
         <Stat label="Checks failing" value={failing} tone={failing ? "critical" : undefined} />
         <Stat label="Need attention" value={attention} tone={attention ? "warning" : undefined} hint="Failing runs, overdue, or a key expiring" />
       </div>
-      {[["Control checks", (p: any) => !p.inventory && !p.ticketing && !p.hr], ["Attack surface sources", (p: any) => p.inventory], ["Ticketing", (p: any) => p.ticketing], ["HR systems", (p: any) => p.hr]].map(([title, test]: any) => {
+      {[["Control checks", (p: any) => !p.inventory && !p.ticketing && !p.hr && !p.firewall], ["Attack surface sources", (p: any) => p.inventory], ["Firewalls", (p: any) => p.firewall],
+        ["Ticketing", (p: any) => p.ticketing], ["HR systems", (p: any) => p.hr]].map(([title, test]: any) => {
         const list = data.providers.filter(test);
         if (!list.length) return null;
         return (
@@ -54,6 +55,7 @@ export default function Integrations() {
             <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
             {title === "HR systems" && <p className="mb-3 text-sm text-muted-foreground">Keep <Link to="/people" className="text-primary underline">People</Link> in step with your HR system: joiners are added for onboarding, and leavers move to offboarding with a notification. Read-only: names, work emails, titles, departments and dates only.</p>}
             {title === "Ticketing" && <p className="mb-3 text-sm text-muted-foreground">Open a ticket in your service desk from a vulnerability, finding, task or nonconformity, and see when it's closed. Keystone only creates tickets and reads their status; it never edits or closes them.</p>}
+            {title === "Firewalls" && <p className="mb-3 text-sm text-muted-foreground">Read a firewall's configuration over its own read-only API on a schedule, instead of uploading exports, and check it against your <Link to="/configuration?tab=baselines" className="text-primary underline">configuration baselines</Link>. Only the values checked are kept, never the file.</p>}
             {title === "Attack surface sources" && <p className="mb-3 text-sm text-muted-foreground">Read-only device, identity, vulnerability and configuration data for <Link to="/attack-surface" className="text-primary underline">Attack surface</Link>, checked against your baselines.</p>}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {list.map((p: any) => {

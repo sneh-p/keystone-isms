@@ -7,7 +7,7 @@ from urllib.parse import quote
 from keystone.asm.vocabulary import DeviceObs, Inventory, as_bool, device_type_from, parse_time, pick
 
 from ..http import Api, ConnectorError, HostPolicy, fields_of, validate_base_url
-from .base import ConfigField, InventoryProvider, SetupStep
+from .base import ConfigField, InventoryProvider, SetupStep, alert_severity, pull_alerts_field
 
 # ---- CrowdStrike Falcon --------------------------------------------------------------------------------
 
@@ -24,14 +24,17 @@ class CrowdStrikeProvider(InventoryProvider):
         ConfigField("cloud", "Falcon cloud", help="us-1, us-2, eu-1 or us-gov-1 (from your console address).", example="us-1"),
         ConfigField("client_id", "API client ID"),
         ConfigField("client_secret", "API client secret", secret=True),
+        pull_alerts_field("the Alerts: Read scope"),
     )
+    pulls_alerts = True
     setup = (
-        SetupStep("Create a read-only API client", "Falcon console > Support and resources > API clients and keys > Add new API client. Scope: Hosts, Read only. Copy the client ID and secret.",
+        SetupStep("Create a read-only API client", "Falcon console > Support and resources > API clients and keys > Add new API client. Scope: Hosts, Read only "
+                  "(and Alerts, Read only, to bring alerts into the Alert inbox). Copy the client ID and secret.",
                   link="https://falcon.crowdstrike.com/api-clients-and-keys", link_label="API clients and keys"),
         SetupStep("Check", "Choose Test connection; Keystone lists how many hosts it read.", kind="verify"),
     )
 
-    def collect(self, config: dict, secrets: dict, preview: bool = False) -> Inventory:
+    def _connect(self, config: dict, secrets: dict) -> tuple[Api, str, dict]:
         host = CS_CLOUDS.get((config.get("cloud") or "us-1").strip().lower())
         if not host:
             raise ConnectorError(f"Falcon cloud must be one of {', '.join(CS_CLOUDS)}.")
@@ -40,7 +43,22 @@ class CrowdStrikeProvider(InventoryProvider):
         tok = api.json("POST", f"{base}/oauth2/token", data={"client_id": config.get("client_id", ""), "client_secret": secrets.get("client_secret", "")}).get("access_token")
         if not tok:
             raise ConnectorError("CrowdStrike didn't return an access token.")
-        auth = {"Authorization": f"Bearer {tok}"}
+        return api, base, {"Authorization": f"Bearer {tok}"}
+
+    def fetch_alerts(self, config: dict, secrets: dict, since) -> list[dict]:
+        api, base, auth = self._connect(config, secrets)
+        flt = quote(f"created_timestamp:>'{since:%Y-%m-%dT%H:%M:%SZ}'", safe="")
+        ids = api.json("GET", f"{base}/alerts/queries/alerts/v2?filter={flt}&limit=500", headers=auth).get("resources") or []
+        if not ids:
+            return []
+        rows = api.json("POST", f"{base}/alerts/entities/alerts/v2", headers=auth, json={"composite_ids": ids[:500]}).get("resources") or []
+        return [{"external_id": r.get("composite_id"), "title": r.get("display_name") or r.get("name") or "CrowdStrike detection",
+                 "severity": alert_severity(r.get("severity_name") or r.get("severity")), "category": "malware", "host": pick(r, "device.hostname"),
+                 "account": r.get("user_name"), "description": r.get("description"), "link": r.get("falcon_host_link"), "occurred_at": parse_time(r.get("created_timestamp"))}
+                for r in rows]
+
+    def collect(self, config: dict, secrets: dict, preview: bool = False) -> Inventory:
+        api, base, auth = self._connect(config, secrets)
         ids: list[str] = []
         offset = 0
         while True:
@@ -83,11 +101,27 @@ class SentinelOneProvider(InventoryProvider):
     fields = (
         ConfigField("console", "Console address", help="Your console, e.g. https://acme.sentinelone.net", example="https://acme.sentinelone.net"),
         ConfigField("token", "API token", secret=True, help="A service user with the Viewer role."),
+        pull_alerts_field("nothing more: the Viewer role can read threats"),
     )
+    pulls_alerts = True
     setup = (
         SetupStep("Create a read-only service user", "Settings > Users > Service Users > Create. Role: Viewer, scope: your account or site. Copy the API token.", link="https://{host}/settings/users", link_label="Open your console"),
         SetupStep("Check", "Choose Test connection; Keystone lists how many agents it read.", kind="verify"),
     )
+
+    def fetch_alerts(self, config: dict, secrets: dict, since) -> list[dict]:
+        base = validate_base_url(config.get("console", ""), S1_POLICY)
+        api = Api(S1_POLICY, headers={"Authorization": f"ApiToken {secrets.get('token', '')}"})
+        rows = api.json("GET", f"{base}/web/api/v2.1/threats?createdAt__gte={quote(since.strftime('%Y-%m-%dT%H:%M:%SZ'), safe='')}&limit=200").get("data") or []
+        out = []
+        for t in rows:
+            info = t.get("threatInfo") or {}
+            cls = str(info.get("classification") or "").lower()
+            out.append({"external_id": t.get("id"), "title": f"{info.get('threatName') or 'Threat'} ({info.get('classification') or 'unclassified'})",
+                        "severity": "high" if info.get("confidenceLevel") == "malicious" else "medium", "category": "ransomware" if "ransom" in cls else "malware",
+                        "host": pick(t, "agentRealtimeInfo.agentComputerName"), "account": info.get("processUser"),
+                        "description": f"Mitigation: {info.get('mitigationStatus') or 'unknown'}", "occurred_at": parse_time(info.get("createdAt"))})
+        return out
 
     def collect(self, config: dict, secrets: dict, preview: bool = False) -> Inventory:
         base = validate_base_url(config.get("console", ""), S1_POLICY)
@@ -127,13 +161,15 @@ class SophosProvider(InventoryProvider):
     fields = (
         ConfigField("client_id", "Client ID"),
         ConfigField("client_secret", "Client secret", secret=True),
+        pull_alerts_field("nothing more: Service Principal ReadOnly can read alerts"),
     )
+    pulls_alerts = True
     setup = (
         SetupStep("Create read-only API credentials", "Sophos Central > Global settings > API Credentials Management > Add credential. Role: Service Principal ReadOnly. Use credentials for your tenant (not a partner or organisation)."),
         SetupStep("Check", "Choose Test connection; Keystone lists how many endpoints it read.", kind="verify"),
     )
 
-    def collect(self, config: dict, secrets: dict, preview: bool = False) -> Inventory:
+    def _connect(self, config: dict, secrets: dict) -> tuple[Api, str, dict]:
         api = Api(SOPHOS_POLICY)
         tok = api.json("POST", "https://id.sophos.com/api/v2/oauth2/token", data={"grant_type": "client_credentials", "client_id": config.get("client_id", ""),
                                                                                  "client_secret": secrets.get("client_secret", ""), "scope": "token"}).get("access_token")
@@ -143,7 +179,17 @@ class SophosProvider(InventoryProvider):
         if who.get("idType") != "tenant":
             raise ConnectorError("Use API credentials created for a tenant; partner and organisation credentials aren't supported.")
         region = validate_base_url(pick(who, "apiHosts.dataRegion", default=""), SOPHOS_POLICY)
-        hdr = {"Authorization": f"Bearer {tok}", "X-Tenant-ID": who.get("id", "")}
+        return api, region, {"Authorization": f"Bearer {tok}", "X-Tenant-ID": who.get("id", "")}
+
+    def fetch_alerts(self, config: dict, secrets: dict, since) -> list[dict]:
+        api, region, hdr = self._connect(config, secrets)
+        items = api.json("GET", f"{region}/common/v1/alerts?from={quote(since.strftime('%Y-%m-%dT%H:%M:%SZ'), safe='')}&pageSize=100", headers=hdr).get("items") or []
+        return [{"external_id": a.get("id"), "title": a.get("description") or "Sophos alert", "severity": alert_severity(a.get("severity")),
+                 "category": "malware" if "malware" in str(a.get("category") or "").lower() else "other", "host": pick(a, "managedAgent.name"),
+                 "account": pick(a, "person.name"), "description": a.get("description"), "occurred_at": parse_time(a.get("raisedAt"))} for a in items]
+
+    def collect(self, config: dict, secrets: dict, preview: bool = False) -> Inventory:
+        api, region, hdr = self._connect(config, secrets)
         inv, key = Inventory(), None
         while True:
             body = api.json("GET", f"{region}/endpoint/v1/endpoints?pageSize={100 if preview else 500}&pageTotal=false" + (f"&pageFromKey={quote(key, safe='')}" if key else ""), headers=hdr)

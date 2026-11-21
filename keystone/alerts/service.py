@@ -25,8 +25,9 @@ from .models import CATEGORIES, CLOSE_REASONS, SEVERITIES, Alert, AlertSource
 
 SOURCE_PREFIX = "kalt_"  # marks Keystone alert-source tokens (public), e.g. for secret scanners
 SOURCE_KINDS = {"edr": "EDR / antivirus", "siem": "SIEM or log platform", "email": "Email security", "cloud": "Cloud security", "identity": "Identity provider",
-                "backup": "Backup", "other": "Other"}
+                "backup": "Backup", "ci": "CI / build pipeline", "other": "Other"}
 REPEAT_WINDOW = timedelta(hours=24)
+MAX_PULLED = 2000  # alerts taken from one integration run
 MAX_SOURCES = 50
 INCIDENT_CATEGORY = {c: c for c in CATEGORIES} | {"vulnerability": "misconfiguration", "backup": "other"}
 
@@ -63,6 +64,8 @@ def create_source(session: Session, actor, name: str, kind: str) -> tuple[AlertS
 def rotate_token(session: Session, actor, source_id: int) -> tuple[AlertSource, str]:
     authorize(session, actor, "integration.manage")
     s = get_or_404(session, AlertSource, source_id)
+    if s.integration_id is not None:
+        raise ValueError("Alerts from this source are pulled by an integration: it has no token.")
     raw = SOURCE_PREFIX + secrets.token_urlsafe(32)
     s.token_hash = _hash(raw)
     session.flush()
@@ -77,6 +80,37 @@ def set_enabled(session: Session, actor, source_id: int, enabled: bool) -> Alert
     return s
 
 
+def pulled_source(session: Session, integration) -> AlertSource:
+    """The inbox source for alerts an integration pulls from its tool. It has no usable token: its stored hash belongs to
+    a random value nobody is given, so nothing can post to it."""
+    s = session.scalar(select(AlertSource).where(AlertSource.integration_id == integration.id))
+    if s is None:
+        s = AlertSource(name=f"{integration.name} (pulled)"[:100], kind="edr", token_hash=_hash(secrets.token_urlsafe(32)), enabled=True, integration_id=integration.id)
+        session.add(s)
+        session.flush()
+    return s
+
+
+def receive_pulled(session: Session, integration, items: list[dict]) -> int:
+    """Store alerts an integration fetched; ones already in the inbox (same id) aren't counted again. Returns how many are new."""
+    source = pulled_source(session, integration)
+    if not source.enabled:
+        return 0
+    new = 0
+    for it in items[:MAX_PULLED]:
+        ext = str(it.get("external_id") or "")[:200] or None
+        if ext is None or session.scalar(select(Alert.id).where(Alert.source_id == source.id, Alert.external_id == ext)) is not None:
+            continue
+        severity = str(it.get("severity")) if it.get("severity") in SEVERITIES else "medium"
+        category = str(it.get("category")) if it.get("category") in CATEGORIES else "other"
+        link = it.get("link") if isinstance(it.get("link"), str) and it["link"].startswith("https://") else None
+        _, created = receive(session, source, title=str(it.get("title") or "Alert")[:300], severity=severity, category=category, external_id=ext,
+                             host=(str(it["host"])[:253] if it.get("host") else None), account=(str(it["account"])[:320] if it.get("account") else None),
+                             description=(str(it["description"])[:8000] if it.get("description") else None), link=link, occurred_at=it.get("occurred_at"))
+        new += created
+    return new
+
+
 def resolve_source(session: Session, header: str | None) -> AlertSource:
     if not header or not header.startswith("Bearer ") or len(header) > 300:
         raise SourceRejected("Source token required.")
@@ -85,7 +119,7 @@ def resolve_source(session: Session, header: str | None) -> AlertSource:
         raise SourceRejected("Invalid source token.")
     digest = _hash(raw)
     s = session.scalar(select(AlertSource).where(AlertSource.token_hash == digest))
-    if s is None or not hmac.compare_digest(s.token_hash, digest) or not s.enabled:
+    if s is None or not hmac.compare_digest(s.token_hash, digest) or not s.enabled or s.integration_id is not None:
         raise SourceRejected("Invalid or disabled source token.")
     return s
 

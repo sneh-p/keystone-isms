@@ -220,6 +220,12 @@ scheduler.
   `osv-vulnerabilities.storage.googleapis.com`, exact-host policy, whole archives only (nothing about the hosts is
   sent), ETag-conditional, streamed to the data directory within a 2 GB cap, read entry by entry with size limits and
   never extracted or executed (SC-SSRF-001, SC-FILE-003).
+- **Batch C (round 9, approved by human:sneh, 2026-11-21).** `POST /api/inbound/checkin` takes backup results and
+  release scans with the existing per-tool tokens (rate-limited, Pydantic body, 64 KB cap); it can record only two
+  register steps on backup jobs and append to an open release sign-off. Integrations may pull alerts from the tools
+  they already read, opt-in, through a token-less source. Firewall configurations may be read over the firewalls' own
+  read-only APIs (internal hosts only when allowlisted by the operator; extra CAs via `KEYSTONE_EXTRA_CA_FILE`, never
+  disabled verification).
 - **Spec note.** The original spec says "no tokens or secrets on disk". That was written for the collector. An agent
   that reports on a schedule can't work without a stored credential, so each host keeps a narrowly scoped,
   revocable, root/SYSTEM-only device token instead. This is a deliberate deviation, raised here for review.
