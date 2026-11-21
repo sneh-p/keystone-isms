@@ -73,7 +73,7 @@ export default function Tasks() {
   const filtered = !!(assignee || framework || control || due);
   const editable = can("task.write");
   const card = (t: any) => (
-    <button key={t.id} onClick={() => setOpenId(String(t.id))} className="w-full rounded-md border bg-card p-3 text-left shadow-sm transition-shadow hover:shadow-md">
+    <button key={t.id} onClick={() => setOpenId(String(t.id))} className="w-full rounded-md border bg-card p-3 text-left shadow-card transition-shadow hover:shadow-pop">
       <div className="text-sm font-medium leading-snug">{t.title}</div>
       <div className="mt-2 flex flex-wrap gap-1">{t.controls.slice(0, 3).map((x: any) => <Badge key={x.id} tone="primary" className="font-mono text-[10px]">{x.code}</Badge>)}{t.controls.length > 3 && <Badge tone="outline">+{t.controls.length - 3}</Badge>}</div>
       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">

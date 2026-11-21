@@ -32,7 +32,7 @@ export function IncidentResponse({ incident }: { incident: any }) {
               <li key={s.index}>
                 <button type="button" disabled={!ed} onClick={() => tick.mutate({ index: s.index, done: !s.done })}
                   className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-transparent">
-                  {s.done ? <CheckSquare className="mt-0.5 size-4 shrink-0 text-good" aria-label="Done" /> : <Square className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-label="Not done" />}
+                  {s.done ? <CheckSquare className="mt-0.5 size-4 shrink-0 text-good-fg" aria-label="Done" /> : <Square className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-label="Not done" />}
                   <span className={s.done ? "text-muted-foreground line-through" : ""}>{s.step}</span>
                   {s.done && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{s.done.by}</span>}
                 </button>

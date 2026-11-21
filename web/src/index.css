@@ -3,54 +3,89 @@
 @tailwind utilities;
 
 @layer base {
+  /* Keystone palette: ink-blue primary on cool slate neutrals, with a dark navigation rail in both themes.
+     Every text pairing is checked against WCAG AA (4.5:1); see docs/design-decisions.md, "Visual design". */
   :root {
-    --background: 240 20% 99%;
-    --foreground: 240 10% 10%;
+    --background: 220 16% 97%;
+    --foreground: 222 32% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 10%;
+    --card-foreground: 222 32% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 10%;
-    --primary: 243 75% 59%;
+    --popover-foreground: 222 32% 11%;
+    --primary: 226 71% 45%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 95%;
-    --secondary-foreground: 240 6% 15%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 5% 36%;
-    --accent: 243 100% 97%;
-    --accent-foreground: 243 60% 40%;
-    --border: 240 6% 90%;
-    --input: 240 6% 88%;
-    --ring: 243 75% 59%;
-    --sidebar: 240 10% 98%;
-    --sidebar-foreground: 240 6% 25%;
-    --sidebar-active: 243 100% 96%;
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 222 20% 18%;
+    --muted: 220 14% 95%;
+    --muted-foreground: 220 10% 38%;
+    --accent: 226 90% 96%;
+    --accent-foreground: 226 65% 36%;
+    --border: 220 13% 89%;
+    --input: 220 13% 84%;
+    --ring: 226 71% 45%;
+    --sidebar: 224 36% 12%;
+    --sidebar-foreground: 220 16% 80%;
+    --sidebar-muted: 220 12% 60%;
+    --sidebar-hover: 224 30% 17%;
+    --sidebar-active: 224 38% 20%;
+    --sidebar-active-foreground: 0 0% 100%;
+    --sidebar-border: 224 28% 18%;
+    --sidebar-indicator: 214 95% 68%;
+    --brand: 224 40% 14%;
+    --brand-foreground: 0 0% 100%;
+    --good-fg: 120 85% 26%;
+    --warning-fg: 39 100% 27%;
+    --serious-fg: 17 69% 39%;
+    --critical-fg: 0 64% 40%;
   }
   .dark {
-    --background: 240 8% 7%;
-    --foreground: 240 5% 94%;
-    --card: 240 7% 10%;
-    --card-foreground: 240 5% 94%;
-    --popover: 240 7% 11%;
-    --popover-foreground: 240 5% 94%;
-    --primary: 243 90% 76%;
-    --primary-foreground: 240 10% 8%;
-    --secondary: 240 5% 16%;
-    --secondary-foreground: 240 5% 90%;
-    --muted: 240 5% 14%;
-    --muted-foreground: 240 5% 62%;
-    --accent: 243 30% 20%;
-    --accent-foreground: 243 90% 85%;
-    --border: 240 5% 18%;
-    --input: 240 5% 22%;
-    --ring: 243 85% 68%;
-    --sidebar: 240 8% 9%;
-    --sidebar-foreground: 240 5% 80%;
-    --sidebar-active: 243 30% 18%;
+    --background: 224 22% 7%;
+    --foreground: 220 16% 94%;
+    --card: 224 20% 10%;
+    --card-foreground: 220 16% 94%;
+    --popover: 224 20% 11%;
+    --popover-foreground: 220 16% 94%;
+    --primary: 221 92% 72%;
+    --primary-foreground: 224 40% 8%;
+    --secondary: 224 16% 16%;
+    --secondary-foreground: 220 14% 90%;
+    --muted: 224 16% 15%;
+    --muted-foreground: 220 10% 64%;
+    --accent: 224 40% 20%;
+    --accent-foreground: 221 90% 84%;
+    --border: 224 15% 18%;
+    --input: 224 14% 24%;
+    --ring: 221 88% 68%;
+    --sidebar: 224 24% 8%;
+    --sidebar-foreground: 220 14% 78%;
+    --sidebar-muted: 220 10% 56%;
+    --sidebar-hover: 224 20% 13%;
+    --sidebar-active: 224 30% 17%;
+    --sidebar-active-foreground: 0 0% 100%;
+    --sidebar-border: 224 18% 14%;
+    --sidebar-indicator: 221 92% 72%;
+    --brand: 224 34% 13%;
+    --brand-foreground: 0 0% 100%;
+    --good-fg: 120 61% 53%;
+    --warning-fg: 41 96% 54%;
+    --serious-fg: 17 80% 64%;
+    --critical-fg: 0 100% 77%;
   }
   * { @apply border-border; }
   html, body, #root { @apply h-full; }
-  body { @apply bg-background text-foreground antialiased; font-feature-settings: "cv11", "ss01"; }
+  body { @apply bg-background text-foreground antialiased; font-feature-settings: "cv11", "ss01", "ss03"; }
+  h1, h2, h3 { letter-spacing: -0.011em; }
   ::selection { @apply bg-primary/20; }
+  /* Native file pickers match the outline button instead of the browser default. */
+  input[type="file"] { @apply max-w-full text-sm text-muted-foreground; }
+  input[type="file"]::file-selector-button {
+    @apply mr-3 h-8 cursor-pointer rounded-md border border-input bg-card px-3 text-xs font-medium text-foreground shadow-card transition-colors;
+  }
+  input[type="file"]::file-selector-button:hover { @apply bg-muted; }
+  input[type="checkbox"], input[type="radio"] { accent-color: hsl(var(--primary)); }
+  /* Thin, theme-aware scrollbars for the rail, drawers and wide tables. */
+  * { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
+  .scroll-rail { scrollbar-color: hsl(var(--sidebar-hover)) transparent; }
 }
 
 @layer components {
@@ -72,8 +107,19 @@
   .prose-help a { @apply break-words; }
 }
 
-/* WCAG 1.4.3: the critical red is too dark for text on dark surfaces; fills keep the brand red. */
-.dark .text-critical { color: #ff8a8a; }
+/* WCAG 1.4.3: red text uses the critical text shade in both themes (the brand red is 4.4:1 on the page background
+   and too dark on dark surfaces); fills keep the brand red. */
+.text-critical { color: hsl(var(--critical-fg)); }
+
+@layer utilities {
+  /* Faint drafting grid for brand surfaces (sign-in, setup banner): the "keystone" architecture motif. */
+  .bg-blueprint {
+    background-image:
+      linear-gradient(hsl(0 0% 100% / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(0 0% 100% / 0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
 
 /* Toast text colours darkened to reach WCAG AA 4.5:1 on sonner's tinted backgrounds (light theme). */
 html [data-sonner-toaster][data-theme="light"] {

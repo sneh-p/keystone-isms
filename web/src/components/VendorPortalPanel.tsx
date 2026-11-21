@@ -31,7 +31,7 @@ export function VendorPortalPanel({ questionnaireId, locked }: { questionnaireId
     <Section title="Vendor portal">
       <p className="mb-3 text-sm text-muted-foreground">Send the vendor a link to answer this questionnaire and upload documents themselves. Files are checked and virus-scanned before they are stored.</p>
       <p className="mb-3 flex items-center gap-1.5 text-xs">
-        {data.scanner_ok ? <><ShieldCheck className="size-4 text-good" aria-hidden /> Virus scanner available</> : <><ShieldAlert className="size-4 text-critical" aria-hidden /> <span className="text-critical">Virus scanner unavailable: vendor uploads are refused until it is back.</span></>}
+        {data.scanner_ok ? <><ShieldCheck className="size-4 text-good-fg" aria-hidden /> Virus scanner available</> : <><ShieldAlert className="size-4 text-critical" aria-hidden /> <span className="text-critical">Virus scanner unavailable: vendor uploads are refused until it is back.</span></>}
       </p>
       {created && (
         <div className="mb-3 rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">

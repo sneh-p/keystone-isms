@@ -140,7 +140,7 @@ export function PhishLanding() {
   }, []);
   return (
     <main className="grid min-h-full place-items-center bg-muted/30 p-6">
-      <div className="w-full max-w-xl rounded-xl border bg-card p-6 shadow-sm sm:p-8">
+      <div className="w-full max-w-xl rounded-xl border bg-card p-6 shadow-card sm:p-8">
         <ShieldAlert className="size-10 text-primary" aria-hidden />
         <h1 className="mt-3 text-2xl font-semibold">This was a practice phishing email</h1>
         <p className="mt-2 text-muted-foreground">It came from your security team, to help everyone spot the real thing. Nothing happened and nothing was collected. Nobody is in trouble.</p>

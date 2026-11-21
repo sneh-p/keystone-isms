@@ -55,7 +55,7 @@ export function Comments({ kind, id }: { kind: Kind; id: number }) {
           onChange={(e) => { setText(e.target.value); setCursor(e.target.selectionStart ?? e.target.value.length); }}
           onKeyUp={(e) => setCursor(e.currentTarget.selectionStart ?? 0)} onClick={(e) => setCursor(e.currentTarget.selectionStart ?? 0)} />
         {matches.length > 0 && (
-          <ul role="listbox" aria-label="People to mention" className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border bg-popover py-1 text-sm shadow-lg">
+          <ul role="listbox" aria-label="People to mention" className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border bg-popover py-1 text-sm shadow-pop">
             {matches.map((p) => (
               <li key={p.username} role="option" aria-selected={false}>
                 <button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted" onMouseDown={(e) => { e.preventDefault(); pick(p.username); }}>

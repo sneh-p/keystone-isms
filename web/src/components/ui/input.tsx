@@ -1,7 +1,8 @@
 import { forwardRef, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-const base = "flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
+// Focus: the border turns primary (3:1 against the card, WCAG 2.4.11) with a soft halo around it.
+const base = "flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-card transition-[border-color,box-shadow] placeholder:text-muted-foreground hover:border-foreground/25 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(({ className, ...p }, ref) => <input ref={ref} className={cn(base, "h-9", className)} {...p} />);
 Input.displayName = "Input";
@@ -14,7 +15,7 @@ export function Field({ label, hint, children, className, required }: { label: R
     <label className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5 text-sm", className)}>
       <span className="font-medium">
         {label}
-        {required && <span className="text-critical"> *</span>}
+        {required && <span className="text-critical-fg"> *</span>}
       </span>
       {children}
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}

@@ -19,7 +19,7 @@ export function Select({ value, onChange, options, placeholder = "Select…", al
 }) {
   return (
     <S.Root value={value ? String(value) : allowEmpty ? NONE : undefined} onValueChange={(v) => onChange(v === NONE ? null : v)} disabled={disabled}>
-      <S.Trigger aria-label={ariaLabel} className={cn("flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-card px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 data-[placeholder]:text-muted-foreground", className)}>
+      <S.Trigger aria-label={ariaLabel} className={cn("flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-card px-3 text-sm shadow-card transition-[border-color,box-shadow] hover:border-foreground/25 focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/20 disabled:opacity-50 data-[placeholder]:text-muted-foreground", className)}>
         <span className="min-w-0 flex-1 truncate text-left">
           <S.Value placeholder={placeholder} />
         </span>
@@ -28,7 +28,7 @@ export function Select({ value, onChange, options, placeholder = "Select…", al
         </S.Icon>
       </S.Trigger>
       <S.Portal>
-        <S.Content position="popper" sideOffset={4} className="z-50 max-h-80 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-lg animate-fade-in">
+        <S.Content position="popper" sideOffset={4} className="z-50 max-h-80 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-pop animate-fade-in">
           <S.Viewport className="p-1">
             {allowEmpty && <Item value={NONE} label={emptyLabel} />}
             {options.map((o) => (
@@ -43,9 +43,9 @@ export function Select({ value, onChange, options, placeholder = "Select…", al
 
 function Item({ value, label }: Option) {
   return (
-    <S.Item value={value} className="relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-7 pr-2 text-sm outline-none data-[highlighted]:bg-muted">
+    <S.Item value={value} className="relative flex cursor-pointer select-none items-center rounded-md py-1.5 pl-7 pr-2 text-sm outline-none data-[highlighted]:bg-muted data-[state=checked]:font-medium">
       <S.ItemIndicator className="absolute left-2">
-        <Check className="size-3.5" />
+        <Check className="size-3.5 text-primary" />
       </S.ItemIndicator>
       <S.ItemText>{label}</S.ItemText>
     </S.Item>

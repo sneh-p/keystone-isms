@@ -62,22 +62,22 @@ export default function PublicTrust() {
       <header style={{ background: `linear-gradient(135deg, ${brand}, ${brand}cc)` }} className="text-white">
         <div className="mx-auto max-w-5xl px-6 pb-14 pt-10">
           <div className="flex items-center gap-2 text-sm text-white/80"><ShieldCheck className="size-4" /> Trust Center</div>
-          <h1 className="mt-3 text-3xl font-semibold sm:text-4xl">{data.headline || `${data.company} Trust Center`}</h1>
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.02em] sm:text-4xl">{data.headline || `${data.company} Trust Center`}</h1>
           <p className="mt-2 max-w-2xl text-white/85">How {data.company} protects your data. Updated {fmtDate(data.updated_at)}.</p>
           {certified.length > 0 && <div className="mt-6 flex flex-wrap gap-2">{certified.map((f: any) => <span key={f.code} className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm backdrop-blur"><BadgeCheck className="size-4" aria-hidden />Certified: {f.name}</span>)}</div>}
         </div>
       </header>
       <main className="mx-auto -mt-8 max-w-5xl space-y-6 px-6 pb-16">
-        {data.overview && <section className="rounded-xl border bg-card p-6 shadow-sm"><Markdown>{data.overview}</Markdown></section>}
+        {data.overview && <section className="rounded-xl border bg-card p-6 shadow-card"><Markdown>{data.overview}</Markdown></section>}
         {aligned.length > 0 && (
-          <section className="rounded-xl border bg-card p-6 shadow-sm">
+          <section className="rounded-xl border bg-card p-6 shadow-card">
             <h2 className="text-lg font-semibold">Frameworks we align to</h2>
             <p className="mt-1 text-sm text-muted-foreground">Our controls are mapped to these frameworks. Alignment is not a certification{certified.length ? "; certifications are shown at the top of this page" : ""}.</p>
             <ul className="mt-4 flex flex-wrap gap-2">{aligned.map((f: any) => <li key={f.code} className="rounded-full border px-3 py-1 text-sm">{f.name}</li>)}</ul>
           </section>
         )}
         {data.controls && Object.keys(data.controls).length > 0 && (
-          <section className="rounded-xl border bg-card p-6 shadow-sm">
+          <section className="rounded-xl border bg-card p-6 shadow-card">
             <h2 className="text-lg font-semibold">Security controls in place</h2>
             <p className="mt-1 text-sm text-muted-foreground">Controls that are implemented and backed by current evidence. This list updates automatically.</p>
             <div className="mt-5 grid gap-6 sm:grid-cols-2">
@@ -92,7 +92,7 @@ export default function PublicTrust() {
         )}
         <div className="grid gap-6 lg:grid-cols-2">
           {data.documents?.length > 0 && (
-            <section className="rounded-xl border bg-card p-6 shadow-sm">
+            <section className="rounded-xl border bg-card p-6 shadow-card">
               <h2 className="text-lg font-semibold">Documents</h2>
               <ul className="mt-4 divide-y">
                 {data.documents.map((d: any) => (
@@ -105,7 +105,7 @@ export default function PublicTrust() {
             </section>
           )}
           {data.policies?.length > 0 && (
-            <section className="rounded-xl border bg-card p-6 shadow-sm">
+            <section className="rounded-xl border bg-card p-6 shadow-card">
               <h2 className="text-lg font-semibold">Policies</h2>
               <ul className="mt-4 space-y-2">{data.policies.map((p: any) => <li key={p.code} className="flex justify-between text-sm"><span>{p.title}</span><span className="text-xs text-muted-foreground">approved {fmtDate(p.approved)}</span></li>)}</ul>
             </section>
@@ -118,17 +118,17 @@ export default function PublicTrust() {
             <div className="mt-4 flex flex-wrap items-end gap-2"><Field label="Type your full name to sign" className="min-w-64 flex-1"><Input value={signed} onChange={(e) => setSigned(e.target.value)} /></Field><Button disabled={!signed.trim()} onClick={acceptNda} style={{ background: brand }}>I agree</Button></div>
           </section>
         )}
-        {access && <div className="flex items-center gap-2 rounded-lg border px-4 py-3 text-sm"><CheckCircle2 className="size-4 text-good" /> Access granted to {grant.data.name} ({grant.data.company}) until {fmtDate(grant.data.expires_at)}.</div>}
+        {access && <div className="flex items-center gap-2 rounded-lg border px-4 py-3 text-sm"><CheckCircle2 className="size-4 text-good-fg" /> Access granted to {grant.data.name} ({grant.data.company}) until {fmtDate(grant.data.expires_at)}.</div>}
         {grant.isError && <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">{(grant.error as Error).message}</div>}
         {data.subprocessors?.length > 0 && (
-          <section className="rounded-xl border bg-card p-6 shadow-sm">
+          <section className="rounded-xl border bg-card p-6 shadow-card">
             <h2 className="text-lg font-semibold">Subprocessors</h2>
             <table className="mt-4 w-full text-sm"><thead><tr className="border-b text-left text-xs uppercase text-muted-foreground"><th className="py-2">Company</th><th>Purpose</th><th>Location</th></tr></thead>
               <tbody>{data.subprocessors.map((s: any) => <tr key={s.name} className="border-b last:border-0"><td className="py-2 font-medium">{s.name}</td><td>{s.purpose}</td><td>{s.location ?? "—"}</td></tr>)}</tbody></table>
           </section>
         )}
         {data.faqs?.length > 0 && (
-          <section className="rounded-xl border bg-card p-6 shadow-sm">
+          <section className="rounded-xl border bg-card p-6 shadow-card">
             <h2 className="text-lg font-semibold">Frequently asked questions</h2>
             <div className="mt-3 divide-y">{data.faqs.map((f: any, i: number) => (
               <div key={i}>
@@ -139,9 +139,9 @@ export default function PublicTrust() {
           </section>
         )}
         {!access && (
-          <section className="rounded-xl border bg-card p-6 shadow-sm">
+          <section className="rounded-xl border bg-card p-6 shadow-card">
             <h2 className="text-lg font-semibold">Request access to security documents</h2>
-            {sent ? <p className="mt-3 flex items-center gap-2 text-sm"><CheckCircle2 className="size-4 text-good" /> Thanks. We'll review your request and send you a personal access link.</p> : (
+            {sent ? <p className="mt-3 flex items-center gap-2 text-sm"><CheckCircle2 className="size-4 text-good-fg" /> Thanks. We'll review your request and send you a personal access link.</p> : (
               <form onSubmit={request} className="mt-4 grid gap-3 sm:grid-cols-3">
                 <Field label="Name"><Input required value={req.name} onChange={(e) => setReq({ ...req, name: e.target.value })} /></Field>
                 <Field label="Work email"><Input required type="email" value={req.email} onChange={(e) => setReq({ ...req, email: e.target.value })} /></Field>

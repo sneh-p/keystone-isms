@@ -124,7 +124,7 @@ export function Tour({ steps, onEnd, label = "Guided tour" }: { steps: TourStep[
       ) : <div aria-hidden className="fixed inset-0 bg-black/55" />}
       <div aria-hidden className="fixed inset-0" onMouseDown={(e) => e.preventDefault()} />
       <div ref={card} role="dialog" aria-modal="true" aria-label={label} aria-describedby="tour-body"
-        className="fixed w-[min(22rem,calc(100vw-2rem))] rounded-lg border bg-popover p-4 text-popover-foreground shadow-2xl motion-safe:transition-[top,left] motion-safe:duration-200"
+        className="fixed w-[min(22rem,calc(100vw-2rem))] rounded-lg border bg-popover p-4 text-popover-foreground shadow-pop motion-safe:transition-[top,left] motion-safe:duration-200"
         style={{ top: place?.top ?? -9999, left: place?.left ?? -9999, visibility: place ? "visible" : "hidden" }}>
         <div className="flex items-start justify-between gap-3">
           <p className="text-xs font-medium text-muted-foreground" aria-live="polite">Step {i + 1} of {steps.length}</p>

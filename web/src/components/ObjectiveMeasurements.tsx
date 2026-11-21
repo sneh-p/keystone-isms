@@ -46,7 +46,7 @@ function Trend({ points, target }: { points: { day: string; value: number }[]; t
         {points.map((p, i) => <circle key={i} cx={x(i)} cy={y(p.value)} r={i === hover ? 5 : 3.5} className="fill-primary stroke-card" strokeWidth={2} />)}
       </svg>
       {hover !== null && (
-        <div role="tooltip" className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs shadow-md" style={{ left: `${(x(hover) / W) * 100}%` }}>
+        <div role="tooltip" className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs shadow-pop" style={{ left: `${(x(hover) / W) * 100}%` }}>
           <span className="text-muted-foreground">{fmtDate(points[hover].day)}</span> <span className="font-semibold">{points[hover].value}</span>
         </div>
       )}

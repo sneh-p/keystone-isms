@@ -505,3 +505,25 @@ key pinning, the signed Windows agent, and asking tools what a key may do (SC-AG
   parameters, RMM secure fields). Where a tool has none (Kandji's custom scripts, a Group Policy share) the guide says
   to limit the key and replace it after the rollout.
 
+
+## Visual design (design pass, 2026-11-21)
+
+- **One palette, set as tokens.** Colours live as HSL variables in `web/src/index.css` and are named in
+  `web/tailwind.config.js`. The primary colour is an ink blue (`226 71% 45%`, a lighter `221 92% 72%` in dark mode) on
+  cool slate neutrals. The page background is a shade darker than the cards, so cards stand out without heavy borders.
+  The navigation rail is dark in both themes.
+- **Status text has its own shades.** The fills `good`, `warning`, `serious` and `critical` keep their colours for
+  badges, bars and the heat map. Text and icons use `text-good-fg`, `text-warning-fg`, `text-serious-fg` and
+  `text-critical-fg`, which pass WCAG AA (4.5:1) on cards and on the page background in both themes. Pages no longer
+  hard-code hex values for coloured text. `text-critical` is mapped to the same shade, because the brand red reaches
+  only 4.48:1 on the page background.
+- **Elevation scale.** `shadow-card` is for surfaces on the page, `shadow-raised` for hover and `shadow-pop` for menus,
+  dialogs and drawers. Pages don't use Tailwind's default shadows.
+- **Two levels of tabs.** Area tabs (Vendors, Improvement, Settings) are underlined. In-page `Tabs` are a segmented
+  control, so a settings page with both still reads as two levels. Both keep the ARIA tab roles.
+- **Keystone mark.** `BrandMark` (`components/ui/brand.tsx`) is an arch with its keystone lit, drawn in JSX
+  (SC-XSS-003). Brand surfaces (the sign-in panel and the setup banner) use `bg-brand` with a faint drafting grid
+  (`bg-blueprint`, CSS gradients only, so the CSP is unchanged). The public Trust Center keeps the customer's own
+  colour.
+- **No new dependencies.** The pass uses Inter Variable (already bundled) with its alternate digit and letter forms,
+  and tabular figures for numbers.

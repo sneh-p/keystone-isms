@@ -9,10 +9,10 @@ export function MultiSelect({ value, onChange, options, placeholder = "Select…
   const toggle = (v: string) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
   return (
     <P.Root>
-      <P.Trigger className="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md border border-input bg-card px-2 py-1 text-left text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring">
+      <P.Trigger className="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md border border-input bg-card px-2 py-1 text-left text-sm shadow-card transition-[border-color,box-shadow] hover:border-foreground/25 focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/20">
         {value.length === 0 && <span className="px-1 text-muted-foreground">{placeholder}</span>}
         {value.map((v) => (
-          <span key={v} className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-xs">
+          <span key={v} className="inline-flex items-center gap-1 rounded-md bg-accent px-1.5 py-0.5 text-xs font-medium text-accent-foreground">
             {labels.get(v) ?? v}
             <X
               className="size-3 cursor-pointer opacity-60 hover:opacity-100"
@@ -26,14 +26,14 @@ export function MultiSelect({ value, onChange, options, placeholder = "Select…
         <ChevronsUpDown className="ml-auto size-4 opacity-50" />
       </P.Trigger>
       <P.Portal>
-        <P.Content align="start" sideOffset={4} className="z-50 w-[var(--radix-popover-trigger-width)] min-w-64 rounded-md border bg-popover shadow-lg animate-fade-in">
+        <P.Content align="start" sideOffset={4} className="z-50 w-[var(--radix-popover-trigger-width)] min-w-64 rounded-lg border bg-popover text-popover-foreground shadow-pop animate-fade-in">
           <Command className="text-sm">
             <Command.Input placeholder="Search…" className="w-full border-b bg-transparent px-3 py-2 outline-none" />
             <Command.List className="max-h-64 overflow-auto p-1">
               <Command.Empty className="px-3 py-4 text-center text-muted-foreground">No matches</Command.Empty>
               {options.map((o) => (
-                <Command.Item key={o.value} value={o.label} onSelect={() => toggle(o.value)} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 data-[selected=true]:bg-muted">
-                  <Check className={cn("size-3.5", value.includes(o.value) ? "opacity-100" : "opacity-0")} />
+                <Command.Item key={o.value} value={o.label} onSelect={() => toggle(o.value)} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 data-[selected=true]:bg-muted">
+                  <Check className={cn("size-3.5 text-primary", value.includes(o.value) ? "opacity-100" : "opacity-0")} />
                   {o.label}
                 </Command.Item>
               ))}

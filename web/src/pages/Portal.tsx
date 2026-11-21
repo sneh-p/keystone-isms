@@ -9,6 +9,7 @@ import { useAction, useApi } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { cn, fmtDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { BrandMark } from "@/components/ui/brand";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -27,7 +28,7 @@ export function PortalShell({ children, onTour }: { children: any; onTour?: () =
     <div className="min-h-full bg-muted/30">
       <header className="border-b bg-card">
         <div className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4">
-          <div className="grid size-8 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">K</div>
+          <BrandMark />
           <span className="font-semibold">Employee portal</span>
           <div className="ml-auto flex items-center gap-3 text-sm">
             {me?.permissions.includes("read") && <Link to="/" className="text-primary hover:underline">Back to Keystone</Link>}
@@ -79,7 +80,7 @@ export default function Portal() {
       <Card className="mt-6" data-tour="portal-progress"><CardBody>
         <div className="flex items-center justify-between text-sm"><span className="font-medium">Your progress</span><span className="tabular-nums text-muted-foreground">{done} of {total} done</span></div>
         <Progress label="Your progress" className="mt-2" value={(100 * done) / total} tone={s.complete ? "good" : "primary"} />
-        {s.complete && <p className="mt-3 flex items-center gap-2 text-sm text-[#0a7a0a] dark:text-good"><CheckCircle2 className="size-4" /> You're all set. Thank you!</p>}
+        {s.complete && <p className="mt-3 flex items-center gap-2 text-sm text-good-fg"><CheckCircle2 className="size-4" /> You're all set. Thank you!</p>}
       </CardBody></Card>
 
       <ReportCard />
@@ -87,7 +88,7 @@ export default function Portal() {
       <Card className="mt-6" data-tour="portal-policies">
         <CardHeader title={<span className="flex items-center gap-2"><ScrollText className="size-4" /> Policies to accept</span>} description={`${s.policies_done} of ${s.policies_total} accepted`} />
         <CardBody className="space-y-2">
-          {data.policies.length === 0 ? <p className="flex items-center gap-2 text-sm text-muted-foreground"><Check className="size-4 text-good" /> Nothing waiting.</p> : data.policies.map((v: any) => (
+          {data.policies.length === 0 ? <p className="flex items-center gap-2 text-sm text-muted-foreground"><Check className="size-4 text-good-fg" /> Nothing waiting.</p> : data.policies.map((v: any) => (
             <div key={v.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
               <span>{v.title} <span className="text-muted-foreground">v{v.version_label}</span></span>
               <Button size="sm" onClick={() => setRead(v)}>Read and accept</Button>
@@ -176,7 +177,7 @@ export function TrainingModule() {
                   ))}</div>
                 </fieldset>
               ))}
-              {result && <p className={cn("rounded-md px-3 py-2 text-sm", result.passed ? "bg-good/10 text-[#0a7a0a] dark:text-good" : "bg-warning/10")}>{result.passed ? `Passed with ${result.score}/${result.out_of}.` : `${result.score}/${result.out_of}: not quite. Read the module again and retry.`}</p>}
+              {result && <p className={cn("rounded-md px-3 py-2 text-sm", result.passed ? "bg-good/10 text-good-fg" : "bg-warning/10")}>{result.passed ? `Passed with ${result.score}/${result.out_of}.` : `${result.score}/${result.out_of}: not quite. Read the module again and retry.`}</p>}
               <div className="flex gap-2">
                 <Button disabled={answers.filter((a) => a !== undefined).length !== data.quiz.length} loading={submit.isPending} onClick={() => submit.mutate(undefined)}>Submit answers</Button>
                 {result?.passed && <Button variant="outline" onClick={() => nav("/portal")}>Back to portal</Button>}
@@ -218,7 +219,7 @@ export function AcceptInvite() {
   return (
     <div className="grid min-h-full place-items-center bg-muted/30 p-6">
       <Card className="w-full max-w-md"><CardBody className="p-6">
-        <div className="mb-4 grid size-10 place-items-center rounded-lg bg-primary font-bold text-primary-foreground">K</div>
+        <BrandMark className="mb-4 size-10" />
         {info.isError ? <p className="text-sm text-critical">{(info.error as Error).message}</p> : !info.data ? <Skeleton className="h-40" /> : (
           <form onSubmit={submit} className="space-y-4">
             <div><h1 className="text-xl font-semibold">Welcome, {info.data.full_name.split(" ")[0]}</h1><p className="mt-1 text-sm text-muted-foreground">Choose a password to open your employee portal. You'll sign in with {info.data.email}.</p></div>

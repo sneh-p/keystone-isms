@@ -52,7 +52,7 @@ export function PolicyAssistant({ docId, unsaved, onClose, onAccepted }: { docId
         <div className="space-y-4">
           <div className="rounded-lg border bg-muted/40 px-4 py-3 text-sm">
             <div className="font-medium">{p.change_summary || "Proposed revision"}</div>
-            <div className="mt-1 text-xs text-muted-foreground">{p.base_label ? `Compared with v${p.base_label}` : "New text"} · <span className="text-good">+{added}</span> / <span className="text-critical">−{removed}</span> lines</div>
+            <div className="mt-1 text-xs text-muted-foreground">{p.base_label ? `Compared with v${p.base_label}` : "New text"} · <span className="text-good-fg">+{added}</span> / <span className="text-critical">−{removed}</span> lines</div>
           </div>
           {p.notes.length > 0 && (
             <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm">

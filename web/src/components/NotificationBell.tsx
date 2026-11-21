@@ -23,13 +23,13 @@ export function NotificationBell() {
   return (
     <P.Root>
       <P.Trigger asChild>
-        <button className="relative rounded-md p-2 hover:bg-muted" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}>
+        <button className="relative rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}>
           <Bell className="size-4" />
-          {unread > 0 && <span className="absolute right-0.5 top-0.5 grid min-w-4 place-items-center rounded-full bg-critical px-1 text-[10px] font-semibold leading-4 text-white" aria-hidden>{unread > 99 ? "99+" : unread}</span>}
+          {unread > 0 && <span className="absolute right-0.5 top-0.5 grid min-w-4 place-items-center rounded-full bg-critical px-1 text-[10px] font-semibold leading-4 text-white ring-2 ring-card" aria-hidden>{unread > 99 ? "99+" : unread}</span>}
         </button>
       </P.Trigger>
       <P.Portal>
-        <P.Content align="end" sideOffset={6} className="z-50 w-[min(24rem,calc(100vw-1rem))] rounded-lg border bg-popover shadow-xl">
+        <P.Content align="end" sideOffset={6} className="z-50 w-[min(24rem,calc(100vw-1rem))] rounded-lg border bg-popover text-popover-foreground shadow-pop">
           <div className="flex items-center justify-between border-b px-4 py-2.5">
             <h2 className="text-sm font-semibold">Notifications</h2>
             {unread > 0 && <button className="inline-flex items-center gap-1 text-xs text-primary hover:underline" onClick={() => read.mutate(null)}><CheckCheck className="size-3.5" aria-hidden /> Mark all read</button>}

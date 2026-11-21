@@ -60,16 +60,16 @@ export default function VendorPortal() {
   const missing = data.questions.filter((q: any) => q.required && !resp[q.id]?.answer).length;
   return (
     <Shell company={data.company}>
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
+      <div className="rounded-xl border bg-card p-6 shadow-card">
         <div className="flex items-center gap-2 text-sm text-muted-foreground"><ClipboardList className="size-4" aria-hidden /> Security questionnaire for {data.vendor}</div>
         <h1 className="mt-2 text-2xl font-semibold">{data.title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">Requested by {data.company}{data.due_date ? ` · due ${fmtDate(data.due_date)}` : ""}. {data.editable ? "Your answers are saved when you choose Save; you can come back to this link later." : "Submitted: this questionnaire is now read-only."}</p>
-        {!data.editable && <p className="mt-3 flex items-center gap-2 rounded-md bg-good/10 px-3 py-2 text-sm"><CheckCircle2 className="size-4 text-good" aria-hidden /> Thank you. {data.company} has received your answers.</p>}
+        {!data.editable && <p className="mt-3 flex items-center gap-2 rounded-md bg-good/10 px-3 py-2 text-sm"><CheckCircle2 className="size-4 text-good-fg" aria-hidden /> Thank you. {data.company} has received your answers.</p>}
         <div className="mt-3 text-sm"><span className="font-medium">{answered}</span> of {data.questions.length} answered</div>
       </div>
 
       {sections.map((sec) => (
-        <section key={sec} className="rounded-xl border bg-card p-6 shadow-sm" aria-labelledby={`sec-${sec}`}>
+        <section key={sec} className="rounded-xl border bg-card p-6 shadow-card" aria-labelledby={`sec-${sec}`}>
           <h2 id={`sec-${sec}`} className="text-lg font-semibold">{sec}</h2>
           <div className="mt-4 space-y-5">
             {data.questions.filter((q: any) => q.section === sec).map((q: any) => {
@@ -96,7 +96,7 @@ export default function VendorPortal() {
         </section>
       ))}
 
-      <section className="rounded-xl border bg-card p-6 shadow-sm" aria-labelledby="files">
+      <section className="rounded-xl border bg-card p-6 shadow-card" aria-labelledby="files">
         <h2 id="files" className="text-lg font-semibold">Supporting documents</h2>
         <p className="mt-1 text-sm text-muted-foreground">For example certificates, audit reports or policies. {data.limits.types.map((t: string) => t.toUpperCase()).join(", ")}; up to {data.limits.max_mb} MB each and {data.limits.max_files} files. Every file is virus-scanned.</p>
         {data.files.length > 0 && (
@@ -141,5 +141,5 @@ function Shell({ children, company }: { children: React.ReactNode; company?: str
 }
 
 function Message({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div className="rounded-xl border bg-card p-8 text-center shadow-sm"><h1 className="text-lg font-semibold">{title}</h1><p className="mt-2 text-sm text-muted-foreground">{children}</p></div>;
+  return <div className="rounded-xl border bg-card p-8 text-center shadow-card"><h1 className="text-lg font-semibold">{title}</h1><p className="mt-2 text-sm text-muted-foreground">{children}</p></div>;
 }

@@ -105,9 +105,9 @@ function PersonDrawer({ person: p, items, onClose }: { person: any; items: Recor
         <Section title="Portal access">
           {p.user_id ? (
             c && <ul className="space-y-2 text-sm">
-              <li className="flex items-center gap-2">{c.policies_done === c.policies_total ? <Check className="size-4 text-good" /> : <span className="size-4 rounded-full border" />}Policies accepted {c.policies_done}/{c.policies_total}</li>
-              <li className="flex items-center gap-2">{c.training_done === c.training_total ? <Check className="size-4 text-good" /> : <span className="size-4 rounded-full border" />}Training completed {c.training_done}/{c.training_total}</li>
-              <li className="flex items-center gap-2">{c.device_ok ? <Check className="size-4 text-good" /> : <span className="size-4 rounded-full border" />}Device checklist {c.device_ok === null ? "not submitted" : c.device_ok ? "compliant" : "needs attention"} ({c.devices} device(s))</li>
+              <li className="flex items-center gap-2">{c.policies_done === c.policies_total ? <Check className="size-4 text-good-fg" /> : <span className="size-4 rounded-full border" />}Policies accepted {c.policies_done}/{c.policies_total}</li>
+              <li className="flex items-center gap-2">{c.training_done === c.training_total ? <Check className="size-4 text-good-fg" /> : <span className="size-4 rounded-full border" />}Training completed {c.training_done}/{c.training_total}</li>
+              <li className="flex items-center gap-2">{c.device_ok ? <Check className="size-4 text-good-fg" /> : <span className="size-4 rounded-full border" />}Device checklist {c.device_ok === null ? "not submitted" : c.device_ok ? "compliant" : "needs attention"} ({c.devices} device(s))</li>
             </ul>
           ) : ed && (
             <div className="space-y-3">

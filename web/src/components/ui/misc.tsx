@@ -20,7 +20,7 @@ export function Progress({ value, label, className, tone = "primary" }: { value:
 export function Switch({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label?: ReactNode; disabled?: boolean }) {
   return (
     <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
-      <SwitchP.Root checked={checked} onCheckedChange={onChange} disabled={disabled} className="relative h-5 w-9 rounded-full bg-input transition-colors data-[state=checked]:bg-primary disabled:opacity-50">
+      <SwitchP.Root checked={checked} onCheckedChange={onChange} disabled={disabled} className="relative h-5 w-9 shrink-0 rounded-full bg-input transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:bg-primary disabled:opacity-50">
         <SwitchP.Thumb className="block size-4 translate-x-0.5 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-[18px]" />
       </SwitchP.Root>
       {label}
@@ -34,7 +34,7 @@ export function Tooltip({ content, children }: { content: ReactNode; children: R
       <Tip.Root>
         <Tip.Trigger asChild>{children}</Tip.Trigger>
         <Tip.Portal>
-          <Tip.Content sideOffset={4} className="z-50 max-w-xs rounded-md bg-foreground px-2.5 py-1.5 text-xs text-background shadow-md animate-fade-in">
+          <Tip.Content sideOffset={4} className="z-50 max-w-xs rounded-md bg-foreground px-2.5 py-1.5 text-xs leading-relaxed text-background shadow-pop animate-fade-in">
             {content}
           </Tip.Content>
         </Tip.Portal>
@@ -49,11 +49,11 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function Empty({ icon: Icon = Inbox, title, children, action }: { icon?: any; title: ReactNode; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-14 text-center">
-      <div className="mb-3 rounded-full bg-muted p-3">
-        <Icon className="size-6 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-card/60 px-6 py-14 text-center">
+      <div className="mb-4 grid size-12 place-items-center rounded-xl border bg-card text-muted-foreground shadow-card">
+        <Icon className="size-5" aria-hidden />
       </div>
-      <p className="font-medium">{title}</p>
+      <p className="font-semibold tracking-tight">{title}</p>
       {children && <p className="mt-1 max-w-md text-sm text-muted-foreground">{children}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
@@ -62,17 +62,17 @@ export function Empty({ icon: Icon = Inbox, title, children, action }: { icon?: 
 
 export function PageHeader({ title, description, actions, icon: Icon }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; icon?: any }) {
   return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
       {/* The title block may shrink to 24rem, so actions stay on the right on wide screens and wrap below on narrow ones. */}
-      <div className="flex min-w-0 flex-1 basis-96 items-start gap-3">
+      <div className="flex min-w-0 flex-1 basis-96 items-start gap-3.5">
         {Icon && (
-          <div className="mt-0.5 rounded-lg bg-accent p-2 text-accent-foreground">
-            <Icon className="size-5" />
+          <div className="hidden size-10 shrink-0 place-items-center rounded-lg border bg-card text-primary shadow-card sm:grid">
+            <Icon className="size-5" aria-hidden />
           </div>
         )}
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          {description && <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>}
+          <h1 className="text-[1.625rem] font-semibold leading-10 tracking-[-0.02em]">{title}</h1>
+          {description && <p className="mt-0.5 max-w-3xl text-sm leading-relaxed text-muted-foreground">{description}</p>}
         </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -84,7 +84,8 @@ export type StatTrend = { values: (number | null)[]; days: string[]; upIsGood?: 
 
 /** Stat tile: label, value, optional change since last week and 12-week sparkline; the whole tile links when `to` is set. */
 export function Stat({ label, value, hint, icon: Icon, tone, to, trend }: { label: ReactNode; value: ReactNode; hint?: ReactNode; icon?: any; tone?: "good" | "warning" | "critical"; to?: string; trend?: StatTrend }) {
-  const toneCls = tone === "critical" ? "text-critical" : tone === "warning" ? "text-[#b07400] dark:text-warning" : tone === "good" ? "text-[#0a7a0a] dark:text-good" : "";
+  const toneCls = tone === "critical" ? "text-critical-fg" : tone === "warning" ? "text-warning-fg" : tone === "good" ? "text-good-fg" : "";
+  const bar = tone === "critical" ? "bg-critical" : tone === "warning" ? "bg-warning" : tone === "good" ? "bg-good" : null;
   const vals = trend?.values ?? [];
   const now = vals[vals.length - 1], prev = vals[vals.length - 2];
   const change = typeof now === "number" && typeof prev === "number" ? Math.round((now - prev) * 10) / 10 : null;
@@ -92,24 +93,27 @@ export function Stat({ label, value, hint, icon: Icon, tone, to, trend }: { labe
   const better = change && trend?.upIsGood != null ? (change > 0) === trend.upIsGood : null;
   const body = (
     <>
-      <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+      {/* A status tile carries its tone as a short bar as well as the number's colour. */}
+      {bar && <span className={cn("absolute inset-x-0 top-0 h-0.5", bar)} aria-hidden />}
+      <div className="flex items-start justify-between gap-2 text-[0.8125rem] font-medium leading-5 text-muted-foreground">
         <span>{label}</span>
-        {Icon && <Icon className="size-4 shrink-0" aria-hidden />}
+        {Icon && <Icon className="mt-0.5 size-4 shrink-0 opacity-80" aria-hidden />}
       </div>
-      <div className="mt-2 flex flex-wrap items-baseline gap-x-2">
-        <span className={cn("text-2xl font-semibold tracking-tight", toneCls)}>{value}</span>
+      <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
+        <span className={cn("text-[1.75rem] font-semibold leading-9 tracking-[-0.02em] tabular-nums", toneCls)}>{value}</span>
         {change !== null && (
-          <span className={cn("text-xs font-medium", better === true ? "text-[#0a7a0a] dark:text-good" : better === false ? "text-critical" : "text-muted-foreground")}>
+          <span className={cn("text-xs font-medium", better === true ? "text-good-fg" : better === false ? "text-critical-fg" : "text-muted-foreground")}>
             {change === 0 ? "no change" : `${change > 0 ? "▲ +" : "▼ −"}${fmt(Math.abs(change))}`} <span className="font-normal text-muted-foreground">vs last week</span>
           </span>
         )}
       </div>
-      {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
-      {trend && <Sparkline values={trend.values} days={trend.days} label={typeof label === "string" ? label : "Trend"} format={fmt} />}
+      {hint && <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{hint}</div>}
+      {trend && <div className="mt-auto pt-1"><Sparkline values={trend.values} days={trend.days} label={typeof label === "string" ? label : "Trend"} format={fmt} /></div>}
     </>
   );
-  const cls = "block rounded-lg border bg-card p-4 shadow-sm";
-  return to ? <Link to={to} className={cn(cls, "transition-colors hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}>{body}</Link> : <div className={cls}>{body}</div>;
+  // h-full + flex column: tiles in a row share one height and their sparklines line up along the bottom.
+  const cls = "relative flex h-full flex-col overflow-hidden rounded-lg border bg-card p-4 shadow-card";
+  return to ? <Link to={to} className={cn(cls, "transition-[border-color,box-shadow] hover:border-primary/40 hover:shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}>{body}</Link> : <div className={cls}>{body}</div>;
 }
 
 export function KeyValue({ items }: { items: [ReactNode, ReactNode][] }) {
@@ -130,8 +134,8 @@ export function Section({ title, children, action, level = 4 }: { title: ReactNo
   const H = `h${level}` as "h2" | "h3" | "h4";
   return (
     <section className="mb-6">
-      <div className="mb-2 flex items-center justify-between">
-        <H className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</H>
+      <div className="mb-2.5 flex items-center justify-between gap-3">
+        <H className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{title}</H>
         {action}
       </div>
       {children}

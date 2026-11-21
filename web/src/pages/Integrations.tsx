@@ -68,7 +68,7 @@ export default function Integrations() {
                       <p className="mt-3 flex-1 text-sm text-muted-foreground">{p.description}</p>
                       <div className="mt-3 text-xs text-muted-foreground">{p.hr ? "Joiners, movers and leavers" : p.ticketing ? "Creates tickets; reads their status" : p.inventory ? `Provides: ${p.categories.map((c: string) => CATEGORY[c] ?? c).join(", ")}${p.checks.length ? ` · ${p.checks.length} checks` : ""}` : `${p.checks.length} checks · maps to ${[...new Set(p.checks.flatMap((c: any) => c.controls))].length} controls`}</div>
                       <div className="mt-4 flex flex-wrap gap-2">
-                        {mine.map((i: any) => <Button key={i.id} size="sm" variant="secondary" onClick={() => setOpen(i.id)}>{i.name} <StatusBadge status={i.last_status === "error" ? "error" : i.results.some((r: any) => r.result === "fail") ? "fail" : i.results.length ? "pass" : "unknown"} label=" " />{i.health.credential_expiring && <KeyRound className="size-3.5 text-warning" aria-label="Key expiring" />}</Button>)}
+                        {mine.map((i: any) => <Button key={i.id} size="sm" variant="secondary" onClick={() => setOpen(i.id)}>{i.name} <StatusBadge status={i.last_status === "error" ? "error" : i.results.some((r: any) => r.result === "fail") ? "fail" : i.results.length ? "pass" : "unknown"} label=" " />{i.health.credential_expiring && <KeyRound className="size-3.5 text-warning-fg" aria-label="Key expiring" />}</Button>)}
                         {can("integration.manage") && <Button size="sm" variant="outline" onClick={() => setConnect({ provider: p.key, name: p.name, values: {}, schedule_hours: p.ticketing ? 1 : p.key === "keystone_agents" ? 24 : p.inventory ? 6 : 24 })}>Connect</Button>}
                       </div>
                     </CardBody>
@@ -133,10 +133,10 @@ function Health({ h, schedule }: { h: any; schedule: number }) {
   if (h.credential_expires_on) rows.push(["Key or secret expires", `${fmtDate(h.credential_expires_on)} (${h.credential_days_left < 0 ? `${-h.credential_days_left} days ago` : `in ${h.credential_days_left} days`})`, h.credential_expiring ? (h.credential_days_left < 0 ? "critical" : "warning") : undefined]);
   return (
     <div className="space-y-2">
-      {h.overdue && <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />No successful run for more than twice the schedule ({schedule * 2} hours): results and evidence are getting old.</div>}
+      {h.overdue && <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-fg" aria-hidden />No successful run for more than twice the schedule ({schedule * 2} hours): results and evidence are getting old.</div>}
       <dl className="grid gap-2 text-sm sm:grid-cols-3">
         {rows.map(([k, v, tone]) => (
-          <div key={k} className="rounded-lg border px-3 py-2"><dt className="text-xs text-muted-foreground">{k}</dt><dd className={cn("font-medium", tone === "critical" && "text-critical", tone === "warning" && "text-[#8a5a00] dark:text-warning")}>{v}</dd></div>
+          <div key={k} className="rounded-lg border px-3 py-2"><dt className="text-xs text-muted-foreground">{k}</dt><dd className={cn("font-medium", tone === "critical" && "text-critical", tone === "warning" && "text-warning-fg")}>{v}</dd></div>
         ))}
       </dl>
     </div>
@@ -163,7 +163,7 @@ function SetupGuide({ provider, values }: { provider: any; values: Record<string
         const link = filled.startsWith("/") ? filled : (safeHref(filled) ?? "");
         return (
           <li key={i} className="relative pl-9">
-            <span className={cn("absolute left-0 top-0 grid size-6 place-items-center rounded-full text-xs font-semibold", st.kind === "verify" ? "bg-good/15 text-good" : "bg-accent text-accent-foreground")}>
+            <span className={cn("absolute left-0 top-0 grid size-6 place-items-center rounded-full text-xs font-semibold", st.kind === "verify" ? "bg-good/15 text-good-fg" : "bg-accent text-accent-foreground")}>
               {st.kind === "verify" ? <ShieldCheck className="size-3.5" aria-label="Verify" /> : i + 1}
             </span>
             <div className="flex flex-wrap items-center gap-2">

@@ -33,7 +33,7 @@ export function Sparkline({ values, days, label, format = String }: { values: (n
         <circle cx={x(last.i)} cy={y(last.v)} r={4} className="fill-primary stroke-card" strokeWidth={2} />
       </svg>
       {h !== null && (
-        <div role="tooltip" className="pointer-events-none absolute top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs shadow-md"
+        <div role="tooltip" className="pointer-events-none absolute top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs shadow-pop"
           style={{ left: `${(x(h) / W) * 100}%` }}>
           <span className="text-muted-foreground">{when(h)}</span> <span className="font-semibold">{format(values[h] as number)}</span>
         </div>

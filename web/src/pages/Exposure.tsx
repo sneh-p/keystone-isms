@@ -62,7 +62,7 @@ function TenantMap() {
           <DataTable rows={apps} rowKey={(a: any) => a.id} onRowClick={(a: any) => setOpen(a.id)} search={(a: any) => `${a.display_name} ${a.publisher_name ?? ""}`} columns={[
             { key: "n", header: "App", cell: (a: any) => <div><div className="font-medium">{a.display_name}</div><div className="text-xs text-muted-foreground">{a.verified_publisher_name ?? a.publisher_name ?? "Unknown publisher"}{a.publisher_verified && " ✓ verified"}</div></div>, sort: (a: any) => a.display_name },
             { key: "o", header: "Owner", cell: (a: any) => <Badge tone={a.owner_class === "unknown" ? "warning" : "outline"}>{titleCase(a.owner_class)}</Badge> },
-            { key: "e", header: "Exposure", cell: (a: any) => <div className="flex items-center gap-1"><LevelBadge level={a.exposure?.exposure_level} />{a.exposure?.incomplete_data && <span title="Partial data"><AlertTriangle className="size-4 text-warning" /></span>}</div>, sort: (a: any) => ["Low", "Medium", "High", "Critical"].indexOf(a.exposure?.exposure_level) },
+            { key: "e", header: "Exposure", cell: (a: any) => <div className="flex items-center gap-1"><LevelBadge level={a.exposure?.exposure_level} />{a.exposure?.incomplete_data && <span title="Partial data"><AlertTriangle className="size-4 text-warning-fg" /></span>}</div>, sort: (a: any) => ["Low", "Medium", "High", "Critical"].indexOf(a.exposure?.exposure_level) },
             { key: "ao", header: "App-only", cell: (a: any) => (a.exposure?.has_app_only ? <Badge tone="serious">Yes</Badge> : "No") },
             { key: "uc", header: "Users consented", cell: (a: any) => a.exposure?.user_consent_count || "—", className: "text-right" },
             { key: "d", header: "Dormant", cell: (a: any) => (a.exposure?.dormant === null ? <span className="text-muted-foreground">Unknown</span> : a.exposure?.dormant ? <Badge tone="warning">Yes</Badge> : "No") },
@@ -94,7 +94,7 @@ function TenantMap() {
 }
 
 function Banner({ tone, children }: { tone: "warning" | "critical"; children: any }) {
-  return <div className={`flex items-start gap-2 rounded-lg border px-4 py-3 text-sm ${tone === "critical" ? "border-critical/30 bg-critical/5" : "border-warning/40 bg-warning/10"}`}><AlertTriangle className={`mt-0.5 size-4 shrink-0 ${tone === "critical" ? "text-critical" : "text-[#b07400]"}`} /><div>{children}</div></div>;
+  return <div className={`flex items-start gap-2 rounded-lg border px-4 py-3 text-sm ${tone === "critical" ? "border-critical/30 bg-critical/5" : "border-warning/40 bg-warning/10"}`}><AlertTriangle className={`mt-0.5 size-4 shrink-0 ${tone === "critical" ? "text-critical" : "text-warning-fg"}`} /><div>{children}</div></div>;
 }
 
 function AppDrawer({ id, onClose }: { id: number; onClose: () => void }) {

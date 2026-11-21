@@ -56,7 +56,7 @@ export function Organisation() {
           {ed && <div><Button loading={save.isPending} onClick={() => save.mutate(pick(["name", "legal_name", "industry", "description", "internal_issues", "external_issues", "risk_appetite"]))}>Save context</Button></div>}
         </CardBody></Card> },
         { value: "scope", label: "Scope (4.3)", content: <Card>
-          <CardHeader title="ISMS scope" description={data?.scope_approved_at ? <span className="flex items-center gap-1 text-[#0a7a0a] dark:text-good"><CheckCircle2 className="size-4" /> Approved {fmtDate(data.scope_approved_at)} by {name(data.scope_approved_by_id)}</span> : "Not approved. Editing the scope clears any approval."}
+          <CardHeader title="ISMS scope" description={data?.scope_approved_at ? <span className="flex items-center gap-1 text-good-fg"><CheckCircle2 className="size-4" /> Approved {fmtDate(data.scope_approved_at)} by {name(data.scope_approved_by_id)}</span> : "Not approved. Editing the scope clears any approval."}
             action={ed && !data?.scope_approved_at && f.scope_statement && <Button variant="outline" onClick={() => approve.mutate(undefined)}><Stamp /> Approve scope</Button>} />
           <CardBody className="space-y-4">{t("scope_statement", "Scope statement")}{t("scope_inclusions", "Inclusions (locations, units, systems)")}{t("scope_exclusions", "Exclusions and justification")}{t("scope_interfaces", "Interfaces and dependencies")}
             {ed && <Button loading={save.isPending} onClick={() => save.mutate(pick(["name", "scope_statement", "scope_inclusions", "scope_exclusions", "scope_interfaces"]))}>Save scope</Button>}
@@ -148,7 +148,7 @@ export function AuditLog() {
   return (
     <div className="animate-fade-in">
       <PageHeader icon={AlertOctagon} title="Audit log" description="Append-only and hash-chained. Every change to ISMS records is written here automatically." />
-      {verify.data && (verify.data.ok ? <div className="mb-4 flex items-center gap-2 rounded-lg border border-good/30 bg-good/5 px-4 py-3 text-sm"><CheckCircle2 className="size-4 text-good" /> Integrity check passed: the hash chain is intact.</div> : <div className="mb-4 flex items-center gap-2 rounded-lg border border-critical/30 bg-critical/5 px-4 py-3 text-sm"><ShieldAlert className="size-4 text-critical" /> Integrity check FAILED at entry {verify.data.first_bad_id}. The log was altered outside Keystone: treat this as a security incident.</div>)}
+      {verify.data && (verify.data.ok ? <div className="mb-4 flex items-center gap-2 rounded-lg border border-good/30 bg-good/5 px-4 py-3 text-sm"><CheckCircle2 className="size-4 text-good-fg" /> Integrity check passed: the hash chain is intact.</div> : <div className="mb-4 flex items-center gap-2 rounded-lg border border-critical/30 bg-critical/5 px-4 py-3 text-sm"><ShieldAlert className="size-4 text-critical" /> Integrity check FAILED at entry {verify.data.first_bad_id}. The log was altered outside Keystone: treat this as a security incident.</div>)}
       <DataTable rows={data ?? []} rowKey={(r: any) => r.id} search={(r: any) => `${r.actor_name} ${r.summary} ${r.action}`} toolbar={<div className="w-56"><Select ariaLabel="Filter by record type" value={type} onChange={setType} allowEmpty emptyLabel="All record types" placeholder="All record types" options={allTypes.map((t) => ({ value: t, label: t }))} /></div>} columns={[
         { key: "i", header: "#", cell: (r: any) => <span className="tabular-nums text-muted-foreground">{r.id}</span>, className: "w-16" },
         { key: "t", header: "When", cell: (r: any) => <span className="whitespace-nowrap">{fmtDate(r.ts, true)}</span> },
@@ -501,7 +501,7 @@ export function SystemHealth() {
           <ul className="mt-1 list-disc pl-5">{data.problems.map((p: any) => <li key={p.key}>{p.title}</li>)}</ul>
         </div>
       ) : (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground"><CheckCircle2 className="h-4 w-4 text-good" /> Everything is working.</p>
+        <p className="flex items-center gap-2 text-sm text-muted-foreground"><CheckCircle2 className="h-4 w-4 text-good-fg" /> Everything is working.</p>
       )}
       <div className="grid gap-5 lg:grid-cols-[22rem_1fr]">
         <Card>

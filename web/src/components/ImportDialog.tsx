@@ -96,10 +96,10 @@ function ImportDialog({ register, noun, invalidate, onClose }: { register: strin
                 <ul className="list-inside list-disc">{result.header_errors.map((e) => <li key={e}>{e}</li>)}</ul>
               </div>
             ) : result.errors === 0 ? (
-              <p className="flex items-center gap-2"><CheckCircle2 className="size-4 text-good" aria-hidden /> All {result.ok} rows are valid and ready to import.</p>
+              <p className="flex items-center gap-2"><CheckCircle2 className="size-4 text-good-fg" aria-hidden /> All {result.ok} rows are valid and ready to import.</p>
             ) : (
               <>
-                <p className="flex items-center gap-2"><AlertTriangle className="size-4 text-warning" aria-hidden /> {result.errors} of {result.rows.length} rows need fixing. Correct the file and choose it again.</p>
+                <p className="flex items-center gap-2"><AlertTriangle className="size-4 text-warning-fg" aria-hidden /> {result.errors} of {result.rows.length} rows need fixing. Correct the file and choose it again.</p>
                 <div className="max-h-72 overflow-auto rounded-md border" tabIndex={0} aria-label="Rows with problems">
                   <table className="w-full text-left text-xs">
                     <thead className="sticky top-0 bg-muted"><tr><th className="px-2 py-1.5">Row</th><th className="px-2 py-1.5">Record</th><th className="px-2 py-1.5">Problem</th></tr></thead>

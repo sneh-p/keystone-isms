@@ -51,7 +51,7 @@ export default function Risks() {
         <Stat label="Reviews overdue" value={att.review_overdue.length} tone={att.review_overdue.length ? "warning" : undefined} />
         <Stat label="Treatment actions overdue" value={att.actions_overdue.length} tone={att.actions_overdue.length ? "warning" : undefined} />
       </div>
-      <div className="grid gap-6 xl:grid-cols-[1fr_auto]">
+      <div className="grid gap-6 2xl:grid-cols-[1fr_auto]">
         <div className="min-w-0">
           <DataTable
             rows={rows}
@@ -66,7 +66,7 @@ export default function Risks() {
             }
             columns={[
               { key: "ref", header: "Ref", cell: (r: any) => <span className="font-mono text-xs">{r.ref}</span>, sort: (r: any) => r.id, className: "w-24" },
-              { key: "title", header: "Risk", cell: (r: any) => <div><div className="font-medium">{r.title}</div><div className="text-xs text-muted-foreground">{titleCase(r.category)} · {name(r.owner_id)}</div></div>, sort: (r: any) => r.title },
+              { key: "title", header: "Risk", className: "min-w-[16rem]", cell: (r: any) => <div><div className="font-medium">{r.title}</div><div className="text-xs text-muted-foreground">{titleCase(r.category)} · {name(r.owner_id)}</div></div>, sort: (r: any) => r.title },
               { key: "inh", header: "Inherent", cell: (r: any) => <LevelBadge level={r.inherent_level} />, sort: (r: any) => (r.inherent_likelihood ?? 0) * (r.inherent_impact ?? 0) },
               { key: "res", header: "Residual", cell: (r: any) => (r.residual_level ? <LevelBadge level={r.residual_level} /> : <span className="text-muted-foreground">—</span>), sort: (r: any) => (r.residual_likelihood ?? 0) * (r.residual_impact ?? 0) },
               { key: "status", header: "Status", cell: (r: any) => <div className="flex flex-col items-start gap-1"><StatusBadge status={r.status} />{r.accepted_until && <span className="text-xs text-muted-foreground">accepted to {fmtDate(r.accepted_until)}</span>}</div>, sort: (r: any) => r.status },
@@ -75,7 +75,7 @@ export default function Risks() {
             ]}
           />
         </div>
-        <Card className="h-fit">
+        <Card className="h-fit max-w-xl 2xl:sticky 2xl:top-0 2xl:max-w-none">
           <CardHeader title="Heat map" description="Click a cell to filter." />
           <CardBody>
             <HeatMap grid={data.heat_map.current} levels={matrix.data.grid} title="Current risk" likelihood={matrix.data.likelihood} impact={matrix.data.impact} onCell={(l, i) => setCell({ l, i })} />

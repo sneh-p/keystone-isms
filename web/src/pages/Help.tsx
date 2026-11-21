@@ -43,7 +43,7 @@ export function HelpMarkdown({ children, topicLinks = true }: { children: string
               <a href={url} target="_blank" rel="noreferrer" className="my-3 block" title="Open full size">
                 {/* Screenshots are one screen each (desktop 1440 × 900, phone 390 × 844): reserving the space keeps
                     a topic where "Help for this page" scrolled to while the images load. */}
-                <img src={url} alt={alt ?? ""} loading="lazy" className="h-auto w-full rounded-lg border shadow-sm"
+                <img src={url} alt={alt ?? ""} loading="lazy" className="h-auto w-full rounded-lg border shadow-card"
                   width={String(src).includes("/phone") ? 390 : 1440} height={String(src).includes("/phone") ? 844 : 900} />
               </a>
             );
@@ -93,7 +93,7 @@ export default function Help() {
                 {GUIDE.sections.map((s) => (
                   <li key={s.id}>
                     <Link to={`/help#${s.id}`} onClick={() => setQ("")} aria-current={s.id === section.id && !hits ? "page" : undefined}
-                      className={cn("block rounded-md px-3 py-1.5 text-sm", s.id === section.id && !hits ? "bg-sidebar-active font-medium text-accent-foreground" : "text-sidebar-foreground hover:bg-muted")}>
+                      className={cn("block rounded-md px-3 py-1.5 text-sm", s.id === section.id && !hits ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
                       {s.title}
                     </Link>
                     {s.id === section.id && !hits && s.subsections.length > 0 && (

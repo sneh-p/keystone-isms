@@ -7,26 +7,32 @@ import { safeRedirectPath } from "@/lib/safe-url";
 import { api, fragmentParam } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
+import { BrandMark } from "@/components/ui/brand";
 
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <div className="grid min-h-full lg:grid-cols-2">
-      <aside aria-label="About Keystone" className="relative hidden overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-10 text-white lg:flex lg:flex-col lg:justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="grid size-9 place-items-center rounded-lg bg-white/15 font-bold backdrop-blur">K</div>
-          <span className="text-lg font-semibold">Keystone ISMS</span>
+      <aside aria-label="About Keystone" className="bg-blueprint relative hidden overflow-hidden bg-brand p-10 text-brand-foreground lg:flex lg:flex-col lg:justify-between">
+        <div className="flex items-center gap-3">
+          <BrandMark tone="light" className="size-9" />
+          <span className="text-lg font-semibold tracking-tight">Keystone ISMS</span>
         </div>
-        <div className="max-w-md">
-          <ShieldCheck className="mb-6 size-10 opacity-90" />
-          <h2 className="text-3xl font-semibold leading-tight">Run your security program in one place.</h2>
-          <p className="mt-4 text-white/80">ISO 27001, SOC 2, NIST CSF and CIS controls, policies, risks, vendors, evidence and audits, with every change on an append-only audit trail.</p>
+        {/* A large arch with its keystone lit, drawn behind the copy. */}
+        <svg viewBox="0 0 400 300" className="pointer-events-none absolute -bottom-10 -right-28 w-[30rem] opacity-[0.09]" aria-hidden focusable="false">
+          <path d="M60 300V170a140 140 0 0 1 280 0v130" fill="none" stroke="white" strokeWidth="34" />
+          <path d="M176 8h48l-9 62h-30z" fill="white" />
+        </svg>
+        <div className="relative max-w-md">
+          <ShieldCheck className="mb-6 size-9 text-sidebar-indicator" aria-hidden />
+          <h2 className="text-[2rem] font-semibold leading-tight tracking-[-0.02em]">Run your security program in one place.</h2>
+          <p className="mt-4 leading-relaxed text-white/75">ISO 27001, SOC 2, NIST CSF and CIS controls, policies, risks, vendors, evidence and audits, with every change on an append-only audit trail.</p>
         </div>
-        <p className="text-sm text-white/60">Self-hosted. Your data stays on your infrastructure.</p>
-        <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-white/10 blur-3xl" />
+        <p className="relative text-sm text-white/60">Self-hosted. Your data stays on your infrastructure.</p>
       </aside>
       <main className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm animate-fade-in">
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+          <BrandMark className="mb-8 size-10 lg:hidden" />
+          <h1 className="text-[1.75rem] font-semibold tracking-[-0.02em]">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
           <div className="mt-6">{children}</div>
         </div>
@@ -65,7 +71,7 @@ export function Login() {
         <Field label="Password">
           <Input type="password" autoComplete="current-password" value={p} onChange={(e) => setP(e.target.value)} />
         </Field>
-        {err && <p className="rounded-md bg-critical/10 px-3 py-2 text-sm text-[#a32020] dark:text-critical" role="alert">{err}</p>}
+        {err && <p className="rounded-md bg-critical/10 px-3 py-2 text-sm text-critical-fg" role="alert">{err}</p>}
         <Button type="submit" className="w-full" loading={busy}>Sign in</Button>
       </form>
       <SsoButtons />
@@ -93,12 +99,12 @@ function SsoButtons() {
   }, []);
   return (
     <>
-      {error && <p className="mt-4 rounded-md bg-critical/10 px-3 py-2 text-sm text-[#a32020] dark:text-critical" role="alert">{SSO_ERROR[error] ?? SSO_ERROR.invalid_request}</p>}
+      {error && <p className="mt-4 rounded-md bg-critical/10 px-3 py-2 text-sm text-critical-fg" role="alert">{SSO_ERROR[error] ?? SSO_ERROR.invalid_request}</p>}
       {status.length > 0 && (
         <div className="mt-6 space-y-2">
           <div className="flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" /></div>
           {status.map((k) => (
-            <a key={k} href={`/api/auth/oidc/${k}/start`} className="flex h-10 w-full items-center justify-center gap-2 rounded-md border bg-card text-sm font-medium shadow-sm hover:bg-muted">
+            <a key={k} href={`/api/auth/oidc/${k}/start`} className="flex h-10 w-full items-center justify-center gap-2 rounded-md border bg-card text-sm font-medium shadow-card hover:bg-muted">
               Sign in with {SSO_LABEL[k] ?? k}
             </a>
           ))}

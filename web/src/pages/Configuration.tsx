@@ -584,7 +584,7 @@ function Agents() {
   return (
     <div className="max-w-4xl space-y-6">
       {!data.https && (
-        <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-[#b07400]" />
+        <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-fg" />
           <div>Keystone's address is {data.server}. Agents only talk to HTTPS addresses (HTTP works for localhost testing only). Set KEYSTONE_PUBLIC_URL to the HTTPS address users reach Keystone on.</div></div>
       )}
       <p className="text-sm text-muted-foreground">The agents only read settings and send them to Keystone. They never change the host or run commands, and Keystone can't update them: you install new versions yourself. They also evaluate your custom checks (read-only, within limits built into the agent) unless installed with custom checks turned off. Each agent swaps the enrolment key for its own device token when it enrols, checks in every hour, and sends a full report when one is due. It also reports the SHA-256 of its own script, so a changed agent shows up as “Modified agent”, and lists installed software (leave it out with --no-software / -NoSoftware).</p>
@@ -610,7 +610,7 @@ function Agents() {
           action={<Button size="sm" variant="outline" loading={rotate.isPending} onClick={() => window.confirm("Create a new enrolment key? The current one stops working for new installs.") && rotate.mutate(undefined)}><RotateCcw /> New key</Button>} />
         <CardBody className="space-y-3 text-sm">
           <div className="flex items-center gap-2"><KeyRound className="size-4 text-muted-foreground" /><code className="break-all font-mono text-xs">{data.enrolment_key}</code><CopyButton text={data.enrolment_key} /></div>
-          {(l.expired || l.used_up) && <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-[#b07400]" aria-hidden />
+          {(l.expired || l.used_up) && <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-fg" aria-hidden />
             {l.expired ? "This key has expired." : "This key has been used as many times as allowed."} Create a new key to install more agents.</div>}
           <p className="text-muted-foreground">Anyone with this key can enrol a device, so share it only with the people installing agents and replace it when they're done. Revoke a device's token from its page under Hosts and firewalls.</p>
           <div className="rounded-lg border p-3">

@@ -63,14 +63,14 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
     else next.add(k);
     onSelectedChange!(next);
   };
-  const box = "size-4 cursor-pointer rounded border-input accent-[hsl(var(--primary))]";
+  const box = "size-4 cursor-pointer rounded border-input";
   return (
     <div>
       {(search || toolbar) && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {search && (
             <div className="relative w-full sm:max-w-xs">
-              <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" aria-hidden />
               <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="pl-8" aria-label="Search table" />
             </div>
           )}
@@ -83,24 +83,24 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
         </div>
       )}
       {selectable && selected!.size > 0 && bulkBar && (
-        <div role="region" aria-label="Bulk actions" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+        <div role="region" aria-label="Bulk actions" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-accent px-3 py-2 text-sm shadow-card">
           <span className="font-medium">{selected!.size} selected</span>
-          <button type="button" className="text-primary hover:underline" onClick={() => onSelectedChange!(new Set())}>Clear</button>
+          <button type="button" className="font-medium text-primary hover:underline" onClick={() => onSelectedChange!(new Set())}>Clear</button>
           <span className="mx-1 h-5 w-px bg-border" aria-hidden />
           {bulkBar([...selected!])}
         </div>
       )}
-      <div className="hidden overflow-x-auto rounded-lg border bg-card sm:block">
+      <div className="hidden overflow-x-auto rounded-lg border bg-card shadow-card sm:block">
         <table ref={tableRef} className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <tr className="border-b bg-muted/60 text-left text-[0.6875rem] uppercase tracking-[0.06em] text-muted-foreground">
               {selectable && (
-                <th className="w-10 px-3 py-2.5">
+                <th className="w-10 px-3 py-2">
                   <input type="checkbox" className={box} checked={allShown} ref={(el) => { if (el) el.indeterminate = someShown && !allShown; }} onChange={toggleAll} aria-label={allShown ? "Deselect all shown rows" : "Select all shown rows"} />
                 </th>
               )}
               {columns.map((c) => (
-                <th key={c.key} className={cn("whitespace-nowrap px-3 py-2.5 font-medium", c.sort && "cursor-pointer select-none hover:text-foreground", c.className)} onClick={() => c.sort && setSort((s) => (s?.key === c.key ? { key: c.key, dir: (s.dir * -1) as 1 | -1 } : { key: c.key, dir: 1 }))}>
+                <th key={c.key} className={cn("whitespace-nowrap px-3 py-2 font-semibold", c.sort && "cursor-pointer select-none hover:text-foreground", sort?.key === c.key && "text-foreground", c.className)} onClick={() => c.sort && setSort((s) => (s?.key === c.key ? { key: c.key, dir: (s.dir * -1) as 1 | -1 } : { key: c.key, dir: 1 }))}>
                   <span className="inline-flex items-center gap-1">
                     {c.header === "" ? <span className="sr-only">Actions</span> : c.header}
                     {sort?.key === c.key && (sort.dir === 1 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
@@ -121,14 +121,14 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
               <tr key={rowKey(r)} onClick={onRowClick ? () => onRowClick(r) : undefined}
                 tabIndex={onRowClick ? 0 : undefined}
                 onKeyDown={onRowClick ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onRowClick(r); } } : undefined}
-                className={cn("border-b last:border-0", onRowClick && "cursor-pointer hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", selectable && selected!.has(rowKey(r)) && "bg-primary/5")}>
+                className={cn("border-b transition-colors last:border-0", onRowClick && "cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", selectable && selected!.has(rowKey(r)) && "bg-accent/70")}>
                 {selectable && (
-                  <td className="px-3 py-2.5 align-top" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-3 py-3 align-top" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" className={box} checked={selected!.has(rowKey(r))} onChange={() => toggle(rowKey(r))} aria-label={`Select ${rowLabel ? rowLabel(r) : rowKey(r)}`} />
                   </td>
                 )}
                 {columns.map((c) => (
-                  <td key={c.key} className={cn("px-3 py-2.5 align-top", c.className)}>
+                  <td key={c.key} className={cn("px-3 py-3 align-top", c.className)}>
                     {c.cell(r)}
                   </td>
                 ))}
@@ -151,7 +151,7 @@ export function DataTable<T>({ rows, columns, onRowClick, search, empty = "Nothi
           return (
             <li key={k} onClick={onRowClick ? () => onRowClick(r) : undefined} tabIndex={onRowClick ? 0 : undefined}
               onKeyDown={onRowClick ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onRowClick(r); } } : undefined}
-              className={cn("rounded-lg border bg-card p-3 text-sm shadow-sm", onRowClick && "cursor-pointer active:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", selectable && selected!.has(k) && "border-primary/50 bg-primary/5")}>
+              className={cn("rounded-lg border bg-card p-3.5 text-sm shadow-card", onRowClick && "cursor-pointer active:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", selectable && selected!.has(k) && "border-primary/50 bg-accent/70")}>
               <div className="flex items-start gap-3">
                 {selectable && <span onClick={(e) => e.stopPropagation()}><input type="checkbox" className={cn(box, "mt-0.5")} checked={selected!.has(k)} onChange={() => toggle(k)} aria-label={`Select ${rowLabel ? rowLabel(r) : k}`} /></span>}
                 <div className="min-w-0 flex-1 space-y-0.5">{columns.filter((c, i) => role(c, i) === "heading").map((c) => <div key={c.key} className="min-w-0 break-words">{c.cell(r)}</div>)}</div>

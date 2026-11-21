@@ -59,7 +59,7 @@ export default function Onboarding() {
 
   if (result) return (
     <div className="mx-auto max-w-xl py-10 text-center animate-fade-in">
-      <div className="mx-auto mb-5 grid size-14 place-items-center rounded-full bg-good/15 text-good"><Check className="size-7" /></div>
+      <div className="mx-auto mb-5 grid size-14 place-items-center rounded-full bg-good/15 text-good-fg"><Check className="size-7" /></div>
       <h1 className="text-2xl font-semibold">Your ISMS is ready to work on</h1>
       <p className="mt-2 text-muted-foreground">Keystone tailored a starting point for {p.company_name}.</p>
       <Card className="mt-6 text-left"><CardBody className="space-y-2 text-sm">
@@ -130,11 +130,11 @@ export default function Onboarding() {
           {step === 5 && <>
             <h2 className="text-xl font-semibold">Ready to generate</h2>
             <ul className="space-y-2 text-sm">
-              <li className="flex gap-2"><Check className="size-4 text-good" /> Enable {p.frameworks.length} framework(s) and write your ISMS scope.</li>
-              <li className="flex gap-2"><Check className="size-4 text-good" /> Create {policies.length} draft policies from Keystone templates, for you to review and approve.</li>
-              <li className="flex gap-2"><Check className="size-4 text-good" /> Schedule recurring evidence tasks linked to controls.</li>
-              {!p.develops_software && <li className="flex gap-2"><Check className="size-4 text-good" /> Mark secure development controls not applicable, with a written reason.</li>}
-              {!p.offices && <li className="flex gap-2"><Check className="size-4 text-good" /> Mark premises controls not applicable, with a written reason.</li>}
+              <li className="flex gap-2"><Check className="size-4 text-good-fg" /> Enable {p.frameworks.length} framework(s) and write your ISMS scope.</li>
+              <li className="flex gap-2"><Check className="size-4 text-good-fg" /> Create {policies.length} draft policies from Keystone templates, for you to review and approve.</li>
+              <li className="flex gap-2"><Check className="size-4 text-good-fg" /> Schedule recurring evidence tasks linked to controls.</li>
+              {!p.develops_software && <li className="flex gap-2"><Check className="size-4 text-good-fg" /> Mark secure development controls not applicable, with a written reason.</li>}
+              {!p.offices && <li className="flex gap-2"><Check className="size-4 text-good-fg" /> Mark premises controls not applicable, with a written reason.</li>}
             </ul>
             <p className="text-xs text-muted-foreground">Safe to run again: existing policies, tasks and decisions are kept.</p>
           </>}

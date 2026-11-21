@@ -93,7 +93,7 @@ export default function Controls() {
             <div className="flex flex-col gap-1">
               <span>{c.evidence_current ? `${c.evidence_current} current` : <span className="text-muted-foreground">None current</span>}</span>
               {c.needs_evidence && <span className="inline-flex items-center gap-1 text-xs font-medium text-critical"><AlertTriangle className="size-3.5" aria-hidden />Needed: implemented</span>}
-              {c.review_overdue && <span className="inline-flex items-center gap-1 text-xs font-medium text-[#8a5a00] dark:text-warning"><Clock className="size-3.5" aria-hidden />Review overdue</span>}
+              {c.review_overdue && <span className="inline-flex items-center gap-1 text-xs font-medium text-warning-fg"><Clock className="size-3.5" aria-hidden />Review overdue</span>}
             </div>
           ) },
           { key: "status", header: "Status", cell: (c: any) => <StatusBadge status={c.status} label={c.status_label} />, sort: (c: any) => c.status },
@@ -152,7 +152,7 @@ function ControlDrawer({ id, onClose }: { id: number; onClose: () => void }) {
           {ready.data && (
             <Section title={`Audit readiness · ${ready.data.score}%`}>
               <ul className="space-y-1.5">
-                {ready.data.checks.map((c: any) => <li key={c.kind} className="flex items-center gap-2 text-sm">{c.ok ? <CheckCircle2 className="size-4 text-good" aria-label="Met" /> : <AlertTriangle className="size-4 text-warning" aria-label="Not met" />}{c.label}</li>)}
+                {ready.data.checks.map((c: any) => <li key={c.kind} className="flex items-center gap-2 text-sm">{c.ok ? <CheckCircle2 className="size-4 text-good-fg" aria-label="Met" /> : <AlertTriangle className="size-4 text-warning-fg" aria-label="Not met" />}{c.label}</li>)}
                 {ready.data.status === "not_applicable" && <li className="text-sm text-muted-foreground">Not applicable.</li>}
               </ul>
               {ready.data.tasks.length > 0 && (

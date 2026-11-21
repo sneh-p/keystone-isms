@@ -29,7 +29,7 @@ function Sev({ s }: { s: string }) {
 
 function YesNo({ v }: { v: boolean | null | undefined }) {
   if (v === null || v === undefined) return <span className="text-muted-foreground">Unknown</span>;
-  return v ? <span className="text-[#0a7a0a] dark:text-good">Yes</span> : <span className="font-medium text-critical">No</span>;
+  return v ? <span className="text-good-fg">Yes</span> : <span className="font-medium text-critical">No</span>;
 }
 
 /** Attack surface management: what the connected tools report, the organisation's baselines, and the gaps. */
