@@ -2,7 +2,7 @@
 # Keystone configuration agent for Linux. Report-only: it reads security settings and sends them to Keystone over
 # HTTPS. It never changes the host and never runs commands it is sent.
 #
-#   sudo KEYSTONE_ENROLMENT_KEY="kenr_..." sh keystone-agent.sh install --server https://keystone.example.org [--tags web,dmz] [--hours 4] [--no-custom-checks] [--pin sha256//...]
+#   sudo KEYSTONE_ENROLMENT_KEY="kenr_..." sh keystone-agent.sh install --server https://keystone.example.org [--tags web,dmz] [--hours 4] [--no-custom-checks] [--no-software] [--pin sha256//...]
 #   sudo sh keystone-agent.sh run         # check in, and report if one is due (the timer does this every hour)
 #   sudo sh keystone-agent.sh report      # collect and report now
 #   sh keystone-agent.sh collect          # print the built-in settings as JSON; sends nothing
@@ -18,6 +18,9 @@
 #   - probes that read file contents refuse password, key and home-directory files (deny_path below)
 #   - at most 100 checks; values capped at 200 characters
 # Install with --no-custom-checks to turn them off on this host; Keystone then shows them as unknown.
+#
+# Installed software: each full report lists the installed packages (dpkg source packages, or rpm packages) with
+# their versions, so Keystone can match them against public vulnerability data. --no-software leaves the list out.
 #
 # --pin sha256//BASE64[;sha256//BASE64]: accept only a server whose public key has this hash (in addition to the
 # normal certificate checks, never instead of them). Give a second pin for the next key before renewing a certificate.
@@ -38,6 +41,7 @@ TOKEN_FILE="$CONF_DIR/token"
 STATE_FILE="$CONF_DIR/last_report"
 MAX_CHECKS=100
 CUSTOM_CHECKS=1
+SOFTWARE=1
 HOURS=4
 PIN=""
 umask 077
@@ -175,6 +179,47 @@ collect_kernel() {
   v=$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null) && { [ "$v" = 1 ]; add ip_forwarding_enabled bool "$(yn $?)"; }
 }
 
+# Known products by service or process name (round 9). Anything else reports "none found": use a custom check.
+EDR_NAMES="falcon-sensor:CrowdStrike_Falcon sentinelone:SentinelOne s1-agent:SentinelOne mdatp:Microsoft_Defender_for_Endpoint sophos-spl:Sophos cbagentd:Carbon_Black_Cloud \
+traps_pmd:Cortex_XDR xagt:Trellix_HX bdsec:Bitdefender esets:ESET eea:ESET ds_agent:Trend_Micro_Deep_Security huntress-agent:Huntress elastic-endpoint:Elastic_Defend \
+clamav-daemon:ClamAV clamd:ClamAV"
+BACKUP_NAMES="veeamservice acronis_mms bacula-fd bareos-fd code42 crashplan druva-phoenix"
+LOG_NAMES="SplunkForwarder splunkd wazuh-agent wazuh-agentd elastic-agent filebeat fluent-bit td-agent-bit nxlog vector datadog-agent google-cloud-ops-agent \
+amazon-cloudwatch-agent systemd-journal-upload"
+
+present() {  # present NAME: a systemd unit with that name exists, or a process of that name runs
+  if have systemctl && systemctl list-unit-files "$1.service" 2>/dev/null | grep -q "^$1.service"; then return 0; fi
+  have pgrep && pgrep -x "$1" >/dev/null 2>&1
+}
+
+collect_software() {
+  if have systemctl || have pgrep; then
+    found=""
+    for pair in $EDR_NAMES; do
+      if running "${pair%%:*}"; then
+        product=$(printf '%s' "${pair#*:}" | tr _ ' ')
+        case ",$found," in *",$product,"*) ;; *) found="${found}${found:+, }$product" ;; esac
+      fi
+    done
+    if [ -n "$found" ]; then add edr_running bool true; add edr_product str "$found"; else add edr_running bool false; add edr_product str "none found"; fi
+    backup=false
+    for n in $BACKUP_NAMES; do present "$n" && { backup=true; break; }; done
+    add backup_agent_present bool "$backup"
+    fwd=false
+    for n in $LOG_NAMES; do running "$n" && { fwd=true; break; }; done
+    if [ "$fwd" = false ] && cat /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null | grep -v '^[[:space:]]*#' | grep -Eq '(^|[[:space:]])@@?[A-Za-z0-9[]|omfwd|omrelp'; then fwd=true; fi
+    if [ "$fwd" = false ] && cat /etc/syslog-ng/syslog-ng.conf /etc/syslog-ng/conf.d/*.conf 2>/dev/null | grep -v '^[[:space:]]*#' | grep -E 'destination' | grep -Eq '(network|tcp|udp)[[:space:]]*\('; then fwd=true; fi
+    add log_forwarding bool "$fwd"
+  fi
+  if cat /etc/modprobe.d/*.conf /lib/modprobe.d/*.conf 2>/dev/null | grep -Eq '^[[:space:]]*(install[[:space:]]+usb[-_]storage[[:space:]]+/bin/(true|false)|blacklist[[:space:]]+usb[-_]storage)([[:space:]]|$)'; then
+    add usb_storage_blocked bool true
+  elif [ -d /etc/modprobe.d ]; then
+    add usb_storage_blocked bool false
+  fi
+  [ -r /etc/group ] && add local_admin_count int "$(awk -F: '$1=="sudo" || $1=="wheel" || $1=="admin" {print $4}' /etc/group | tr ',' '\n' | grep -v '^$' | sort -u | grep -c .)"
+  return 0
+}
+
 os_field() { [ -r /etc/os-release ] && sed -n "s/^$1=//p" /etc/os-release | head -n1 | tr -d '"'; }
 
 collect_builtin() {
@@ -186,6 +231,7 @@ collect_builtin() {
   collect_services
   collect_accounts
   collect_kernel
+  collect_software
   return 0
 }
 
@@ -321,12 +367,28 @@ run_custom() {  # run_custom FILE: evaluate tab-separated definitions (key, prob
   set +f
 }
 
+software_json() {  # installed packages as a JSON list of [name, version]: dpkg source packages, or rpm epoch:version-release
+  if have dpkg-query; then
+    dpkg-query -W -f='${db:Status-Abbrev}\t${source:Package}\t${source:Version}\n' 2>/dev/null | awk -F'\t' '$1 ~ /^ii/ {print $2 "\t" $3}'
+  elif have rpm; then
+    rpm -qa --qf '%{NAME}\t%{EPOCHNUM}:%{VERSION}-%{RELEASE}\n' 2>/dev/null
+  fi | sort -u | head -n 5000 | awk -F'\t' 'BEGIN { ORS = ""; first = 1; print "[" }
+    NF == 2 && $1 != "" && $2 != "" {
+      n = $1; v = $2; gsub(/[\\"[:cntrl:]]/, "", n); gsub(/[\\"[:cntrl:]]/, "", v)
+      if (!first) print ","; first = 0
+      printf "[\"%s\",\"%s\"]", substr(n, 1, 200), substr(v, 1, 100)
+    }
+    END { print "]" }'
+}
+
 self_sha() { if have sha256sum; then sha256sum "$0" 2>/dev/null | cut -d' ' -f1; fi; }
 
 report_json() {
   host=$(hostname 2>/dev/null || uname -n)
   extra=""
   [ "$CUSTOM_CHECKS" = 1 ] || extra=',"custom_checks":"disabled"'
+  [ "$SOFTWARE" = 1 ] && extra="${extra},\"software\":$(software_json)"
+  extra="${extra},\"os_release\":{\"id\":$(json_str "$(os_field ID)"),\"version_id\":$(json_str "$(os_field VERSION_ID)")}"
   printf '{"hostname":%s,"os_name":%s,"os_version":%s,"agent_version":"%s","agent_sha256":"%s","facts":{%s},"check_errors":{%s}%s}\n' \
     "$(json_str "$host")" "$(json_str "$(os_field PRETTY_NAME)")" "$(json_str "$(os_field VERSION_ID) $(uname -r)")" "$AGENT_VERSION" "$(self_sha)" "$FACTS" "$CHECK_ERRS" "$extra"
 }
@@ -387,6 +449,7 @@ load_conf() {
   [ -n "$SERVER" ] || die "no SERVER in $CONF"
   check_server "$SERVER"
   case "$(conf_value CUSTOM_CHECKS)" in 0) CUSTOM_CHECKS=0 ;; *) CUSTOM_CHECKS=1 ;; esac
+  case "$(conf_value SOFTWARE)" in 0) SOFTWARE=0 ;; *) SOFTWARE=1 ;; esac
   case "$(conf_value HOURS)" in 1|2|4|8|12|24) HOURS=$(conf_value HOURS) ;; *) HOURS=4 ;; esac
   PIN=$(conf_value PIN)
   check_pin "$PIN"
@@ -449,7 +512,7 @@ run_agent() {  # the hourly entry point: check in, and report when Keystone says
 # ------------------------------------------------------------------------------------------------ install
 
 install_agent() {
-  server="" hours=4 tags="" custom=1 pin=""
+  server="" hours=4 tags="" custom=1 pin="" software=1
   while [ $# -gt 0 ]; do
     case "$1" in
       --server) server="${2:-}"; shift 2 ;;
@@ -457,6 +520,7 @@ install_agent() {
       --tags) tags="${2:-}"; shift 2 ;;
       --pin) pin="${2:-}"; shift 2 ;;
       --no-custom-checks) custom=0; shift ;;
+      --no-software) software=0; shift ;;
       *) die "unknown option $1" ;;
     esac
   done
@@ -475,7 +539,7 @@ install_agent() {
   [ -n "$key" ] || die "set KEYSTONE_ENROLMENT_KEY (shown in Keystone under Configuration > Agents)"
   mkdir -p "$CONF_DIR" "$LIB_DIR" && chmod 700 "$CONF_DIR"
   cp "$0" "$LIB_DIR/keystone-agent.sh" && chmod 755 "$LIB_DIR/keystone-agent.sh"
-  printf 'SERVER=%s\nCUSTOM_CHECKS=%s\nHOURS=%s\nPIN=%s\n' "$server" "$custom" "$hours" "$pin" >"$CONF" && chmod 600 "$CONF"
+  printf 'SERVER=%s\nCUSTOM_CHECKS=%s\nHOURS=%s\nPIN=%s\nSOFTWARE=%s\n' "$server" "$custom" "$hours" "$pin" "$software" >"$CONF" && chmod 600 "$CONF"
   SERVER="$server" PIN="$pin"
   enrol "$key" "$tags"
   if have systemctl && [ -d /run/systemd/system ]; then
@@ -516,6 +580,7 @@ EOF
     say "installed: cron, checks in every hour and reports at least every $hours hour(s) (no systemd found)"
   fi
   [ "$custom" = 1 ] || say "custom checks are turned off on this host"
+  [ "$software" = 1 ] || say "installed software isn't reported from this host"
   run_report || say "first report failed; the schedule will retry"
 }
 
@@ -554,5 +619,5 @@ case "$cmd" in
   status) status_agent ;;
   uninstall) uninstall_agent ;;
   version) echo "$AGENT_VERSION" ;;
-  *) printf 'usage: %s install --server URL [--tags a,b] [--hours N] [--no-custom-checks] [--pin sha256//...] | run | report | collect | collect-custom FILE | status | uninstall | version\n' "$0" >&2; exit 2 ;;
+  *) printf 'usage: %s install --server URL [--tags a,b] [--hours N] [--no-custom-checks] [--no-software] [--pin sha256//...] | run | report | collect | collect-custom FILE | status | uninstall | version\n' "$0" >&2; exit 2 ;;
 esac

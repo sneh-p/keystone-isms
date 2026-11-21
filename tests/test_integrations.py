@@ -42,7 +42,7 @@ def test_ssrf_guard(host):
         assert_public_host(host)
 
 
-def github(two_fa=True, protected=("api",), sa_enabled=True):
+def github(two_fa=True, protected=("api",), sa_enabled=True, signed=False, scanned=("api",), owners_file=("api",), collaborators=(), owners=("ada",), members_status=200):
     repos = [{"name": n, "default_branch": "main", "archived": False, "security_and_analysis": {"secret_scanning": {"status": "enabled" if sa_enabled else "disabled"}, "dependabot_security_updates": {"status": "enabled" if sa_enabled else "disabled"}}} for n in ("api", "web")]
     def handler(req: httpx.Request):
         assert req.method == "GET"
@@ -52,7 +52,15 @@ def github(two_fa=True, protected=("api",), sa_enabled=True):
         if p == "/orgs/acme/repos":
             return httpx.Response(200, json=repos)
         if p.endswith("/protection"):
-            return httpx.Response(200 if p.split("/")[3] in protected else 404, json={})
+            return httpx.Response(200, json={"required_signatures": {"enabled": signed}}) if p.split("/")[3] in protected else httpx.Response(404, json={})
+        if p.endswith("/code-scanning/analyses"):
+            return httpx.Response(200, json=[{"id": 1}]) if p.split("/")[3] in scanned else httpx.Response(404, json={})
+        if p.endswith("/codeowners/errors"):
+            return httpx.Response(200, json={"errors": []}) if p.split("/")[3] in owners_file else httpx.Response(404, json={})
+        if p == "/orgs/acme/outside_collaborators":
+            return httpx.Response(members_status, json=[{"login": c} for c in collaborators])
+        if p == "/orgs/acme/members":
+            return httpx.Response(members_status, json=[{"login": o} for o in owners])
         return httpx.Response(404)
     return GitHubProvider(client_factory=lambda: httpx.Client(base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
 
@@ -61,13 +69,35 @@ def test_github_provider():
     r = {o.key: o for o in github().run({"org": "acme"}, {"token": "t"})}
     assert r["org_2fa"].result == "pass" and r["secret_scanning"].result == "pass"
     assert r["branch_protection"].result == "fail" and "web" in r["branch_protection"].summary
-    r2 = {o.key: o.result for o in github(two_fa=None, protected=("api", "web"), sa_enabled=False).run({"org": "acme"}, {"token": "t"})}
-    assert r2 == {"org_2fa": "unknown", "branch_protection": "pass", "secret_scanning": "fail", "dependabot": "fail"}
+    assert {k: r[k].result for k in ("outside_collaborators", "few_owners", "signed_commits", "code_scanning", "code_owners")} == \
+        {"outside_collaborators": "pass", "few_owners": "pass", "signed_commits": "fail", "code_scanning": "fail", "code_owners": "fail"}
+    r2 = {o.key: o.result for o in github(two_fa=None, protected=("api", "web"), sa_enabled=False, signed=True, scanned=("api", "web"), owners_file=("api", "web"),
+                                          collaborators=("contractor",), owners=("a", "b", "c", "d")).run({"org": "acme"}, {"token": "t"})}
+    assert r2 == {"org_2fa": "unknown", "branch_protection": "pass", "secret_scanning": "fail", "dependabot": "fail", "signed_commits": "pass", "code_owners": "pass",
+                  "code_scanning": "pass", "outside_collaborators": "fail", "few_owners": "fail"}
+    r3 = {o.key: o.result for o in github(members_status=403).run({"org": "acme"}, {"token": "t"})}
+    assert r3["outside_collaborators"] == "unknown" and r3["few_owners"] == "unknown"
+
+
+def _credential_report(old_key=False, idle_user=False):
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+
+    def iso(days):
+        return (now - timedelta(days=days)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    head = "user,arn,user_creation_time,password_enabled,password_last_used,access_key_1_active,access_key_1_last_rotated,access_key_1_last_used_date,access_key_2_active,access_key_2_last_rotated,access_key_2_last_used_date"
+    rows = ["<root_account>,arn,%s,not_supported,%s,false,N/A,N/A,false,N/A,N/A" % (iso(900), iso(400)),
+            "ada,arn,%s,true,%s,true,%s,%s,false,N/A,N/A" % (iso(400), iso(1), iso(200 if old_key else 30), iso(1))]
+    if idle_user:
+        rows.append("bob,arn,%s,true,%s,false,N/A,N/A,false,N/A,N/A" % (iso(500), iso(200)))
+    return ("\n".join([head, *rows]) + "\n").encode()
 
 
 class FakeAws:
-    def __init__(self, mfa=1, logging=True, pw=None, block=True, detectors=("d1",), deny=()):
+    def __init__(self, mfa=1, logging=True, pw=None, block=True, detectors=("d1",), deny=(), old_key=False, idle_user=False, ebs=True, rds_plain=False, flow=True, recording=True):
         self.mfa, self.logging, self.pw, self.block, self.detectors, self.deny = mfa, logging, pw, block, detectors, deny
+        self.old_key, self.idle_user, self.ebs, self.rds_plain, self.flow, self.recording = old_key, idle_user, ebs, rds_plain, flow, recording
 
     def client(self, name):
         me = self
@@ -83,6 +113,13 @@ class FakeAws:
                         "get_caller_identity": {"Account": "123"},
                         "get_public_access_block": {"PublicAccessBlockConfiguration": {k: me.block for k in ("BlockPublicAcls", "IgnorePublicAcls", "BlockPublicPolicy", "RestrictPublicBuckets")}},
                         "list_detectors": {"DetectorIds": list(me.detectors)},
+                        "generate_credential_report": {"State": "COMPLETE"},
+                        "get_credential_report": {"Content": _credential_report(me.old_key, me.idle_user)},
+                        "get_ebs_encryption_by_default": {"EbsEncryptionByDefault": me.ebs},
+                        "describe_db_instances": {"DBInstances": [{"DBInstanceIdentifier": "bookings", "StorageEncrypted": not me.rds_plain}]},
+                        "describe_vpcs": {"Vpcs": [{"VpcId": "vpc-1"}, {"VpcId": "vpc-2"}]},
+                        "describe_flow_logs": {"FlowLogs": [{"ResourceId": "vpc-1", "FlowLogStatus": "ACTIVE"}] + ([{"ResourceId": "vpc-2", "FlowLogStatus": "ACTIVE"}] if me.flow else [])},
+                        "describe_configuration_recorder_status": {"ConfigurationRecordersStatus": [{"name": "default", "recording": me.recording}]},
                     }[op] if op != "get_account_password_policy" else me._pw()
                 return call
         return C()
@@ -95,10 +132,17 @@ class FakeAws:
 
 def test_aws_provider():
     good = AwsProvider(session_factory=lambda: FakeAws(pw={"MinimumPasswordLength": 14, "RequireSymbols": True, "RequireNumbers": True}))
-    assert {o.key: o.result for o in good.run({"region": "eu-west-1"}, {})} == dict.fromkeys(["root_mfa", "cloudtrail", "password_policy", "s3_public_block", "guardduty"], "pass")
-    bad = AwsProvider(session_factory=lambda: FakeAws(mfa=0, logging=False, block=False, detectors=(), deny=("list_detectors",)))
-    r = {o.key: o.result for o in bad.run({"region": "eu-west-1"}, {})}
-    assert r == {"root_mfa": "fail", "cloudtrail": "fail", "password_policy": "fail", "s3_public_block": "fail", "guardduty": "error"}
+    assert {o.key: o.result for o in good.run({"region": "eu-west-1"}, {})} == dict.fromkeys(
+        ["root_mfa", "cloudtrail", "password_policy", "s3_public_block", "guardduty", "access_key_age", "unused_users", "ebs_default_encryption", "rds_encrypted",
+         "vpc_flow_logs", "config_recording"], "pass")
+    bad = AwsProvider(session_factory=lambda: FakeAws(mfa=0, logging=False, block=False, detectors=(), deny=("list_detectors",), old_key=True, idle_user=True, ebs=False,
+                                                      rds_plain=True, flow=False, recording=False))
+    out = {o.key: o for o in bad.run({"region": "eu-west-1"}, {})}
+    assert {k: o.result for k, o in out.items()} == {"root_mfa": "fail", "cloudtrail": "fail", "password_policy": "fail", "s3_public_block": "fail", "guardduty": "error",
+                                                    "access_key_age": "fail", "unused_users": "fail", "ebs_default_encryption": "fail", "rds_encrypted": "fail",
+                                                    "vpc_flow_logs": "fail", "config_recording": "fail"}
+    assert out["access_key_age"].details["old_keys"][0].startswith("ada (key 1") and out["unused_users"].details["unused"] == ["bob"]
+    assert out["vpc_flow_logs"].details["without_flow_logs"] == ["vpc-2"]
 
 
 # ---- service ----------------------------------------------------------------------------------
@@ -184,7 +228,7 @@ def test_api_never_returns_secrets(api, ready_users, content, monkeypatch):
     iid = r.json()["id"]
     assert "ghp_topsecret" not in api.get("/api/integrations").text
     run = api.post(f"/api/integrations/{iid}/run").json()
-    assert {x["check_key"] for x in run["results"]} == {"org_2fa", "branch_protection", "secret_scanning", "dependabot"}
+    assert {x["check_key"] for x in run["results"]} == {c.key for c in GitHubProvider.checks}
     api_login(api, "viewer")
     assert api.post(f"/api/integrations/{iid}/run").status_code == 403
 

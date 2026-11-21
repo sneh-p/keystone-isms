@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import re
+import time
+from datetime import datetime, timedelta, timezone
 
 from .base import CheckDef, ConfigField, Outcome, PermissionReport, Provider, SetupStep
 
 AUDIT_POLICIES = frozenset({"arn:aws:iam::aws:policy/SecurityAudit", "arn:aws:iam::aws:policy/job-function/ViewOnlyAccess"})
+KEY_MAX_DAYS = 90  # access keys older than this should have been rotated
+UNUSED_DAYS = 90  # users with no sign-in or key use for this long
 REGION = re.compile(r"[a-z]{2}(?:-[a-z]+)+-\d{1,2}")
 
 
 class AwsProvider(Provider):
     key = "aws"
     name = "Amazon Web Services"
-    description = "Checks root MFA, CloudTrail, the IAM password policy, S3 account-level public access block and GuardDuty."
+    description = ("Checks root MFA, CloudTrail, the IAM password policy, S3 account-level public access block, GuardDuty, access key age, "
+                   "unused users, default EBS encryption, RDS encryption, VPC flow logs and AWS Config.")
     fields = (
         ConfigField("region", "Home region", help="e.g. eu-west-1", example="eu-west-1"),
         ConfigField("access_key_id", "Access key ID", secret=True, help="For an IAM identity with the AWS managed SecurityAudit policy only."),
@@ -25,6 +32,12 @@ class AwsProvider(Provider):
         CheckDef("password_policy", "IAM password policy is strong", ("KC-ORG-17",)),
         CheckDef("s3_public_block", "S3 account public access blocked", ("KC-TEC-03", "KC-TEC-12")),
         CheckDef("guardduty", "GuardDuty is enabled", ("KC-TEC-16", "KC-ORG-25")),
+        CheckDef("access_key_age", f"Access keys rotated within {KEY_MAX_DAYS} days", ("KC-ORG-17",)),
+        CheckDef("unused_users", f"No IAM users unused for {UNUSED_DAYS} days", ("KC-ORG-18", "KC-ORG-16")),
+        CheckDef("ebs_default_encryption", "New EBS volumes encrypted by default", ("KC-TEC-24", "KC-TEC-01")),
+        CheckDef("rds_encrypted", "RDS databases encrypted", ("KC-TEC-24",)),
+        CheckDef("vpc_flow_logs", "VPC flow logs on for every VPC", ("KC-TEC-15", "KC-TEC-16")),
+        CheckDef("config_recording", "AWS Config recording", ("KC-TEC-09", "KC-ORG-09")),
     )
     setup = (
         SetupStep(
@@ -57,8 +70,9 @@ class AwsProvider(Provider):
         ),
     )
 
-    def __init__(self, session_factory=None):
+    def __init__(self, session_factory=None, sleep=time.sleep):
         self.session_factory = session_factory
+        self.sleep = sleep
 
     def _session(self, config: dict, secrets: dict):
         if self.session_factory:
@@ -151,4 +165,84 @@ class AwsProvider(Provider):
             ids = client("guardduty").list_detectors()["DetectorIds"]
             return Outcome("guardduty", "pass" if ids else "fail", f"{len(ids)} detector(s) in {config.get('region')}")
         attempt("guardduty", gd)
+
+        report: list[dict] = []
+
+        def credential_report() -> list[dict]:
+            if not report:
+                iam.generate_credential_report()
+                for _ in range(10):  # AWS builds it in a few seconds
+                    try:
+                        raw = iam.get_credential_report()["Content"]
+                        break
+                    except ClientError as e:
+                        if e.response.get("Error", {}).get("Code") not in ("ReportInProgress", "ReportNotPresent"):
+                            raise
+                        self.sleep(2)
+                else:
+                    raise ValueError("The IAM credential report wasn't ready in time; it is checked again on the next run.")
+                text = raw.decode() if isinstance(raw, bytes) else str(raw)
+                report.extend(r for r in csv.DictReader(io.StringIO(text)) if r.get("user") != "<root_account>")
+            return report
+
+        now = datetime.now(timezone.utc)
+
+        def when(v: str | None) -> datetime | None:
+            if not v or v in ("N/A", "no_information", "not_supported"):
+                return None
+            try:
+                return datetime.fromisoformat(v.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+
+        def keys():
+            old = []
+            for r in credential_report():
+                for n in ("1", "2"):
+                    rotated = when(r.get(f"access_key_{n}_last_rotated"))
+                    if r.get(f"access_key_{n}_active") == "true" and rotated and now - rotated > timedelta(days=KEY_MAX_DAYS):
+                        old.append(f"{r['user']} (key {n}, {(now - rotated).days} days)")
+            return Outcome("access_key_age", "fail" if old else "pass", f"{len(old)} active key(s) older than {KEY_MAX_DAYS} days: {', '.join(old[:8])}" if old else "No active key is older than "
+                           f"{KEY_MAX_DAYS} days", {"old_keys": old[:500]})
+        attempt("access_key_age", keys)
+
+        def unused():
+            idle = []
+            for r in credential_report():
+                created = when(r.get("user_creation_time"))
+                used = [d for d in (when(r.get("password_last_used")), when(r.get("access_key_1_last_used_date")), when(r.get("access_key_2_last_used_date"))) if d]
+                last = max(used) if used else created
+                if created and now - created > timedelta(days=UNUSED_DAYS) and last and now - last > timedelta(days=UNUSED_DAYS):
+                    idle.append(r["user"])
+            return Outcome("unused_users", "fail" if idle else "pass", f"{len(idle)} user(s) unused for {UNUSED_DAYS} days: {', '.join(idle[:8])}" if idle else "Every IAM user was used recently",
+                           {"unused": idle[:500]})
+        attempt("unused_users", unused)
+
+        def ebs():
+            on = client("ec2").get_ebs_encryption_by_default()["EbsEncryptionByDefault"]
+            return Outcome("ebs_default_encryption", "pass" if on else "fail", f"{'On' if on else 'Off'} in {config.get('region')}")
+        attempt("ebs_default_encryption", ebs)
+
+        def rds():
+            dbs = client("rds").describe_db_instances().get("DBInstances", [])
+            plain = [d["DBInstanceIdentifier"] for d in dbs if not d.get("StorageEncrypted")]
+            if not dbs:
+                return Outcome("rds_encrypted", "pass", f"No RDS databases in {config.get('region')}")
+            return Outcome("rds_encrypted", "fail" if plain else "pass", f"{len(plain)} of {len(dbs)} not encrypted: {', '.join(plain[:8])}" if plain else f"All {len(dbs)} encrypted", {"unencrypted": plain})
+        attempt("rds_encrypted", rds)
+
+        def flow():
+            ec2 = client("ec2")
+            vpcs = [v["VpcId"] for v in ec2.describe_vpcs().get("Vpcs", [])]
+            logged = {f.get("ResourceId") for f in ec2.describe_flow_logs().get("FlowLogs", []) if f.get("FlowLogStatus") == "ACTIVE"}
+            missing = [v for v in vpcs if v not in logged]
+            return Outcome("vpc_flow_logs", "fail" if missing else "pass", f"{len(missing)} of {len(vpcs)} VPC(s) without flow logs: {', '.join(missing[:8])}" if missing else f"All {len(vpcs)} VPC(s) log flows",
+                           {"without_flow_logs": missing})
+        attempt("vpc_flow_logs", flow)
+
+        def config_rec():
+            st = client("config").describe_configuration_recorder_status().get("ConfigurationRecordersStatus", [])
+            on = [x["name"] for x in st if x.get("recording")]
+            return Outcome("config_recording", "pass" if on else "fail", f"Recording ({', '.join(on)})" if on else f"No recorder is recording in {config.get('region')}")
+        attempt("config_recording", config_rec)
         return out

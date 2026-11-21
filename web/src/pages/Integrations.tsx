@@ -64,10 +64,10 @@ export default function Integrations() {
                     <CardBody className="flex flex-1 flex-col">
                       <div className="flex items-center gap-3"><div className="rounded-lg bg-accent p-2 text-accent-foreground"><Icon className="size-5" /></div><div className="font-semibold leading-tight">{p.name}</div></div>
                       <p className="mt-3 flex-1 text-sm text-muted-foreground">{p.description}</p>
-                      <div className="mt-3 text-xs text-muted-foreground">{p.hr ? "Joiners, movers and leavers" : p.ticketing ? "Creates tickets; reads their status" : p.inventory ? `Provides: ${p.categories.map((c: string) => CATEGORY[c] ?? c).join(", ")}` : `${p.checks.length} checks · maps to ${[...new Set(p.checks.flatMap((c: any) => c.controls))].length} controls`}</div>
+                      <div className="mt-3 text-xs text-muted-foreground">{p.hr ? "Joiners, movers and leavers" : p.ticketing ? "Creates tickets; reads their status" : p.inventory ? `Provides: ${p.categories.map((c: string) => CATEGORY[c] ?? c).join(", ")}${p.checks.length ? ` · ${p.checks.length} checks` : ""}` : `${p.checks.length} checks · maps to ${[...new Set(p.checks.flatMap((c: any) => c.controls))].length} controls`}</div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {mine.map((i: any) => <Button key={i.id} size="sm" variant="secondary" onClick={() => setOpen(i.id)}>{i.name} <StatusBadge status={i.last_status === "error" ? "error" : i.results.some((r: any) => r.result === "fail") ? "fail" : i.results.length ? "pass" : "unknown"} label=" " />{i.health.credential_expiring && <KeyRound className="size-3.5 text-warning" aria-label="Key expiring" />}</Button>)}
-                        {can("integration.manage") && <Button size="sm" variant="outline" onClick={() => setConnect({ provider: p.key, name: p.name, values: {}, schedule_hours: p.ticketing ? 1 : p.inventory ? 6 : 24 })}>Connect</Button>}
+                        {can("integration.manage") && <Button size="sm" variant="outline" onClick={() => setConnect({ provider: p.key, name: p.name, values: {}, schedule_hours: p.ticketing ? 1 : p.key === "keystone_agents" ? 24 : p.inventory ? 6 : 24 })}>Connect</Button>}
                       </div>
                     </CardBody>
                   </Card>

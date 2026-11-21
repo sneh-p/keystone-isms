@@ -106,6 +106,7 @@ class Inventory:
     complete: set[str] = field(default_factory=set)  # devices | vulns | identities | settings
     notes: list[str] = field(default_factory=list)  # e.g. "Intune not licensed: skipped"
     sample_fields: dict[str, list[str]] = field(default_factory=dict)  # field names seen per endpoint (no values)
+    facts: dict = field(default_factory=dict)  # extra data a source's own pass/fail checks use; not stored as inventory
 
 
 def norm_hostname(name: str | None) -> str | None:

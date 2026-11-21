@@ -449,3 +449,31 @@ key pinning, the signed Windows agent, and asking tools what a key may do (SC-AG
   when exactly one asset has the name, and only on a host's first report (or its first from agent 1.2), so a link an
   administrator removed isn't put back.
 
+## Integrations and agents, batch B (round 9)
+
+- **Checks from attack surface sources.** Sources that only collected inventory can now also run pass/fail control
+  checks, worked out from what the run collected (no extra calls, except Microsoft's Conditional Access policies,
+  which need the optional Policy.Read.All). Missing data is "unknown", never a pass. They file evidence and raise
+  change alerts like any other check.
+- **Microsoft 365**: MFA for every enabled member account (guests excluded), phishing-resistant methods for
+  administrators (from the registration report's methods: FIDO2, passkeys, Windows Hello, platform credentials,
+  certificate MFA), legacy sign-in blocked by an enabled policy for all users, Secure Score's audit log search control,
+  Secure Score not falling by more than 5 points over the history Microsoft returns, Intune compliance.
+- **AWS and GitHub**: everything new is covered by the credentials the guides already create (SecurityAudit; the
+  GitHub token gains Code scanning alerts and Members, read-only), and where GitHub refuses a read the check is
+  "unknown" with the permission it needs.
+- **Jamf Pro and Kandji** read device lists only. Kandji's FileVault state needs one call per device, so it is read for
+  up to 1,000 devices and reported as unknown above that. Phones and tablets aren't counted in the encryption check.
+- **More agent settings** detect known products by service or process name. An unknown product reports "none found",
+  so the endpoint security rule says so in its description and can be turned off for hosts with an unlisted product.
+- **Software vulnerabilities from Keystone's own data** (decided by human:sneh, 2026-11-21: download OSV, match
+  locally). Agents report source packages for dpkg (OSV indexes Debian and Ubuntu by source package) and
+  epoch:version-release for rpm. Keystone downloads each distribution's whole OSV archive when its ETag changes,
+  streams it to disk within a 2 GB cap, and reads entries one by one in memory (entry, count and total limits; nothing
+  extracted). Version ordering follows dpkg and rpm. Only advisories with a fixed version are matched, so findings are
+  actionable; duplicates of the same CVE from different advisories are recorded once. Results go through the normal
+  attack surface ingestion, so KEV/EPSS priorities, fix-by dates, tickets and closing on upgrade all apply. Windows and
+  Mac software is inventory only: there is no comparable public source.
+- **Report size.** Agent reports may be up to 1 MB (was 256 KB) to fit a software list of up to 5,000 entries; entries
+  are validated and anything malformed is dropped, not stored.
+

@@ -148,9 +148,9 @@ def test_credential_expiry_through_the_api(api, ready_users, db):
 def _github(scopes):
     def handler(req: httpx.Request):
         h = {} if scopes is None else {"x-oauth-scopes": scopes}
-        if req.url.path.endswith("/repos"):
-            return httpx.Response(200, json=[], headers=h)
-        return httpx.Response(200, json={"two_factor_requirement_enabled": True}, headers=h)
+        if req.url.path == "/orgs/acme":
+            return httpx.Response(200, json={"two_factor_requirement_enabled": True}, headers=h)
+        return httpx.Response(200, json=[], headers=h)  # repositories, collaborators, owners: none
     return GitHubProvider(client_factory=lambda: httpx.Client(base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
 
 
@@ -386,6 +386,8 @@ STUBS = {
     "sysctl": '[ "$2" = net.inet.ip.forwarding ] && echo 0 || exit 1',
     "PlistBuddy": 'case "$2" in "Print :SHOWFULLNAME") echo 1;; "Print :CFBundleShortVersionString") echo 24.1;; *) exit 1;; esac',
     "stat": 'case "$2" in %Lp) echo 644;; %Su) echo root;; %Sg) echo wheel;; esac',
+    "pgrep": '[ "$2" = falcond ]',
+    "tmutil": 'printf "Name          : Office NAS\\nKind          : Network\\n"',
 }
 
 
@@ -410,9 +412,11 @@ def test_macos_agent_collects_the_built_in_settings(tmp_path, mac_tools):
     r = _mac(tmp_path, mac_tools, "collect")
     assert r["hostname"] == "build-mac" and r["os_name"] == "macOS 15.1" and r["agent_version"] == agt.agent_file("macos").version
     assert len(r["agent_sha256"]) == 64
+    assert r["software"] == [] and r["os_release"] == {"id": "macos", "version_id": "15.1"}  # no /Applications here
     assert r["facts"] == {"firewall_active": True, "firewall_stealth_mode": False, "filevault_enabled": True, "gatekeeper_enabled": True, "sip_enabled": True,
                           "automatic_updates_enabled": True, "remote_login_enabled": True, "ssh_permit_root_login": "no", "ssh_password_authentication": True,
-                          "screen_sharing_enabled": False, "guest_account_enabled": False, "auto_login_enabled": False, "local_admin_count": 2, "time_sync_active": True}
+                          "screen_sharing_enabled": False, "guest_account_enabled": False, "auto_login_enabled": False, "local_admin_count": 2, "time_sync_active": True,
+                          "edr_running": True, "edr_product": "CrowdStrike Falcon", "backup_agent_present": True}
 
 
 def test_macos_agent_custom_checks_and_refusals(tmp_path, mac_tools):

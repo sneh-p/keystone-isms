@@ -154,6 +154,50 @@ class Api:
             return resp
         raise ConnectorError(f"{host} kept asking Keystone to slow down (429).")
 
+    def download(self, url: str, dest, *, max_bytes: int, etag: str | None = None) -> str | None:
+        """Stream a file to `dest` (written to a temporary file first, then moved into place), within `max_bytes`.
+        With `etag`, an unchanged file (304) isn't downloaded again. Returns the file's ETag."""
+        from pathlib import Path
+
+        host, path = self._check(url)
+        h = {**self.headers, "Accept": "*/*", "User-Agent": "Keystone-ISMS"}
+        if etag:
+            h["If-None-Match"] = etag
+        ext: dict[str, Any]
+        if TEST_TRANSPORT is not None:
+            client, target, ext = httpx.Client(transport=TEST_TRANSPORT, timeout=TIMEOUT, follow_redirects=False), url, {}
+        else:
+            from keystone.integrations.providers.website import _pinned
+
+            ip = self._ips.get(host) or self._ips.setdefault(host, _resolve(host))
+            target, host_header, ext = _pinned(url, ip)
+            h = {**h, **host_header}
+            client = httpx.Client(timeout=TIMEOUT, follow_redirects=False)
+        dest = Path(dest)
+        tmp = dest.with_name(dest.name + ".part")
+        try:
+            with client, client.stream("GET", target, headers=h, extensions=ext) as r:
+                if r.status_code == 304 and etag:
+                    return etag
+                if r.status_code != 200:
+                    raise ConnectorError(f"{host} returned {r.status_code} for {path}.")
+                size = 0
+                with tmp.open("wb") as f:
+                    for chunk in r.iter_bytes():
+                        size += len(chunk)
+                        if size > max_bytes:
+                            raise ConnectorError(f"The file from {host} was larger than Keystone downloads.")
+                        f.write(chunk)
+                new = r.headers.get("etag")
+            tmp.replace(dest)
+            return new
+        except httpx.TimeoutException:
+            raise ConnectorError(f"{host} didn't answer in time.") from None
+        except httpx.HTTPError as e:
+            raise ConnectorError(f"Couldn't reach {host} ({type(e).__name__}).") from None
+        finally:
+            tmp.unlink(missing_ok=True)
+
     def json(self, method: str, url: str, **kw):
         r = self.request(method, url, **kw)
         try:

@@ -499,7 +499,9 @@ account* or *Critical vulnerabilities fixed within 7 days*.
 - **Findings** lists the gaps. They open and close by themselves as the tools report changes. New critical and high
   findings notify the device or account owner.
 - **Vulnerabilities** are put in fix order: known exploited (CISA KEV) first, then likely to be exploited (FIRST
-  EPSS), then by severity, each with a fix-by date.
+  EPSS), then by severity, each with a fix-by date. Besides your scanners, they can come from Keystone's own agents:
+  connect **Keystone agents (installed software)** under Integrations and the Linux packages they report are matched
+  against public vulnerability data Keystone downloads (each says "fixed in …").
 
   ![Vulnerabilities in fix order](user-guide/attack-surface-vulnerabilities.png)
 - **Internet-facing**: domains you prove you own (a DNS TXT record) are checked passively every day: SPF, DMARC and
@@ -525,6 +527,9 @@ platform and the most common failures.
 Open one to see every rule's result, with *How to fix* on failing ones, the reported values and the history of what
 changed. You can also set its **tags**, pin a baseline, or link it to an **asset**. A host is linked to an asset by
 itself when exactly one asset has its name.
+
+Agents also report endpoint security products running, backup software, log forwarding, USB storage, time
+synchronisation, sudo/administrator accounts and browser versions, so baselines can check them.
 
 Badges next to a host's status point out agent problems:
 
@@ -588,6 +593,11 @@ one is due; they never change anything on the host.
 ![Agent installation](user-guide/configuration-agents.png)
 
 ![Coverage](user-guide/configuration-coverage.png)
+
+![Installed software across hosts](user-guide/configuration-software.png)
+
+**Software** searches the installed software agents report (Linux packages, Windows programs, Mac apps): find a
+product and see which hosts have which version. Each host's page also lists its own software.
 
 **Coverage** compares the hosts running an agent with the workstations and servers your other tools reported in the
 last 30 days: devices without an agent, agent hosts without endpoint security, and agent hosts your other tools don't
@@ -906,7 +916,11 @@ Answer the security questionnaires customers send you.
 
 Integrations connect Keystone to your tools, read-only.
 
-- **Control checks** (website and TLS, GitHub, AWS, Entra ID) run on a schedule. Passing checks become evidence on
+- **Control checks** (website and TLS, GitHub, AWS, Entra ID, and from attack surface sources: Microsoft 365, Jamf Pro,
+  Kandji) run on a schedule. For example: MFA for every account, phishing-resistant MFA for administrators, legacy
+  sign-in blocked, old AWS access keys and unused users, encrypted disks and databases, VPC flow logs, signed commits,
+  code scanning and code owners on every repository, outside collaborators, every managed computer encrypted and
+  checking in. Passing checks become evidence on
   their controls, with a file of exactly what the check found (JSON, one a day, its SHA-256 kept) for auditors. A
   failing, erroring or unknown check makes the control not ready.
 - When a check that passed starts **failing**, the owner of its control gets a task (due in two weeks) and a

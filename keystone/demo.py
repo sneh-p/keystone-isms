@@ -323,13 +323,20 @@ def _seed_configuration(session: Session, admin) -> None:
          {"ssh_password_authentication": True, "security_updates_pending": 4, "custom.ssh_login_grace_time": 120, "custom.ssh_tcp_forwarding_off": "yes"}),
         ("linux", "ash-db-01", "Debian GNU/Linux 12", "6.1.0-28-amd64", None, {"custom.ssh_login_grace_time": 30, "custom.ssh_tcp_forwarding_off": "no"}),
     )
+    software = {  # fictional lists in the agents' format: Linux source packages, Windows programs
+        "ash-web-01": ([["openssl", "3.0.2-0ubuntu1.15"], ["nginx", "1.18.0-6ubuntu14.4"], ["curl", "7.81.0-1ubuntu1.16"], ["openssh", "1:8.9p1-3ubuntu0.10"]], {"id": "ubuntu", "version_id": "22.04"}),
+        "ash-db-01": ([["openssl", "3.0.15-1~deb12u1"], ["postgresql-15", "15.8-0+deb12u1"], ["curl", "7.88.1-10+deb12u8"], ["openssh", "1:9.2p1-2+deb12u3"]], {"id": "debian", "version_id": "12"}),
+        "ASH-LT-001": ([["Google Chrome", "131.0.6778.86"], ["Microsoft Edge", "131.0.2903.70"], ["7-Zip 24.08 (x64)", "24.08"], ["Microsoft 365 Apps for business", "16.0.18129.20158"]], None),
+        "ASH-SRV-FILE": ([["7-Zip 16.04 (x64)", "16.04"], ["Veeam Agent for Microsoft Windows", "6.1.2.134"]], None),
+    }
     for platform, name, os_name, os_version, tags, overrides in hosts:
         t = ConfigTarget(kind="agent", platform=platform, name=name, hostname=name, os_name=os_name, os_version=os_version, agent_version="1.1.0",
                          enrolled_at=now - timedelta(days=20), last_ip="198.51.100.20", facts={}, created_at=now - timedelta(days=20), tags=tags)
         session.add(t)
         session.flush()
+        sw, rel = software.get(name, (None, None))
         cfg.report(session, t, facts={**_passing_facts(platform), "ssh_server_installed": platform == "linux", **overrides}, hostname=name,
-                   os_name=os_name, os_version=os_version, agent_version="1.1.0", ip="198.51.100.20")
+                   os_name=os_name, os_version=os_version, agent_version="1.1.0", ip="198.51.100.20", software=sw, os_release=rel or {"id": platform, "version_id": os_version.split("-")[0][:20]})
     # A Mac on the current agent (so it checks in and its script is recognised); the others still run 1.1.0.
     from keystone.configcheck import agents as agt
 
@@ -340,7 +347,9 @@ def _seed_configuration(session: Session, admin) -> None:
     session.add(t)
     session.flush()
     cfg.report(session, t, facts={**_passing_facts("macos"), "remote_login_enabled": False, "firewall_stealth_mode": False, "local_admin_count": 2},
-               hostname="ASH-MB-004", os_name="macOS 15.1", os_version="15.1 (24B83)", agent_version=mac.version, ip="198.51.100.31", agent_sha256=mac.sha256)
+               hostname="ASH-MB-004", os_name="macOS 15.1", os_version="15.1 (24B83)", agent_version=mac.version, ip="198.51.100.31", agent_sha256=mac.sha256,
+               software=[["Google Chrome", "131.0.6778.86"], ["Microsoft Teams", "24295.605.3225.8804"], ["Slack", "4.41.105"], ["zoom.us", "6.2.11"]],
+               os_release={"id": "macos", "version_id": "15.1"})
     cfg.upload_firewall(session, admin, platform="fortigate", filename="ASH-FW-HQ_backup.conf", data=_DEMO_FORTIGATE.encode())
 
 

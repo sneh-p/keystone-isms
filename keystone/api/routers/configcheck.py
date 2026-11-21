@@ -29,9 +29,10 @@ from .common import In
 router = APIRouter(prefix="/config", tags=["configuration"])
 agent_router = APIRouter(prefix="/agent/v1", tags=["configuration-agent"])
 
-MAX_REPORT_BYTES = 256 * 1024
+MAX_REPORT_BYTES = 1024 * 1024  # room for an installed-software list of up to 5000 entries
 TARGET = ("id", "kind", "platform", "name", "hostname", "os_name", "os_version", "agent_version", "enrolled_at", "revoked_at", "last_ip",
-          "source_filename", "source_sha256", "facts_at", "created_at", "tags", "asset_id", "custom_checks", "last_seen_at", "agent_sha256", "device_id")
+          "source_filename", "source_sha256", "facts_at", "created_at", "tags", "asset_id", "custom_checks", "last_seen_at", "agent_sha256", "device_id",
+          "software_at", "os_release")
 RULE = ("id", "baseline_id", "key", "operator", "expected", "severity", "controls", "enabled", "applies_to_tags", "remediation")
 BASELINE = ("id", "name", "platform", "description", "enabled", "is_default", "scope", "created_at", "updated_at")
 CHECK = ("id", "platform", "slug", "title", "description", "remediation", "probe", "params", "value_type", "default_value", "recommended", "library_key",
@@ -276,6 +277,11 @@ def targets(user=Depends(perm("read")), db: Session = Depends(get_db)):
     return [ser(t, TARGET, **cfg.summary(db, t, s), agent=agt.state(db, t, files)) for t in cfg.targets(db)]
 
 
+@router.get("/software")
+def software(q: str | None = Query(None, max_length=100), limit: int = Query(200, ge=1, le=1000), user=Depends(perm("read")), db: Session = Depends(get_db)):
+    return cfg.software_search(db, user, q, limit)
+
+
 @router.get("/coverage")
 def coverage(user=Depends(perm("read")), db: Session = Depends(get_db)):
     return agt.coverage(db)
@@ -308,7 +314,7 @@ def target(tid: int, user=Depends(perm("read")), db: Session = Depends(get_db)):
     hist = [ser(h, ("id", "at", "source", "baseline_id", "counts", "changes")) for h in cfg.history(db, t.id)]
     asset = db.get(Asset, t.asset_id) if t.asset_id else None
     suggestions = [] if asset else [{"id": a.id, "name": a.name} for a in cfg.suggest_assets(db, t)]
-    return ser(t, TARGET, **cfg.summary(db, t), agent=agt.state(db, t), results=results, facts=facts, history=hist, check_errors=t.check_errors or {},
+    return ser(t, TARGET, **cfg.summary(db, t), agent=agt.state(db, t), results=results, facts=facts, history=hist, check_errors=t.check_errors or {}, software=t.software or [],
                asset={"id": asset.id, "name": asset.name} if asset else None, asset_suggestions=suggestions)
 
 
@@ -396,9 +402,9 @@ def _agent_view(db: Session, user, request: Request, key: str) -> dict:
                 "windows": f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\keystone-agent.ps1 -Install -Server "{server}" -EnrolmentKey "{key}"',
                 "linux": f'sudo KEYSTONE_ENROLMENT_KEY="{key}" sh ./keystone-agent.sh install --server "{server}"',
                 "macos": f'sudo KEYSTONE_ENROLMENT_KEY="{key}" sh ./keystone-agent-macos.sh install --server "{server}"'},
-            "options": {"windows": f"-Tags web,dmz  ·  -NoCustomChecks  ·  -Hours 8  ·  {PIN_HINT['windows']}",
-                        "linux": f"--tags web,dmz  ·  --no-custom-checks  ·  --hours 8  ·  {PIN_HINT['linux']}",
-                        "macos": f"--tags web,dmz  ·  --no-custom-checks  ·  --hours 8  ·  {PIN_HINT['macos']}"},
+            "options": {"windows": f"-Tags web,dmz  ·  -NoCustomChecks  ·  -NoSoftware  ·  -Hours 8  ·  {PIN_HINT['windows']}",
+                        "linux": f"--tags web,dmz  ·  --no-custom-checks  ·  --no-software  ·  --hours 8  ·  {PIN_HINT['linux']}",
+                        "macos": f"--tags web,dmz  ·  --no-custom-checks  ·  --no-software  ·  --hours 8  ·  {PIN_HINT['macos']}"},
             "verify": {"windows": f"(Get-FileHash .\\keystone-agent.ps1 -Algorithm SHA256).Hash -eq '{sha['windows'].upper()}'",
                        "linux": f"echo '{sha['linux']}  keystone-agent.sh' | sha256sum -c -",
                        "macos": f"echo '{sha['macos']}  keystone-agent-macos.sh' | shasum -a 256 -c -"},
@@ -492,6 +498,8 @@ class ReportIn(In):
     check_errors: dict[str, str] = Field(default_factory=dict, max_length=100)
     custom_checks: str | None = Field(None, max_length=10)
     agent_sha256: str | None = Field(None, max_length=64)
+    software: list[list[str]] | None = Field(None, max_length=cfg.MAX_SOFTWARE)
+    os_release: dict[str, str] | None = Field(None, max_length=2)
 
 
 def _rejected(e: cfg.AgentRejected) -> JSONResponse:
@@ -559,4 +567,5 @@ async def report(request: Request, db: Session = Depends(get_db)):
         return _rejected(e)
     body = await _body(request, ReportIn)
     return cfg.report(db, t, facts=body.facts, hostname=body.hostname, os_name=body.os_name, os_version=body.os_version, agent_version=body.agent_version,
-                      ip=_ip(request), check_errors=body.check_errors, custom_checks_state=body.custom_checks, agent_sha256=body.agent_sha256)
+                      ip=_ip(request), check_errors=body.check_errors, custom_checks_state=body.custom_checks, agent_sha256=body.agent_sha256,
+                      software=body.software, os_release=body.os_release)

@@ -400,7 +400,9 @@ tickets automatically for known-exploited vulnerabilities.
 
 | Kind | Sources |
 |---|---|
-| Control checks (pass/fail, file evidence) | Website/TLS, GitHub, AWS, Entra ID (from collector snapshots) |
+| Control checks (pass/fail, file evidence) | Website/TLS, GitHub, AWS, Entra ID (from collector snapshots), and from Microsoft 365, Jamf Pro and Kandji |
+| Device management | Jamf Pro, Kandji (and Intune in Microsoft 365) |
+| Installed software | Keystone's own agents, with Linux packages matched against OSV data Keystone downloads (nothing sent out) |
 | Microsoft 365 | Entra ID accounts and MFA registration, Intune compliance and encryption, Defender for Endpoint health and vulnerabilities, Secure Score |
 | EDR | CrowdStrike Falcon, SentinelOne, Sophos Central (and Microsoft Defender above) |
 | RMM | NinjaOne, Datto RMM, N-able N-central, ConnectWise Automate |

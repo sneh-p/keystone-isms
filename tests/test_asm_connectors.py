@@ -309,6 +309,6 @@ def test_every_connector_has_setup_and_a_mapping_note():
     from keystone.integrations.service import PROVIDERS
 
     inv = [p for p in PROVIDERS.values() if isinstance(p, InventoryProvider)]
-    assert len(inv) == 14  # 11 attack surface sources + 3 cloud posture sources (round 3)
-    assert all(p.setup and p.mapping_note and p.fields for p in inv)
+    assert len(inv) == 17  # 11 attack surface sources + 3 cloud posture sources (round 3) + Jamf Pro, Kandji and Keystone's own agents (round 9)
+    assert all(p.setup and p.mapping_note and (p.fields or p.needs_session) for p in inv)  # Keystone's agents need no settings
     assert json.dumps([p.describe() for p in inv])  # serialisable for the UI

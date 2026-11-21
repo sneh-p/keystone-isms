@@ -12,13 +12,15 @@ API = "https://api.github.com"
 # Classic token scopes that only read. Anything else (repo, admin:*, write:*, workflow, delete_repo...) can change things.
 READ_ONLY_SCOPES = frozenset({"read:org", "read:user", "user:email", "read:packages", "read:discussion", "read:project", "read:gpg_key", "read:public_key",
                               "read:repo_hook", "read:enterprise", "read:audit_log", "read:ssh_signing_key"})
+MAX_OWNERS = 3
 ORG_LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}")
 
 
 class GitHubProvider(Provider):
     key = "github"
     name = "GitHub"
-    description = "Checks your GitHub organisation for 2FA enforcement, branch protection, secret scanning and Dependabot alerts."
+    description = ("Checks your GitHub organisation for 2FA enforcement, branch protection, secret scanning, Dependabot, outside collaborators, "
+                   "the number of owners, signed commits, code scanning and code owners.")
     fields = (
         ConfigField("org", "Organisation login", help="e.g. my-company", example="my-company"),
         ConfigField("token", "Read-only token", secret=True, help="Fine-grained token with read access to organisation administration and repository metadata."),
@@ -28,13 +30,19 @@ class GitHubProvider(Provider):
         CheckDef("branch_protection", "Default branches protected", ("KC-TEC-25", "KC-TEC-28", "KC-TEC-32")),
         CheckDef("secret_scanning", "Secret scanning enabled", ("KC-TEC-28", "KC-ORG-17")),
         CheckDef("dependabot", "Dependabot security updates enabled", ("KC-TEC-08", "KC-ORG-21")),
+        CheckDef("outside_collaborators", "No outside collaborators", ("KC-TEC-04", "KC-ORG-18")),
+        CheckDef("few_owners", f"At most {MAX_OWNERS} organisation owners", ("KC-TEC-02",)),
+        CheckDef("signed_commits", "Default branches require signed commits", ("KC-TEC-25", "KC-TEC-04")),
+        CheckDef("code_scanning", "Code scanning runs on every repository", ("KC-TEC-28", "KC-TEC-29")),
+        CheckDef("code_owners", "Every repository has code owners", ("KC-TEC-04", "KC-TEC-32")),
     )
     setup = (
         SetupStep(
             "Create a fine-grained, read-only token",
             "Sign in as an organisation owner and create a fine-grained personal access token. Resource owner: "
-            "{org}. Repository access: All repositories. Repository permissions: Administration Read-only "
-            "(Metadata Read-only is added automatically). Organisation permissions: Administration Read-only. "
+            "{org}. Repository access: All repositories. Repository permissions: Administration Read-only and Code scanning "
+            "alerts Read-only (Metadata Read-only is added automatically). Organisation permissions: Administration Read-only "
+            "and Members Read-only. "
             "Choose an expiry and note it: the integration starts failing when the token expires. If your "
             "organisation requires approval for fine-grained tokens, approve the request under the organisation's "
             "settings.",
@@ -96,11 +104,22 @@ class GitHubProvider(Provider):
             tfa = info.get("two_factor_requirement_enabled")
             out.append(Outcome("org_2fa", "unknown" if tfa is None else ("pass" if tfa else "fail"), "Token cannot see this setting" if tfa is None else ("Required" if tfa else "Not required")))
             repos = [x for x in c.get(f"/orgs/{org}/repos", params={"per_page": 100, "type": "all"}).json() if not x.get("archived")]
-            unprotected, no_secret, no_dep = [], [], []
+            unprotected, no_secret, no_dep, unsigned, no_scan, no_owners, scan_unknown = [], [], [], [], [], [], []
             for repo in repos:
                 b = c.get(f"/repos/{org}/{repo['name']}/branches/{repo['default_branch']}/protection")
                 if b.status_code == 404:
                     unprotected.append(repo["name"])
+                if b.status_code != 200 or not ((b.json() or {}).get("required_signatures") or {}).get("enabled"):
+                    unsigned.append(repo["name"])
+                a = c.get(f"/repos/{org}/{repo['name']}/code-scanning/analyses", params={"per_page": 1})
+                if a.status_code == 200 and a.json():
+                    pass
+                elif a.status_code in (200, 404):
+                    no_scan.append(repo["name"])
+                else:  # 403: not licensed for this repository, or no permission
+                    scan_unknown.append(repo["name"])
+                if c.get(f"/repos/{org}/{repo['name']}/codeowners/errors").status_code == 404:
+                    no_owners.append(repo["name"])
                 sa = repo.get("security_and_analysis") or {}
                 if (sa.get("secret_scanning") or {}).get("status") != "enabled":
                     no_secret.append(repo["name"])
@@ -112,5 +131,23 @@ class GitHubProvider(Provider):
                     return Outcome(key, "unknown", "No repositories visible to the token")
                 return Outcome(key, "pass" if not bad else "fail", f"All {len(repos)} repositories {what}" if not bad else f"{len(bad)} of {len(repos)} repositories not {what}: {', '.join(bad[:8])}", {"failing": bad})
 
-            out += [res("branch_protection", unprotected, "protected"), res("secret_scanning", no_secret, "scanned"), res("dependabot", no_dep, "covered")]
+            out += [res("branch_protection", unprotected, "protected"), res("secret_scanning", no_secret, "scanned"), res("dependabot", no_dep, "covered"),
+                    res("signed_commits", unsigned, "requiring signed commits"), res("code_owners", no_owners, "with a CODEOWNERS file")]
+            if no_scan or not scan_unknown:
+                out.append(res("code_scanning", no_scan, "scanned by code scanning"))
+            else:
+                out.append(Outcome("code_scanning", "unknown", f"Code scanning couldn't be read for {len(scan_unknown)} repositories (not licensed, or the token lacks Code scanning alerts: read)"))
+            r = c.get(f"/orgs/{org}/outside_collaborators", params={"per_page": 100})
+            if r.status_code == 200:
+                logins = sorted(x.get("login", "") for x in r.json())
+                out.append(Outcome("outside_collaborators", "fail" if logins else "pass", f"{len(logins)} outside collaborator(s): {', '.join(logins[:8])}" if logins else "None",
+                                   {"collaborators": logins}))
+            else:
+                out.append(Outcome("outside_collaborators", "unknown", f"GitHub returned {r.status_code}: the token needs Members: read"))
+            r = c.get(f"/orgs/{org}/members", params={"role": "admin", "per_page": 100})
+            if r.status_code == 200:
+                owners = sorted(x.get("login", "") for x in r.json())
+                out.append(Outcome("few_owners", "pass" if len(owners) <= MAX_OWNERS else "fail", f"{len(owners)} owner(s): {', '.join(owners[:8])}", {"owners": owners}))
+            else:
+                out.append(Outcome("few_owners", "unknown", f"GitHub returned {r.status_code}: the token needs Members: read"))
         return out

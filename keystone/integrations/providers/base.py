@@ -93,5 +93,15 @@ class InventoryProvider(Provider):
         """preview=True (Test connection): read only the first page of each endpoint."""
         raise NotImplementedError
 
+    needs_session: bool = False  # sources inside Keystone (its own agents) read the database: they implement collect_in
+
+    def collect_in(self, session, config: dict, secrets: dict, preview: bool = False):  # pragma: no cover - interface
+        raise NotImplementedError
+
+    def assess(self, inventory) -> list[Outcome]:
+        """Pass/fail control checks worked out from what a full run collected (no extra calls). Sources with
+        `checks` override this; a check whose data is missing is "unknown", never a pass."""
+        return []
+
     def describe(self) -> dict:
         return {**super().describe(), "inventory": True, "categories": list(self.categories or (self.category,)), "mapping_note": self.mapping_note}

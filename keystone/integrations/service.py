@@ -19,6 +19,8 @@ from keystone.frameworks.models import CommonControl
 from .models import CheckResult, Integration
 from .providers.asm_cloud import AwsSecurityHubProvider, DefenderForCloudProvider, GoogleSccProvider
 from .providers.asm_edr import CrowdStrikeProvider, SentinelOneProvider, SophosProvider
+from .providers.agents_software import AgentSoftwareProvider
+from .providers.asm_mdm import JamfProProvider, KandjiProvider
 from .providers.asm_microsoft import MicrosoftProvider
 from .providers.asm_rmm import ConnectWiseAutomateProvider, DattoRmmProvider, NCentralProvider, NinjaOneProvider
 from .providers.asm_vuln import QualysProvider, Rapid7Provider, TenableProvider
@@ -36,6 +38,10 @@ PROVIDERS: dict[str, Provider] = {p.key: p for p in (
     MicrosoftProvider(), CrowdStrikeProvider(), SentinelOneProvider(), SophosProvider(),
     NinjaOneProvider(), DattoRmmProvider(), NCentralProvider(), ConnectWiseAutomateProvider(),
     TenableProvider(), QualysProvider(), Rapid7Provider(),
+    # device management (round 9): read-only device lists
+    JamfProProvider(), KandjiProvider(),
+    # Keystone's own agents as a vulnerability source (round 9): packages matched against downloaded OSV data
+    AgentSoftwareProvider(),
     # cloud posture (round 3): read-only posture assessments
     AwsSecurityHubProvider(), DefenderForCloudProvider(), GoogleSccProvider(),
     # ticketing (round 3): the only connectors that write, and only new tickets
@@ -113,8 +119,9 @@ def run(session: Session, actor, integration_id: int) -> list[CheckResult]:
     inventory = None
     try:
         secrets = json.loads(crypto.decrypt(i.secret_enc)) if i.secret_enc else {}
-        if isinstance(p, InventoryProvider):  # attack surface source: collect now, store below
-            inventory, outcomes = p.collect(i.config or {}, secrets), []
+        if isinstance(p, InventoryProvider):  # attack surface source: collect now, store below; its own checks from the data
+            inventory = p.collect_in(session, i.config or {}, secrets) if p.needs_session else p.collect(i.config or {}, secrets)
+            outcomes = p.assess(inventory)
         elif isinstance(p, HrProvider):  # HR system: apply people to the register
             from keystone.people import hr_sync
 
@@ -309,7 +316,8 @@ def test(session: Session, actor, provider_key: str | None = None, values: dict 
     inventory, msg = None, "Test failed"
     try:
         if isinstance(p, InventoryProvider):
-            inventory, outcomes = p.collect(config, secrets, preview=True), []
+            inventory = p.collect_in(session, config, secrets, preview=True) if p.needs_session else p.collect(config, secrets, preview=True)
+            outcomes = []
         else:
             outcomes = p.run(config, secrets, session)
     except Exception as e:  # noqa: BLE001 - report, never pass
@@ -322,7 +330,7 @@ def test(session: Session, actor, provider_key: str | None = None, values: dict 
             log_event(session, actor, "integration_test", "Integration", integration_id, f"Tested {p.name}: error")
             return [{"check_key": "inventory", "title": "Connection", "result": "error", "summary": msg}]
         log_event(session, actor, "integration_test", "Integration", integration_id, f"Tested {p.name}: ok")
-        return [inventory_preview(inventory), permission_check(p, config, secrets)]
+        return [inventory_preview(inventory)] + ([permission_check(p, config, secrets)] if any(f.secret for f in p.fields) else [])
     log_event(session, actor, "integration_test", "Integration", integration_id, f"Tested {p.name}: " + ", ".join(f"{o.key}={o.result}" for o in outcomes))
     out = [{"check_key": o.key, "title": p.check(o.key).title, "result": o.result, "summary": o.summary} for o in outcomes]
     if not any(o.result == "error" for o in outcomes):

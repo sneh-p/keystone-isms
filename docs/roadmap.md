@@ -81,6 +81,7 @@ to Trust Center subscribers, an iCal feed, and automatic reminder emails to vend
 | Batch | Done |
 |---|---|
 | A | Raw check results filed as evidence; tasks when a passing check starts failing, flapping checks marked; integration health (failures in a row, last success, escalation) and key expiry reminders; read-only key checks for GitHub, AWS and Microsoft 365; macOS agent; hourly agent check-ins and quiet-agent alerts; agent integrity, out-of-date agents, signed Windows agent, optional key pinning; enrolment key expiry and use limits; coverage against your other tools |
+| B | Microsoft 365 checks (MFA, phishing-resistant admins, legacy sign-in, audit log search, Secure Score trend, Intune compliance); six more AWS checks and five more GitHub checks; Jamf Pro and Kandji with fleet encryption and check-in checks; agents report endpoint security, backup, log forwarding, USB storage, time sync, sudo accounts, browser versions and installed software; Linux package vulnerabilities from downloaded OSV data |
 
 Not done, each needs its own decision: SMS or phone paging (a third party holding staff phone numbers), DMARC reports
 read straight from a mailbox, and takedown requests sent from Keystone.

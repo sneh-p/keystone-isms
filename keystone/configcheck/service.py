@@ -1034,8 +1034,46 @@ def checkin(session: Session, t: ConfigTarget, *, agent_version: str | None, age
     return {"report_due": agents.report_due(t, hours), "report_hours": hours}
 
 
+MAX_SOFTWARE = 5000
+OS_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,29}$")
+OS_VERSION_ID = re.compile(r"^[0-9][0-9A-Za-z._-]{0,19}$")
+
+
+def clean_software(items) -> list[list[str]]:
+    """[[name, version], ...]: strings only, trimmed, at most MAX_SOFTWARE distinct entries. Anything else is dropped."""
+    out, seen = [], set()
+    for x in items or []:
+        if not isinstance(x, (list, tuple)) or len(x) != 2 or not all(isinstance(v, str) for v in x):
+            continue
+        name, version = x[0].strip()[:200], x[1].strip()[:100]
+        if not name or not version or (name, version) in seen or any(ord(c) < 32 for c in name + version):
+            continue
+        seen.add((name, version))
+        out.append([name, version])
+        if len(out) >= MAX_SOFTWARE:
+            break
+    return sorted(out, key=lambda p: (p[0].lower(), p[1]))
+
+
+def software_search(session: Session, actor, q: str | None = None, limit: int = 200) -> dict:
+    """Installed software across hosts: each name and version with the hosts that have it, most widespread first."""
+    authorize(session, actor, "read")
+    needle = (q or "").strip().lower()[:100]
+    rows: dict[tuple[str, str], list[dict]] = {}
+    hosts = 0
+    for t in session.scalars(select(ConfigTarget).where(ConfigTarget.kind == "agent", ConfigTarget.revoked_at.is_(None), ConfigTarget.software_at.is_not(None))):
+        hosts += 1
+        for name, version in t.software or []:
+            if needle and needle not in name.lower():
+                continue
+            rows.setdefault((name, version), []).append({"id": t.id, "name": t.name, "platform": t.platform})
+    ordered = sorted(rows.items(), key=lambda kv: (-len(kv[1]), kv[0][0].lower(), kv[0][1]))
+    return {"hosts": hosts, "total": len(ordered), "rows": [{"name": n, "version": v, "hosts": h} for (n, v), h in ordered[:max(1, min(limit, 1000))]]}
+
+
 def report(session: Session, t: ConfigTarget, *, facts: dict, hostname: str | None, os_name: str | None, os_version: str | None, agent_version: str | None, ip: str | None,
-           check_errors: dict | None = None, custom_checks_state: str | None = None, agent_sha256: str | None = None) -> dict:
+           check_errors: dict | None = None, custom_checks_state: str | None = None, agent_sha256: str | None = None, software: list | None = None,
+           os_release: dict | None = None) -> dict:
     """Store an agent's report and evaluate it. Unknown keys and values of the wrong type are dropped, not stored."""
     allowed = settings_map(session, t.platform)
     clean, ignored = {}, []
@@ -1063,6 +1101,11 @@ def report(session: Session, t: ConfigTarget, *, facts: dict, hostname: str | No
     # administrator removed isn't put back.
     first = t.agent_sha256 is None and (not was_reported or bool(agent_sha256))
     t.agent_sha256 = agents.clean_sha(agent_sha256) or t.agent_sha256
+    if software is not None:
+        t.software, t.software_at = clean_software(software), utcnow()
+    if os_release:
+        oid, ver = str(os_release.get("id") or "").strip().lower(), str(os_release.get("version_id") or "").strip()
+        t.os_release = f"{oid} {ver}" if OS_ID.match(oid) and OS_VERSION_ID.match(ver) else None
     if t.last_seen_at is not None or agent_sha256:
         t.last_seen_at = utcnow()
     agents.link(session, t, assets=first)

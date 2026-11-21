@@ -19,8 +19,9 @@
 
     Options at install: -Tags web,dmz (groups this computer for scoped baselines), -Hours 1|2|4|8|12|24 (report at
     least this often), -NoCustomChecks (turns custom checks off on this computer; Keystone then shows them as unknown),
-    and -Pin "sha256//BASE64[;sha256//BASE64]" (accept only a server whose public key has this hash, in addition to
-    the normal certificate checks; needs Windows PowerShell 5.1, which the scheduled task uses).
+    -Pin "sha256//BASE64[;sha256//BASE64]" (accept only a server whose public key has this hash, in addition to
+    the normal certificate checks; needs Windows PowerShell 5.1, which the scheduled task uses), and -NoSoftware
+    (leaves out the list of installed programs that each full report otherwise includes).
 
     Custom checks: administrators can define extra read-only checks in Keystone. The agent downloads their definitions
     and evaluates each one itself, within limits written into this script, not set by the server: a fixed list of
@@ -40,6 +41,7 @@ param(
     [Parameter(ParameterSetName = 'Install')][string[]]$Tags = @(),
     [Parameter(ParameterSetName = 'Install')][switch]$NoCustomChecks,
     [Parameter(ParameterSetName = 'Install')][string]$Pin = '',
+    [Parameter(ParameterSetName = 'Install')][switch]$NoSoftware,
     [Parameter(ParameterSetName = 'Uninstall', Mandatory = $true)][switch]$Uninstall,
     [Parameter(ParameterSetName = 'Collect', Mandatory = $true)][switch]$Collect,
     [Parameter(ParameterSetName = 'Run')][switch]$Run
@@ -101,6 +103,27 @@ function Get-SecurityPolicy {
 }
 
 # ----------------------------------------------------------------------------------------------- collection
+
+function Get-KnownSoftware {
+    <# Known products, by Windows service name (and browsers by program path). Anything else reports "none found":
+       check it with a custom check instead. #>
+    @{
+        Edr     = [ordered]@{
+            CSFalconService = 'CrowdStrike Falcon'; SentinelAgent = 'SentinelOne'; Sense = 'Microsoft Defender for Endpoint'; WinDefend = 'Microsoft Defender Antivirus'
+            SAVService = 'Sophos'; SophosED = 'Sophos'; CbDefense = 'Carbon Black Cloud'; cyserver = 'Cortex XDR'; xagt = 'Trellix HX'; EPSecurityService = 'Bitdefender'
+            ekrn = 'ESET'; ntrtscan = 'Trend Micro Apex One'; HuntressAgent = 'Huntress'; 'elastic-endpoint' = 'Elastic Defend'
+        }
+        Backup   = @('VeeamEndpointBackupSvc', 'VeeamAgent', 'MMS', 'Backup Service Controller', 'DattoBackupAgent', 'CrashPlanService', 'Code42Service',
+            'inSyncCPHService', 'CarboniteService')
+        Log      = @('SplunkForwarder', 'WazuhSvc', 'OssecSvc', 'nxlog', 'Elastic Agent', 'winlogbeat', 'AzureMonitorAgent', 'HealthService', 'datadogagent',
+            'AmazonCloudWatchAgent', 'google-cloud-ops-agent')
+        Browsers = @(
+            @{ Key = 'chrome_version'; Path = 'Google\Chrome\Application\chrome.exe' },
+            @{ Key = 'edge_version'; Path = 'Microsoft\Edge\Application\msedge.exe' },
+            @{ Key = 'firefox_version'; Path = 'Mozilla Firefox\firefox.exe' }
+        )
+    }
+}
 
 function Get-KeystoneFact {
     <# Reads every setting the Keystone catalogue knows for Windows. Unknown values are left out. #>
@@ -183,6 +206,35 @@ function Get-KeystoneFact {
     $facts['wdigest_disabled'] = ($null -eq $wdigest -or [int]$wdigest -eq 0)
     $ppl = Get-RegistryValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa' 'RunAsPPL'
     $facts['lsa_protection'] = ($null -ne $ppl -and [int]$ppl -in @(1, 2))
+
+    $known = Get-KnownSoftware
+    $services = Invoke-Safely { @(Get-Service -ErrorAction Stop) }
+    if ($null -ne $services -and $services.Count -gt 0) {
+        $running = @{}
+        foreach ($svc in $services) { $running[[string]$svc.Name] = ([string]$svc.Status -eq 'Running') }
+        $edr = @($known.Edr.Keys | Where-Object { $running[$_] } | ForEach-Object { $known.Edr[$_] } | Sort-Object -Unique)
+        $facts['edr_running'] = ($edr.Count -gt 0)
+        $facts['edr_product'] = if ($edr.Count) { $edr -join ', ' } else { 'none found' }
+        $facts['backup_agent_present'] = (@($known.Backup | Where-Object { $running.ContainsKey($_) }).Count -gt 0)
+        $logAgent = (@($known.Log | Where-Object { $running[$_] }).Count -gt 0)
+        $wef = Invoke-Safely { (Get-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\EventForwarding\SubscriptionManager' -ErrorAction Stop).ValueCount }
+        $facts['log_forwarding'] = ($logAgent -or ($null -ne $wef -and [int]$wef -gt 0))
+    }
+    $timeType = Get-RegistryValue 'HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters' 'Type'
+    if ($null -ne $timeType) { $facts['time_sync_active'] = ([string]$timeType -in @('NTP', 'NT5DS', 'AllSync')) }
+
+    $usb = Get-RegistryValue 'HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR' 'Start'
+    $denyAll = Get-RegistryValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\RemovableStorageDevices' 'Deny_All'
+    if ($null -ne $usb -or $null -ne $denyAll) { $facts['usb_storage_blocked'] = (($null -ne $usb -and [int]$usb -eq 4) -or ($null -ne $denyAll -and [int]$denyAll -eq 1)) }
+
+    foreach ($b in $known.Browsers) {
+        foreach ($root in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
+            if (-not $root) { continue }
+            $exe = $root.TrimEnd('\') + '\' + $b.Path
+            $version = Invoke-Safely { (Get-Item -LiteralPath $exe -ErrorAction Stop).VersionInfo.ProductVersion }
+            if ($version) { $facts[$b.Key] = [string]$version; break }
+        }
+    }
 
     return $facts
 }
@@ -302,8 +354,29 @@ function Get-KeystoneCustomFact {
     @{ Facts = $facts; Errors = $errors }
 }
 
+function Get-InstalledSoftware {
+    <# Installed programs (name and version) from the uninstall registry keys, 64- and 32-bit, at most 5000. #>
+    $roots = @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*')
+    $seen = @{}
+    $out = [System.Collections.Generic.List[object]]::new()
+    foreach ($root in $roots) {
+        foreach ($item in @(Invoke-Safely { Get-ItemProperty -Path $root -ErrorAction Stop })) {
+            if (-not $item) { continue }
+            $props = $item.PSObject.Properties.Name
+            if ($props -notcontains 'DisplayName' -or $props -notcontains 'DisplayVersion') { continue }
+            $name = ([string]$item.DisplayName).Trim()
+            $version = ([string]$item.DisplayVersion).Trim()
+            if (-not $name -or -not $version -or $seen.ContainsKey("$name|$version")) { continue }
+            $seen["$name|$version"] = $true
+            $out.Add([string[]]@($name.Substring(0, [Math]::Min(200, $name.Length)), $version.Substring(0, [Math]::Min(100, $version.Length))))
+            if ($out.Count -ge 5000) { return , $out.ToArray() }
+        }
+    }
+    , $out.ToArray()
+}
+
 function Get-KeystoneReport {
-    param([object[]]$Checks = @(), [switch]$CustomChecksDisabled)
+    param([object[]]$Checks = @(), [switch]$CustomChecksDisabled, [switch]$NoSoftware)
     $os = Invoke-Safely { Get-CimInstance -ClassName Win32_OperatingSystem }
     $facts = Get-KeystoneFact
     $custom = Get-KeystoneCustomFact -Checks $Checks
@@ -318,6 +391,8 @@ function Get-KeystoneReport {
         check_errors  = $custom.Errors
     }
     if ($CustomChecksDisabled) { $report['custom_checks'] = 'disabled' }
+    if (-not $NoSoftware) { $report['software'] = Get-InstalledSoftware }
+    $report['os_release'] = [ordered]@{ id = 'windows'; version_id = if ($os) { [string]$os.Version } else { '' } }
     $report
 }
 
@@ -464,7 +539,7 @@ function Invoke-KeystoneRun {
         if (-not ($reply.token -match '^kagt_[A-Za-z0-9_\-]+$')) { throw "The server's reply had no device token." }
         [IO.File]::WriteAllBytes($script:TokenPath, (Protect-Token $reply.token))
         $config = [ordered]@{ server = [string]$config.server; custom_checks = -not ($config.PSObject.Properties.Name -contains 'custom_checks' -and $config.custom_checks -eq $false)
-            hours = $hours; pin = $pin }  # the enrolment key is no longer needed
+            hours = $hours; pin = $pin; software = -not ($config.PSObject.Properties.Name -contains 'software' -and $config.software -eq $false) }  # the enrolment key is no longer needed
         $config | ConvertTo-Json | Set-Content -Path $script:ConfigPath -Encoding UTF8
         $config = [pscustomobject]$config
     }
@@ -487,7 +562,8 @@ function Invoke-KeystoneRun {
         try { $checks = Get-KeystoneCheckList -Address $config.server -Token $token -Pin $pin }
         catch { Write-RunLog 'Could not fetch custom checks; sending the built-in settings only.' }
     }
-    $null = Send-KeystoneRequest -Address $config.server -Path 'report' -Pin $pin -Headers $auth -Body (Get-KeystoneReport -Checks $checks -CustomChecksDisabled:$customOff)
+    $softwareOff = ($config.PSObject.Properties.Name -contains 'software') -and ($config.software -eq $false)
+    $null = Send-KeystoneRequest -Address $config.server -Path 'report' -Pin $pin -Headers $auth -Body (Get-KeystoneReport -Checks $checks -CustomChecksDisabled:$customOff -NoSoftware:$softwareOff)
     Set-Content -Path $script:LastReportPath -Value ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -Encoding ASCII
     Write-RunLog 'Report sent.'
 }
@@ -516,7 +592,7 @@ function Set-PrivateAcl {
 
 function Install-KeystoneAgent {
     [CmdletBinding(SupportsShouldProcess = $true)]
-    param([string]$Address, [string]$Key, [int]$Every, [string[]]$TagList = @(), [switch]$CustomOff, [string]$PinList = '')
+    param([string]$Address, [string]$Key, [int]$Every, [string[]]$TagList = @(), [switch]$CustomOff, [string]$PinList = '', [switch]$SoftwareOff)
     if (-not (Test-Administrator)) { throw 'Run the installer from an elevated PowerShell prompt (Run as administrator).' }
     $Address = $Address.TrimEnd('/')
     if (-not (Test-ServerAddress $Address)) { throw 'The server address must start with https://' }
@@ -534,7 +610,8 @@ function Install-KeystoneAgent {
     Set-PrivateAcl -Path $script:DataDir
     Copy-Item -Path $PSCommandPath -Destination (Join-Path $script:ProgramDir 'keystone-agent.ps1') -Force
     Remove-Item -Path $script:TokenPath -Force -ErrorAction SilentlyContinue  # a reinstall enrols again
-    [ordered]@{ server = $Address; enrolment_key = $Key; tags = $TagList; custom_checks = -not $CustomOff; hours = $Every; pin = $PinList } | ConvertTo-Json | Set-Content -Path $script:ConfigPath -Encoding UTF8
+    [ordered]@{ server = $Address; enrolment_key = $Key; tags = $TagList; custom_checks = -not $CustomOff; hours = $Every; pin = $PinList; software = -not $SoftwareOff } |
+        ConvertTo-Json | Set-Content -Path $script:ConfigPath -Encoding UTF8
 
     $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     $arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}" -Run' -f (Join-Path $script:ProgramDir 'keystone-agent.ps1')
@@ -563,7 +640,7 @@ function Uninstall-KeystoneAgent {
 # ----------------------------------------------------------------------------------------------- entry point
 
 if ($MyInvocation.InvocationName -ne '.') {
-    if ($Install) { Install-KeystoneAgent -Address $Server -Key $EnrolmentKey -Every $Hours -TagList $Tags -CustomOff:$NoCustomChecks -PinList $Pin }
+    if ($Install) { Install-KeystoneAgent -Address $Server -Key $EnrolmentKey -Every $Hours -TagList $Tags -CustomOff:$NoCustomChecks -PinList $Pin -SoftwareOff:$NoSoftware }
     elseif ($Uninstall) { Uninstall-KeystoneAgent }
     elseif ($Collect) { Get-KeystoneReport | ConvertTo-Json -Depth 5 }
     elseif ($Run -or $PSCmdlet.ParameterSetName -eq 'Run') {

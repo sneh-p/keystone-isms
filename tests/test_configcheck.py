@@ -67,17 +67,18 @@ def _ps_keys() -> set[str]:
     text = (ROOT / "agents/windows/keystone-agent.ps1").read_text()
     keys = set(re.findall(r"\$facts\['([a-z0-9_]+)'\]", text))
     keys |= {f"firewall_{n}_enabled" for n in ("domain", "private", "public")}  # built from the profile name
+    keys |= set(re.findall(r"Key = '([a-z0-9_]+)'", text))  # browser versions, from the list in Get-KnownSoftware
     return keys
 
 
-def _sh_keys() -> set[str]:
-    text = (ROOT / "agents/linux/keystone-agent.sh").read_text()
+def _sh_keys(script: str = "agents/linux/keystone-agent.sh") -> set[str]:
+    text = (ROOT / script).read_text()
     keys = set(re.findall(r"\badd ([a-z0-9_]+) (?:bool|int|str)\b", text))
     return keys | set(re.findall(r"\b[a-z0-9]+:(ssh_[a-z0-9_]+)\b", text))  # sshd settings added in a loop (sshd name:fact key)
 
 
 def test_agents_send_exactly_the_catalogue_keys():
-    for platform, keys in (("windows", _ps_keys()), ("linux", _sh_keys())):
+    for platform, keys in (("windows", _ps_keys()), ("linux", _sh_keys()), ("macos", _sh_keys("agents/macos/keystone-agent.sh"))):
         known = {s.key for s in cat.settings_for(platform)}
         assert keys == known, (platform, keys ^ known)
 
@@ -291,7 +292,7 @@ def test_enrolment_and_reports(api, ready_users, db):
     r = api.post("/api/agent/v1/report", json=report, headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200, r.text
     assert r.json()["accepted"] == 3 and r.json()["ignored"] == ["invented_key"]
-    big = {"facts": {"firewall_tool": "x" * 300_000}}
+    big = {"facts": {"firewall_tool": "x" * 1_200_000}}  # over the 1 MB cap
     assert api.post("/api/agent/v1/report", content=json.dumps(big), headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}).status_code == 413
 
     def chunked():  # no Content-Length: the streamed read still stops at the cap

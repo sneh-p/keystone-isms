@@ -214,6 +214,12 @@ scheduler.
   - The macOS agent (POSIX `sh` + curl, a launchd daemon) has the same probe limits as Linux, plus a deny list for the
     local directory's password store, keychains and home folders. A test fails if any path the server refuses is
     missing from an agent's deny list.
+- **Installed software and OSV (batch B, round 9, decided by human:sneh, 2026-11-21).** Reports may carry a list of
+  installed software (at most 5,000 name/version pairs, strings only, control characters refused) and the OS release
+  ID and version (narrow patterns); hosts can opt out at install. One new outbound host,
+  `osv-vulnerabilities.storage.googleapis.com`, exact-host policy, whole archives only (nothing about the hosts is
+  sent), ETag-conditional, streamed to the data directory within a 2 GB cap, read entry by entry with size limits and
+  never extracted or executed (SC-SSRF-001, SC-FILE-003).
 - **Spec note.** The original spec says "no tokens or secrets on disk". That was written for the collector. An agent
   that reports on a schedule can't work without a stored credential, so each host keeps a narrowly scoped,
   revocable, root/SYSTEM-only device token instead. This is a deliberate deviation, raised here for review.

@@ -363,8 +363,8 @@ each one the narrowest read-only credential:
 | Integration | Credential |
 |---|---|
 | Website / TLS | None. Only public hosts are checked; private and local addresses are refused |
-| GitHub | Fine-grained token with read-only *Administration* and *Metadata* on the organisation |
-| AWS | An IAM user or role with the AWS-managed `SecurityAudit` policy |
+| GitHub | Fine-grained token: repository *Administration*, *Code scanning alerts* and *Metadata* read-only; organisation *Administration* and *Members* read-only. Without *Members*, the collaborator and owner checks show as unknown |
+| AWS | An IAM user or role with the AWS-managed `SecurityAudit` policy (it covers every check, including the credential report, EBS, RDS, VPC flow logs and AWS Config) |
 | Microsoft Entra ID | None. It reads the latest imported exposure snapshot and doesn't call Microsoft Graph. (The separate **Microsoft 365** attack surface source does call Microsoft's APIs, read-only; see below.) |
 
 Each Connect dialog has a setup guide with copyable commands, filled in with the values you
@@ -377,6 +377,10 @@ results or evidence, so you can confirm access before saving.
 A website that blocks automated requests (HTTP 4xx/5xx) is reported as unknown, not as failing.
 Redirects are followed over HTTPS only, and each new host must also be public.
 
+For GitHub, AWS and Microsoft 365, **Test connection** also asks the tool what the key may do and warns if it can change
+anything (*Key is read-only*). Enter **Key or secret expires on** when you connect, and you're reminded two weeks
+before; after three failed runs in a row the ISMS managers are told too.
+
 Secrets are encrypted with `secret.key` and are write-only: the API never returns them, and the
 audit log records only that they changed. A check that errors or can't decide is reported as
 error or unknown, never as passing.
@@ -388,7 +392,10 @@ vulnerabilities; **Attack surface** shows the merged picture and the gaps agains
 
 | Source | Provides | Read-only access to create |
 |---|---|---|
-| Microsoft 365 | Entra accounts and MFA registration, Intune compliance and encryption, Defender for Endpoint health and vulnerabilities, Secure Score | App registration, application permissions: User.Read.All, AuditLog.Read.All, UserAuthenticationMethod.Read.All, DeviceManagementManagedDevices.Read.All, SecurityEvents.Read.All; WindowsDefenderATP Machine.Read.All, Vulnerability.Read.All |
+| Microsoft 365 | Entra accounts and MFA registration, Intune compliance and encryption, Defender for Endpoint health and vulnerabilities, Secure Score; checks for MFA, phishing-resistant admin sign-in, legacy sign-in blocked, audit log search, Secure Score trend and Intune compliance | App registration, application permissions: User.Read.All, AuditLog.Read.All, UserAuthenticationMethod.Read.All, DeviceManagementManagedDevices.Read.All, SecurityEvents.Read.All, Policy.Read.All (Conditional Access; optional); WindowsDefenderATP Machine.Read.All, Vulnerability.Read.All |
+| Jamf Pro | Macs, FileVault, macOS version, last check-in; checks for encryption and check-in | API role with only *Read Computers*, and an API client using it |
+| Kandji | Apple devices, FileVault, OS version, last check-in; the same checks | API token allowed only *Device list* and *Device details* |
+| Keystone agents (installed software) | Vulnerabilities in the Linux packages Keystone's own agents report (Debian, Ubuntu, AlmaLinux, Rocky Linux) | None. Keystone downloads the public OSV data for those distributions from `osv-vulnerabilities.storage.googleapis.com` (see below) |
 | CrowdStrike Falcon | Hosts and sensor status | API client, Hosts: Read |
 | SentinelOne | Agents, health, threats, firewall | Service user, Viewer role |
 | Sophos Central | Endpoints, health, tamper protection, encryption | Tenant API credential, Service Principal ReadOnly |
@@ -416,6 +423,25 @@ have public addresses unless listed in `KEYSTONE_INTEGRATION_PRIVATE_HOSTS`, and
 server address changes; redirects are refused; responses are size-capped. **Test connection** reads one page per
 source, saves nothing, and lists the field names the API returned, so a field mapping can be confirmed against your
 tenant. Devices without an API can be imported from CSV (Attack surface → Import CSV).
+
+### Vulnerabilities from installed software (Keystone agents)
+
+Agents 1.2 and later list installed software with each full report: Linux source packages and versions (dpkg) or
+packages with epoch:version-release (rpm), Windows programs, and Mac apps. Each host's page shows its list, and
+Configuration → Software searches across hosts. Install an agent with `--no-software` (Windows `-NoSoftware`) to leave
+the list out.
+
+Connect **Keystone agents (installed software)** under Integrations → Attack surface sources to turn the Linux
+packages into vulnerabilities. Once a day, for each distribution your hosts run, Keystone downloads the whole OSV file
+(`https://osv-vulnerabilities.storage.googleapis.com/<Debian|Ubuntu|AlmaLinux|Rocky Linux>/all.zip`), only when it
+changed since the last run, and matches package versions itself with Debian's and rpm's version ordering. Nothing about
+your hosts is sent anywhere. Only advisories with a fixed version are recorded ("fixed in …"), so every result says what
+to upgrade to. Matches appear under Attack surface → Vulnerabilities with the usual KEV/EPSS priorities and fix-by
+dates; a package that has been upgraded closes its finding on the next run.
+
+Allow that host through your egress firewall. The files are kept in `<KEYSTONE_DATA_DIR>/osv/` (a few hundred MB per
+distribution) and can be deleted at any time; they're downloaded again. Windows and Mac software is listed but not
+matched: use your scanner or Defender Vulnerability Management for those.
 
 ### Vulnerability priorities and fix-by dates
 

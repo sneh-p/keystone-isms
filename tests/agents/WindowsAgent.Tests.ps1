@@ -98,6 +98,40 @@ Describe 'Get-KeystoneFact' {
         }
     }
 
+    It 'reports endpoint security, backup, log forwarding, time, USB storage and browsers' {
+        Set-HardenedMachine
+        Mock Get-Service { @(
+                [pscustomobject]@{ Name = 'CSFalconService'; Status = 'Running' }, [pscustomobject]@{ Name = 'WinDefend'; Status = 'Running' },
+                [pscustomobject]@{ Name = 'VeeamEndpointBackupSvc'; Status = 'Stopped' }, [pscustomobject]@{ Name = 'SplunkForwarder'; Status = 'Running' }) }
+        $global:KsRegistry['Type'] = 'NT5DS'
+        $global:KsRegistry['Start'] = 4
+        $env:ProgramFiles = 'C:\Program Files'  # unset when the tests run on Linux or macOS
+        $global:KsBrowsers = @{ 'chrome.exe' = '131.0.6778.86'; 'msedge.exe' = '131.0.2903.70' }
+        Mock Get-Item { [pscustomobject]@{ VersionInfo = [pscustomobject]@{ ProductVersion = $global:KsBrowsers[($LiteralPath -split '[\\/]')[-1]] } } } -ParameterFilter { $LiteralPath -like '*.exe' -and $global:KsBrowsers.ContainsKey(($LiteralPath -split '[\\/]')[-1]) }
+        Mock Get-Item { throw 'not installed' } -ParameterFilter { $LiteralPath -like '*firefox.exe' }
+        Mock Get-Item { throw 'no policy' } -ParameterFilter { $Path -like '*EventForwarding*' }
+        $f = Get-KeystoneFact
+        $f['edr_running'] | Should -BeTrue
+        $f['edr_product'] | Should -Be 'CrowdStrike Falcon, Microsoft Defender Antivirus'
+        $f['backup_agent_present'] | Should -BeTrue  # installed, whether or not running now
+        $f['log_forwarding'] | Should -BeTrue
+        $f['time_sync_active'] | Should -BeTrue
+        $f['usb_storage_blocked'] | Should -BeTrue
+        $f['chrome_version'] | Should -Be '131.0.6778.86'
+        $f['edge_version'] | Should -Be '131.0.2903.70'
+        $f.Contains('firefox_version') | Should -BeFalse
+        $global:KsRegistry.Remove('Type'); $global:KsRegistry.Remove('Start')
+
+        Mock Get-Service { @([pscustomobject]@{ Name = 'Spooler'; Status = 'Running' }) }
+        $f = Get-KeystoneFact
+        $f['edr_running'] | Should -BeFalse
+        $f['edr_product'] | Should -Be 'none found'
+        $f['backup_agent_present'] | Should -BeFalse
+        $f['log_forwarding'] | Should -BeFalse
+        $f.Contains('time_sync_active') | Should -BeFalse  # not configured: unknown
+        $f.Contains('usb_storage_blocked') | Should -BeFalse
+    }
+
     It 'reports Secure Boot as off on legacy BIOS' {
         Set-HardenedMachine
         Mock Confirm-SecureBootUEFI { throw [System.PlatformNotSupportedException]::new('Cmdlet not supported on this platform') }
@@ -379,5 +413,25 @@ Describe 'Pinning' {
         Should -Invoke Invoke-RestMethod -Times 0
         Mock Invoke-RestMethod { 'ok' }
         Invoke-PinnedRequest -Pin '' -Request { Invoke-RestMethod -Uri 'https://x' } | Should -Be 'ok'
+    }
+}
+
+Describe 'Installed software' {
+    It 'lists programs once each, from both registry views, and can be left out' {
+        Mock Get-ItemProperty {
+            if ($Path -like '*WOW6432Node*') { @([pscustomobject]@{ DisplayName = '7-Zip 24.08'; DisplayVersion = '24.08' }) }
+            else { @([pscustomobject]@{ DisplayName = '7-Zip 24.08'; DisplayVersion = '24.08' }, [pscustomobject]@{ DisplayName = 'Google Chrome'; DisplayVersion = '131.0.6778.86' },
+                    [pscustomobject]@{ DisplayName = 'No version here' }, [pscustomobject]@{ SystemComponent = 1 }) }
+        }
+        $list = Get-InstalledSoftware
+        $list.Count | Should -Be 2
+        ($list | ForEach-Object { $_ -join '=' }) | Should -Be @('7-Zip 24.08=24.08', 'Google Chrome=131.0.6778.86')
+        Mock Get-KeystoneFact { [ordered]@{} }
+        Mock Get-CimInstance { [pscustomobject]@{ Caption = 'Microsoft Windows 11 Pro'; Version = '10.0.26100' } }
+        Mock Get-AgentHash { $null }
+        $json = Get-KeystoneReport | ConvertTo-Json -Depth 5 -Compress
+        $json | Should -Match '"software":\[\["7-Zip 24.08","24.08"\],\["Google Chrome","131.0.6778.86"\]\]'
+        $json | Should -Match '"os_release":\{"id":"windows","version_id":"10.0.26100"\}'
+        (Get-KeystoneReport -NoSoftware | ConvertTo-Json -Depth 5 -Compress) | Should -Not -Match '"software"'
     }
 }

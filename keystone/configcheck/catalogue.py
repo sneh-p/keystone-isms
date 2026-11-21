@@ -166,6 +166,29 @@ SETTINGS: tuple[Setting, ...] = (
             ("lte", 3, "medium", ("KC-TEC-02",)), max_int=10_000),
     Setting("time_sync_active", M, "bool", "Clock synchronised", "The Mac sets its clock from a network time server.",
             ("is_true", None, "medium", ("KC-TEC-17",))),
+    # ---------------------------------------------------------------- every agent platform (round 9)
+    Setting("edr_running", ("windows", "linux", "macos"), "bool", "Endpoint security running",
+            "A known endpoint security product is running (for example CrowdStrike, SentinelOne, Microsoft Defender, Sophos, Carbon Black, Cortex XDR, ESET, "
+            "Bitdefender, Trend Micro, Jamf Protect, ClamAV). A product the agent doesn't know reports off: check it with a custom check and turn this rule off.",
+            ("is_true", None, "high", ("KC-TEC-07", "KC-TEC-01"))),
+    Setting("edr_product", ("windows", "linux", "macos"), "str", "Endpoint security products found", "Which known products the agent found running. Reported for information."),
+    Setting("backup_agent_present", ("windows", "linux", "macos"), "bool", "Backup software installed",
+            "A known backup agent is installed (Veeam, Acronis, Datto, N-able, Code42, Druva, Bacula/Bareos; on Macs also Time Machine or Backblaze). Reported for information: many "
+            "workstations are backed up by syncing files instead."),
+    Setting("log_forwarding", ("windows", "linux"), "bool", "Logs forwarded to a central collector",
+            "Windows Event Forwarding is configured, or rsyslog/syslog-ng sends to a remote server, or a known log agent runs (Splunk, Wazuh, Elastic, Fluent Bit, "
+            "NXLog, Azure Monitor, CloudWatch, Datadog and similar).",
+            ("is_true", None, "medium", ("KC-TEC-15", "KC-TEC-16"))),
+    Setting("usb_storage_blocked", ("windows", "linux"), "bool", "USB storage blocked",
+            "USB mass storage is turned off (Windows: the USBSTOR driver disabled or a removable storage deny policy; Linux: the usb-storage module disabled or blacklisted).",
+            ("is_true", None, "low", ("KC-TEC-12", "KC-TEC-01"))),
+    Setting("time_sync_active", W, "bool", "Clock synchronised", "Windows Time is set to synchronise with a time server or the domain (not NoSync).",
+            ("is_true", None, "medium", ("KC-TEC-17",))),
+    Setting("local_admin_count", L, "int", "Accounts with sudo rights", "Members of the sudo, wheel and admin groups.",
+            ("lte", 3, "medium", ("KC-TEC-02",)), max_int=10_000),
+    Setting("chrome_version", ("windows", "macos"), "str", "Google Chrome version", "The installed version of Google Chrome. Reported for information."),
+    Setting("edge_version", ("windows", "macos"), "str", "Microsoft Edge version", "The installed version of Microsoft Edge. Reported for information."),
+    Setting("firefox_version", ("windows", "macos"), "str", "Firefox version", "The installed version of Mozilla Firefox. Reported for information."),
     # ---------------------------------------------------------------- firewalls (shared keys, parsed from config exports)
     Setting("mgmt_http_enabled", FW, "bool", "Management over plain HTTP", "The management interface accepts unencrypted HTTP (not only HTTPS).",
             ("is_false", None, "high", ("KC-TEC-20", "KC-TEC-24"))),

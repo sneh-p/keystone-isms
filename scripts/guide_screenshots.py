@@ -165,6 +165,7 @@ SHOTS: list[Shot] = [
     Shot("configuration-custom-new", "/configuration?tab=custom", button("New custom check")),
     Shot("configuration-agents", "/configuration?tab=agents", mask_keys),
     Shot("configuration-coverage", "/configuration?tab=coverage"),
+    Shot("configuration-software", "/configuration?tab=software"),
     Shot("change", "/registers/changes", row("Open the Wi-Fi guest network")),
     Shot("findings", "/registers/findings"),
     Shot("applications", "/registers/applications"),

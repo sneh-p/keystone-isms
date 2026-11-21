@@ -2,7 +2,7 @@
 # Keystone configuration agent for macOS. Report-only: it reads security settings and sends them to Keystone over
 # HTTPS. It never changes the Mac and never runs commands it is sent.
 #
-#   sudo KEYSTONE_ENROLMENT_KEY="kenr_..." sh keystone-agent-macos.sh install --server https://keystone.example.org [--tags laptops] [--hours 4] [--no-custom-checks] [--pin sha256//...]
+#   sudo KEYSTONE_ENROLMENT_KEY="kenr_..." sh keystone-agent-macos.sh install --server https://keystone.example.org [--tags laptops] [--hours 4] [--no-custom-checks] [--no-software] [--pin sha256//...]
 #   sudo sh keystone-agent-macos.sh run       # check in, and report if one is due (launchd does this every hour)
 #   sudo sh keystone-agent-macos.sh report    # collect and report now
 #   sh keystone-agent-macos.sh collect        # print the built-in settings as JSON; sends nothing
@@ -18,6 +18,9 @@
 #   - probes that read contents refuse password stores, keychains, keys and home folders (deny_path below)
 #   - at most 100 checks; values capped at 200 characters
 # Install with --no-custom-checks to turn them off on this Mac; Keystone then shows them as unknown.
+#
+# Installed software: each full report lists the apps in /Applications with their versions. --no-software leaves the
+# list out.
 #
 # --pin sha256//BASE64[;sha256//BASE64]: accept only a server whose public key has this hash (in addition to the
 # normal certificate checks, never instead of them). Give a second pin for the next key before renewing a certificate.
@@ -38,6 +41,7 @@ TOKEN_FILE="$CONF_DIR/token"
 STATE_FILE="$CONF_DIR/last_report"
 MAX_CHECKS=100
 CUSTOM_CHECKS=1
+SOFTWARE=1
 HOURS=4
 PIN=""
 umask 077
@@ -160,12 +164,45 @@ collect_accounts() {
   fi
 }
 
+# Known endpoint security products by process name (round 9). Anything else reports "none found": use a custom check.
+EDR_PROCS="falcond:CrowdStrike_Falcon com.crowdstrike.falcon.Agent:CrowdStrike_Falcon sentineld:SentinelOne wdavdaemon:Microsoft_Defender_for_Endpoint \
+SophosServiceManager:Sophos JamfProtect:Jamf_Protect CbOsxSensorService:Carbon_Black_Cloud cortex-xdr:Cortex_XDR HuntressAgent:Huntress \
+elastic-endpoint:Elastic_Defend ESETDaemon:ESET clamd:ClamAV"
+
+app_version() { [ -d "/Applications/$1.app" ] && plist_print "/Applications/$1.app/Contents/Info.plist" CFBundleShortVersionString; }
+
+collect_software() {
+  if have pgrep; then
+    found=""
+    for pair in $EDR_PROCS; do
+      if pgrep -x "${pair%%:*}" >/dev/null 2>&1; then
+        product=$(printf '%s' "${pair#*:}" | tr _ ' ')
+        case ",$found," in *",$product,"*) ;; *) found="${found}${found:+, }$product" ;; esac
+      fi
+    done
+    if [ -n "$found" ]; then add edr_running bool true; add edr_product str "$found"; else add edr_running bool false; add edr_product str "none found"; fi
+  fi
+  backup=false
+  if have tmutil && tmutil destinationinfo 2>/dev/null | grep -q '^Name'; then backup=true; fi
+  if [ "$backup" = false ]; then
+    for a in "/Library/Backblaze.bzpkg" "/Applications/CrashPlan.app" "/Applications/Code42.app" "/Applications/Druva inSync.app" "/Applications/Acronis Cyber Protect Agent.app"; do
+      [ -e "$a" ] && { backup=true; break; }
+    done
+  fi
+  add backup_agent_present bool "$backup"
+  add chrome_version str "$(app_version 'Google Chrome')"
+  add edge_version str "$(app_version 'Microsoft Edge')"
+  add firefox_version str "$(app_version 'Firefox')"
+  return 0
+}
+
 collect_builtin() {
   collect_firewall
   collect_protection
   collect_updates
   collect_sharing
   collect_accounts
+  collect_software
   return 0
 }
 
@@ -296,12 +333,29 @@ run_custom() {  # run_custom FILE: evaluate tab-separated definitions (key, prob
   set +f
 }
 
+software_json() {  # the apps in /Applications as a JSON list of [name, version]
+  for app in /Applications/*.app; do
+    [ -d "$app" ] || continue
+    v=$(plist_print "$app/Contents/Info.plist" CFBundleShortVersionString) || continue
+    name=${app##*/}
+    printf '%s\t%s\n' "${name%.app}" "$v"
+  done | head -n 5000 | awk -F'\t' 'BEGIN { ORS = ""; first = 1; print "[" }
+    NF == 2 && $1 != "" && $2 != "" {
+      n = $1; v = $2; gsub(/[\\"[:cntrl:]]/, "", n); gsub(/[\\"[:cntrl:]]/, "", v)
+      if (!first) print ","; first = 0
+      printf "[\"%s\",\"%s\"]", substr(n, 1, 200), substr(v, 1, 100)
+    }
+    END { print "]" }'
+}
+
 host_name() { scutil --get LocalHostName 2>/dev/null || hostname -s 2>/dev/null || uname -n; }
 self_sha() { shasum -a 256 "$0" 2>/dev/null | awk '{print $1}'; }
 
 report_json() {
   extra=""
   [ "$CUSTOM_CHECKS" = 1 ] || extra=',"custom_checks":"disabled"'
+  [ "$SOFTWARE" = 1 ] && extra="${extra},\"software\":$(software_json)"
+  extra="${extra},\"os_release\":{\"id\":\"macos\",\"version_id\":$(json_str "$(sw_vers -productVersion 2>/dev/null)")}"
   printf '{"hostname":%s,"os_name":%s,"os_version":%s,"agent_version":"%s","agent_sha256":"%s","facts":{%s},"check_errors":{%s}%s}\n' \
     "$(json_str "$(host_name)")" "$(json_str "$(sw_vers -productName 2>/dev/null) $(sw_vers -productVersion 2>/dev/null)")" \
     "$(json_str "$(sw_vers -productVersion 2>/dev/null) ($(sw_vers -buildVersion 2>/dev/null))")" "$AGENT_VERSION" "$(self_sha)" "$FACTS" "$CHECK_ERRS" "$extra"
@@ -363,6 +417,7 @@ load_conf() {
   [ -n "$SERVER" ] || die "no SERVER in $CONF"
   check_server "$SERVER"
   case "$(conf_value CUSTOM_CHECKS)" in 0) CUSTOM_CHECKS=0 ;; *) CUSTOM_CHECKS=1 ;; esac
+  case "$(conf_value SOFTWARE)" in 0) SOFTWARE=0 ;; *) SOFTWARE=1 ;; esac
   case "$(conf_value HOURS)" in 1|2|4|8|12|24) HOURS=$(conf_value HOURS) ;; *) HOURS=4 ;; esac
   PIN=$(conf_value PIN)
   check_pin "$PIN"
@@ -425,7 +480,7 @@ run_agent() {  # the hourly entry point: check in, and report when Keystone says
 # ------------------------------------------------------------------------------------------------ install
 
 install_agent() {
-  server="" hours=4 tags="" custom=1 pin=""
+  server="" hours=4 tags="" custom=1 pin="" software=1
   while [ $# -gt 0 ]; do
     case "$1" in
       --server) server="${2:-}"; shift 2 ;;
@@ -433,6 +488,7 @@ install_agent() {
       --tags) tags="${2:-}"; shift 2 ;;
       --pin) pin="${2:-}"; shift 2 ;;
       --no-custom-checks) custom=0; shift ;;
+      --no-software) software=0; shift ;;
       *) die "unknown option $1" ;;
     esac
   done
@@ -451,7 +507,7 @@ install_agent() {
   [ -n "$key" ] || die "set KEYSTONE_ENROLMENT_KEY (shown in Keystone under Configuration > Agents)"
   mkdir -p "$CONF_DIR" "$LIB_DIR" && chmod 700 "$CONF_DIR"
   cp "$0" "$LIB_DIR/keystone-agent.sh" && chmod 755 "$LIB_DIR/keystone-agent.sh"
-  printf 'SERVER=%s\nCUSTOM_CHECKS=%s\nHOURS=%s\nPIN=%s\n' "$server" "$custom" "$hours" "$pin" >"$CONF" && chmod 600 "$CONF"
+  printf 'SERVER=%s\nCUSTOM_CHECKS=%s\nHOURS=%s\nPIN=%s\nSOFTWARE=%s\n' "$server" "$custom" "$hours" "$pin" "$software" >"$CONF" && chmod 600 "$CONF"
   SERVER="$server" PIN="$pin"
   enrol "$key" "$tags"
   cat >"$PLIST" <<EOF
@@ -473,6 +529,7 @@ EOF
   launchctl bootstrap system "$PLIST" || die "could not load the launchd service"
   say "installed: checks in every hour, reports at least every $hours hour(s)"
   [ "$custom" = 1 ] || say "custom checks are turned off on this Mac"
+  [ "$software" = 1 ] || say "installed software isn't reported from this Mac"
 }
 
 uninstall_agent() {
@@ -505,5 +562,5 @@ case "$cmd" in
   status) status_agent ;;
   uninstall) uninstall_agent ;;
   version) echo "$AGENT_VERSION" ;;
-  *) printf 'usage: %s install --server URL [--tags a,b] [--hours N] [--no-custom-checks] [--pin sha256//...] | run | report | collect | collect-custom FILE | status | uninstall | version\n' "$0" >&2; exit 2 ;;
+  *) printf 'usage: %s install --server URL [--tags a,b] [--hours N] [--no-custom-checks] [--no-software] [--pin sha256//...] | run | report | collect | collect-custom FILE | status | uninstall | version\n' "$0" >&2; exit 2 ;;
 esac

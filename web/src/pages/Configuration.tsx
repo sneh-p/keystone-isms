@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { AlertTriangle, BookPlus, Copy, Download, FileUp, KeyRound, Pencil, Plus, Radar, RotateCcw, ServerCog, ShieldOff, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, BookPlus, Boxes, Copy, Download, FileUp, KeyRound, Pencil, Plus, Radar, RotateCcw, ServerCog, ShieldOff, Trash2, Upload } from "lucide-react";
 import { api, downloadUrl, upload } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -87,6 +87,7 @@ export default function Configuration() {
         { value: "baselines", label: "Baselines", content: <Baselines catalogue={catalogue} /> },
         { value: "custom", label: "Custom checks", content: <CustomChecks catalogue={catalogue} /> },
         { value: "coverage", label: "Coverage", content: <Coverage /> },
+        { value: "software", label: "Software", content: <Software /> },
         ...(can("integration.manage") ? [
           { value: "agents", label: "Agents", content: <Agents /> },
           { value: "upload", label: "Upload firewall configuration", content: <UploadFirewall catalogue={catalogue} /> },
@@ -265,6 +266,7 @@ function TargetDrawer({ id, onClose, catalogue }: { id: number; onClose: () => v
               <KeyValue items={t.facts.map((f: any) => [f.title, <Value key={f.key} v={f.value} />])} />
             )}
           </Section>
+          {t.kind === "agent" && <InstalledSoftware t={t} />}
           <Section title="Discussion">
             <Comments kind="config_target" id={t.id} />
           </Section>
@@ -584,7 +586,7 @@ function Agents() {
         <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-[#b07400]" />
           <div>Keystone's address is {data.server}. Agents only talk to HTTPS addresses (HTTP works for localhost testing only). Set KEYSTONE_PUBLIC_URL to the HTTPS address users reach Keystone on.</div></div>
       )}
-      <p className="text-sm text-muted-foreground">The agents only read settings and send them to Keystone. They never change the host or run commands, and Keystone can't update them: you install new versions yourself. They also evaluate your custom checks (read-only, within limits built into the agent) unless installed with custom checks turned off. Each agent swaps the enrolment key for its own device token when it enrols, checks in every hour, and sends a full report when one is due. It also reports the SHA-256 of its own script, so a changed agent shows up as “Modified agent”.</p>
+      <p className="text-sm text-muted-foreground">The agents only read settings and send them to Keystone. They never change the host or run commands, and Keystone can't update them: you install new versions yourself. They also evaluate your custom checks (read-only, within limits built into the agent) unless installed with custom checks turned off. Each agent swaps the enrolment key for its own device token when it enrols, checks in every hour, and sends a full report when one is due. It also reports the SHA-256 of its own script, so a changed agent shows up as “Modified agent”, and lists installed software (leave it out with --no-software / -NoSoftware).</p>
       {AGENT_PLATFORMS.map((p) => (
         <Card key={p.key}>
           <CardHeader title={`${p.title} · agent ${data.files[p.key].version}`} description={p.about}
@@ -640,6 +642,59 @@ function Agents() {
 
 function CodeBlockLine({ text }: { text: string }) {
   return <div className="flex items-start gap-2"><code className="block min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 font-mono text-xs">{text}</code><CopyButton text={text} /></div>;
+}
+
+// ---------------------------------------------------------------- installed software
+
+function InstalledSoftware({ t }: { t: any }) {
+  const [q, setQ] = useState("");
+  const list: [string, string][] = t.software ?? [];
+  const shown = list.filter(([n]) => !q || n.toLowerCase().includes(q.toLowerCase())).slice(0, 300);
+  return (
+    <Section title={`Installed software${list.length ? ` (${list.length})` : ""}`}>
+      {!t.software_at ? <p className="text-sm text-muted-foreground">Not reported. Agents 1.2 and later list installed software with each full report, unless installed with --no-software.</p> : (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">Reported {fmtDate(t.software_at, true)}{t.platform === "linux" ? ". On Debian, Ubuntu, AlmaLinux and Rocky Linux these are matched against public vulnerability data when the “Keystone agents” source is connected (Integrations); results appear under Attack surface → Vulnerabilities." : "."}</p>
+          <Input aria-label="Search installed software" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" />
+          <ul className="max-h-80 divide-y overflow-y-auto rounded-lg border text-sm">
+            {shown.map(([n, v]) => <li key={`${n}@${v}`} className="flex justify-between gap-3 px-3 py-1.5"><span className="min-w-0 truncate">{n}</span><span className="shrink-0 font-mono text-xs text-muted-foreground">{v}</span></li>)}
+            {shown.length === 0 && <li className="px-3 py-2 text-muted-foreground">Nothing matches.</li>}
+          </ul>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function Software() {
+  const [q, setQ] = useState("");
+  const [query, setQuery] = useState("");
+  const { data } = useApi<any>(`/config/software?q=${encodeURIComponent(query)}&limit=200`);
+  const [, setParams] = useSearchParams();
+  return (
+    <div className="space-y-4">
+      <p className="max-w-3xl text-sm text-muted-foreground">Installed software reported by agents 1.2 and later: Linux packages, Windows programs and Mac apps. Search for a product to see which hosts have which version.</p>
+      <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setQuery(q.trim()); }}>
+        <Input aria-label="Software name" placeholder="e.g. openssl, Chrome" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+        <Button type="submit" variant="outline">Search</Button>
+      </form>
+      {!data ? <Skeleton className="h-48" /> : data.hosts === 0 ? (
+        <Empty icon={Boxes} title="No software reported yet">Agents 1.2 and later list installed software with each full report.</Empty>
+      ) : (
+        <>
+          <p className="text-xs text-muted-foreground">{data.total} name and version pair(s) across {data.hosts} host(s){data.total > data.rows.length ? `; showing the ${data.rows.length} most widespread` : ""}.</p>
+          <DataTable rows={data.rows} rowKey={(r: any) => `${r.name}@${r.version}`} exportName="installed-software" columns={[
+            { key: "n", header: "Software", cell: (r: any) => <span className="font-medium">{r.name}</span> },
+            { key: "v", header: "Version", cell: (r: any) => <span className="font-mono text-xs">{r.version}</span> },
+            { key: "h", header: "Hosts", cell: (r: any) => (
+              <span className="flex flex-wrap gap-1">{r.hosts.slice(0, 8).map((h: any) => <Button key={h.id} size="sm" variant="ghost" onClick={() => setParams({ tab: "targets", target: String(h.id) })}>{h.name}</Button>)}
+                {r.hosts.length > 8 && <span className="text-xs text-muted-foreground">+{r.hosts.length - 8} more</span>}</span>
+            ) },
+          ]} />
+        </>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------- coverage

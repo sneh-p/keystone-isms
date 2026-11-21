@@ -106,6 +106,10 @@ class ConfigTarget(Base):
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime)
     agent_sha256: Mapped[str | None] = mapped_column(String(64))
     device_id: Mapped[int | None] = mapped_column(Integer)  # the attack surface device with the same host name
+    # Installed software from agents 1.2+ ([[name, version], ...]; Linux: source packages), and the OS release ("debian 12").
+    software: Mapped[list | None] = mapped_column(JSON)
+    software_at: Mapped[datetime | None] = mapped_column(DateTime)
+    os_release: Mapped[str | None] = mapped_column(String(60))
 
 
 class ConfigFinding(Base):
