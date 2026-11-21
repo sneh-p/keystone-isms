@@ -186,10 +186,13 @@ scheduler.
     - a fixed list of probes, and narrow character sets for each parameter
     - no `..`, no regular expressions: matching is literal or numeric only (SC-VAL-004)
     - Windows registry reads from HKLM only, never the SAM or SECURITY hives
-    - content-reading probes refuse password, key, SSH, home-directory and process-environment paths
+    - content-reading probes refuse password, key, SSH, home-directory and process-environment paths, and other names
+      for them (the macOS data volume, mounted volumes, /proc process links)
   - **Each agent re-validates independently**, with the same limits hard-coded in the agent, so a compromised or
     misconfigured server still can't make it read those files or run anything:
     - no command, script or arbitrary-read probe exists
+    - before reading contents, the agent resolves the real path (following every symbolic link), checks it against the
+      deny list too, and reads only regular files
     - unknown probes report "unsupported"; refused ones report "refused"
   - Values are capped at 200 characters and typed. Reported errors are limited to a fixed set of codes for keys the
     server defined.

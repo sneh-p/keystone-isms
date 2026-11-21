@@ -9,7 +9,8 @@ Limits (enforced here, and again inside each agent, which never trusts the serve
 - No regular expressions anywhere (SC-VAL-004): matching is literal (equals, contains, starts with) or numeric.
 - Parameters use narrow character sets, so they can't smuggle shell syntax, path traversal or new lines.
 - Probes that read file contents refuse sensitive paths: password hashes, private keys, SSH directories, home
-  directories, process environments. The same list is hard-coded in the Linux agent. Probes that only look at
+  directories, process environments, and other names for them (the macOS data volume, /proc links). The same list is
+  hard-coded in the agents, which also check the real path after following every symbolic link. Probes that only look at
   metadata (exists, mode, owner) may name those paths, so "/etc/shadow is 0640" can be checked without reading it.
 - Windows registry probes read HKEY_LOCAL_MACHINE only, and never the SAM or SECURITY hives.
 - macOS probes read files, property lists and app bundles under the same rules, and never keychains, the local
@@ -59,7 +60,9 @@ XPATH = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./\-@\[\]=' ]{0,250}$")
 DENIED_PATH_GLOBS = ("/etc/shadow*", "/etc/gshadow*", "/etc/security/opasswd*", "/etc/ssl/private/*", "/root/*", "/home/*", "*/.ssh/*",
                      "/proc/*/environ", "/proc/*/mem", "*.key", "*.pem", "*.p12", "*.pfx", "*.keytab", "*/krb5.keytab", "/var/lib/sss/*",
                      "/users/*", "/var/root/*", "/private/var/root/*", "/var/db/dslocal/*", "/private/var/db/dslocal/*", "*/keychains/*", "*.keychain*",
-                     "/etc/master.passwd", "/private/etc/master.passwd")
+                     "/etc/master.passwd", "/private/etc/master.passwd",
+                     # other names for the same files: the macOS data volume and mounted volumes, and Linux process links
+                     "/system/volumes/data/*", "/volumes/*", "/proc/*/root/*", "/proc/*/cwd/*", "/proc/*/fd/*", "/proc/*/map_files/*")
 DENIED_REGISTRY_ROOTS = ("sam", "security")
 
 

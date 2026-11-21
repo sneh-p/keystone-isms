@@ -16,6 +16,7 @@
 #     kernel module, sshd setting); no commands, no scripts, no regular expressions
 #   - strict character checks on every parameter (no "..", no shell syntax)
 #   - probes that read file contents refuse password, key and home-directory files (deny_path below)
+#     after following every symbolic link, so a link or another name for such a file is refused too (readable below)
 #   - at most 100 checks; values capped at 200 characters
 # Install with --no-custom-checks to turn them off on this host; Keystone then shows them as unknown.
 #
@@ -31,7 +32,7 @@
 # and firewall state.
 set -u
 
-AGENT_VERSION="1.2.0"
+AGENT_VERSION="1.2.1"
 CONF_DIR="${KEYSTONE_AGENT_CONF_DIR:-/etc/keystone-agent}"
 LIB_DIR="${KEYSTONE_AGENT_LIB_DIR:-/usr/local/lib/keystone-agent}"
 UNIT_DIR="${KEYSTONE_AGENT_UNIT_DIR:-/etc/systemd/system}"
@@ -242,6 +243,7 @@ deny_path() {  # true when a content-reading probe must not read this file. Mirr
   case "$lp" in
     /etc/shadow*|/etc/gshadow*|/etc/security/opasswd*|/etc/ssl/private/*|/root/*|/home/*|*/.ssh/*|/proc/*/environ|/proc/*/mem|*.key|*.pem|*.p12|*.pfx|*.keytab|*/krb5.keytab|/var/lib/sss/*) return 0 ;;
     /users/*|/var/root/*|/private/var/root/*|/var/db/dslocal/*|/private/var/db/dslocal/*|*/keychains/*|*.keychain*|/etc/master.passwd|/private/etc/master.passwd) return 0 ;;
+    /system/volumes/data/*|/volumes/*|/proc/*/root/*|/proc/*/cwd/*|/proc/*/fd/*|/proc/*/map_files/*) return 0 ;;  # other names for the same files
   esac
   return 1
 }
@@ -251,6 +253,28 @@ ok_key() { case "$1" in ''|*[!A-Za-z0-9_.-]*) return 1 ;; esac; [ ${#1} -le 100 
 ok_sysctl() { case "$1" in ''|.*|*..*|*[!a-z0-9_.-]*) return 1 ;; *.*) return 0 ;; esac; return 1; }
 ok_sshd() { case "$1" in ''|*[!a-z0-9]*) return 1 ;; esac; [ ${#1} -le 60 ]; }
 ok_text() { case "$1" in ''|*[![:print:]]*) return 1 ;; esac; [ ${#1} -le 200 ]; }
+
+real_path() {  # real_path PATH: the path with every symbolic link resolved; fails when it can't be
+  rp_p=$1 rp_n=0
+  while [ -L "$rp_p" ]; do
+    rp_n=$((rp_n + 1)); [ "$rp_n" -le 20 ] || return 1
+    rp_t=$(readlink "$rp_p") || return 1
+    case "$rp_t" in /*) rp_p=$rp_t ;; *) rp_p="${rp_p%/*}/$rp_t" ;; esac
+  done
+  rp_dir=${rp_p%/*}
+  rp_d=$(cd -P "${rp_dir:-/}" 2>/dev/null && pwd -P) || return 1
+  printf '%s/%s\n' "${rp_d%/}" "${rp_p##*/}"
+}
+
+readable() {  # readable PATH: prints the real path a content-reading probe may read; returns 2 refused, 3 missing
+  ok_path "$1" || return 2
+  deny_path "$1" && return 2
+  [ -e "$1" ] || return 3
+  rp_r=$(real_path "$1") || return 2
+  deny_path "$rp_r" && return 2  # a link, or another name, for a file that is refused
+  [ -f "$rp_r" ] && [ -r "$rp_r" ] || return 3
+  printf '%s\n' "$rp_r"
+}
 
 file_setting() {  # file_setting PATH KEY SEPARATOR: value of the first uncommented line with that key
   awk -v k="$2" -v sep="$3" '
@@ -273,16 +297,14 @@ file_setting() {  # file_setting PATH KEY SEPARATOR: value of the first uncommen
 probe() {  # probe NAME: prints the value; returns 0 ok, 2 refused, 3 missing, 4 unsupported, 5 error
   case "$1" in
     file_setting)
-      ok_path "$P_path" && ok_key "$P_key" || return 2
-      deny_path "$P_path" && return 2
+      ok_key "$P_key" || return 2
       case "$P_separator" in whitespace|equals|colon) ;; *) return 2 ;; esac
-      [ -r "$P_path" ] || return 3
-      file_setting "$P_path" "$P_key" "$P_separator" ;;
+      rf=$(readable "$P_path") || return $?
+      file_setting "$rf" "$P_key" "$P_separator" ;;
     file_contains)
-      ok_path "$P_path" && ok_text "$P_text" || return 2
-      deny_path "$P_path" && return 2
-      [ -r "$P_path" ] || return 3
-      if grep -v '^[[:space:]]*#' "$P_path" | grep -F -q -- "$P_text"; then echo true; else echo false; fi ;;
+      ok_text "$P_text" || return 2
+      rf=$(readable "$P_path") || return $?
+      if grep -v '^[[:space:]]*#' "$rf" | grep -F -q -- "$P_text"; then echo true; else echo false; fi ;;
     file_exists)
       ok_path "$P_path" || return 2
       if [ -e "$P_path" ]; then echo true; else echo false; fi ;;

@@ -577,7 +577,8 @@ the check errs towards silence rather than false alarms.
      Its custom results then show as unknown.
    - Probes that read file contents refuse password, key and home-directory files. Keystone refuses to save such a
      check, and the agents refuse to run one even if told to. On macOS that includes the local directory's password
-     store, keychains and users' home folders.
+     store, keychains and users' home folders. Agents check the real path after following symbolic links, so a link
+     or another name for a refused file (such as /System/Volumes/Data/Users/...) is refused too.
 5. **Scoping.** Which baselines apply to a host:
    - Its pinned baseline, or else the platform default.
    - Plus every baseline whose scope matches it: one of the baseline's tags, or a host-name pattern such as `web-*`.

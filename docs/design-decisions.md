@@ -527,3 +527,15 @@ key pinning, the signed Windows agent, and asking tools what a key may do (SC-AG
   colour.
 - **No new dependencies.** The pass uses Inter Variable (already bundled) with its alternate digit and letter forms,
   and tabular figures for numbers.
+
+## Security review fix: other names for refused files (2026-11-21)
+
+A security review found that content-reading custom checks could reach refused files under another name: on macOS
+through the data volume (`/System/Volumes/Data/Users/...`, `.../private/var/db/dslocal/...`) or `/Volumes/<disk>`, and on
+both platforms through a symbolic link or `/proc/<pid>/root`. The deny list matched the path as written, so a check
+defined by an integration manager, or by a compromised server, could read secrets in users' home folders as root and
+show them to anyone with read access. Fixed in both layers: the server and the agents also refuse those alias
+locations, and the agents (1.2.1) resolve the real path, following every link, check the deny list against it, read
+only regular files, and read the resolved path. Tests reproduce each route against the real Linux agent and the macOS
+agent with stand-in tools.
+
